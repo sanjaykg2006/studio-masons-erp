@@ -12,7 +12,8 @@ export const dashboardModule: ModuleDefinition = {
   href: "/dashboard",
   icon: LayoutDashboard,
   nav: true,
-  // Appears in the access-control matrix. No `requires`, so the nav link stays
-  // ungated — the dashboard is everyone's safe home.
+  // Declares a `read` action, so the sidebar hides the link from any role
+  // without `dashboard:read` (it's a seeded general module, grantable to all).
+  // The page itself stays unguarded as the post-redirect safe home.
   actions: ["read"],
 };

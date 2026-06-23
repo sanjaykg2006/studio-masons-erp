@@ -62,8 +62,9 @@ Do all of this for a new data module (`<id>` = the module id = the permission
 `resource`; pick from `create | read | update | delete`):
 
 1. **Declare the verbs.** Set `actions: [...]` in the `ModuleDefinition` so the
-   matrix renders those columns. Set `requires: { resource: "<id>", action: "read" }`
-   so the sidebar link is hidden from users without read.
+   matrix renders those columns. Declaring a `read` action automatically hides the
+   sidebar link from any role without `<id>:read` — no `requires` needed. Set
+   `requires` only to gate by a *different* resource/action than `<id>:read`.
 2. **Enforce in the DB — this is the real boundary.** In the module's migration,
    `enable row level security` on each table and add policies that call
    `has_permission('<id>', '<action>')`:

@@ -30,6 +30,8 @@ export type Role = {
   label: string;
   description: string | null;
   is_system: boolean;
+  /** The department this role lives under. NULL = a global/system role. */
+  department_id: string | null;
 };
 
 /** A single granted permission as stored in `public.role_permissions`. */
@@ -37,4 +39,19 @@ export type RolePermission = {
   role_id: string;
   resource: Resource;
   action: Action;
+};
+
+/** A department row as stored in `public.departments`. */
+export type Department = {
+  id: string;
+  key: string;
+  label: string;
+  description: string | null;
+  is_system: boolean;
+};
+
+/** A module<->department assignment from `public.department_modules`. */
+export type DepartmentModule = {
+  department_id: string;
+  module_id: string;
 };

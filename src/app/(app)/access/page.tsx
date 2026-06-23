@@ -15,7 +15,14 @@ const resources: AccessResource[] = modules
 export default async function AccessPage() {
   await requirePermission("access", "read");
   const user = await requireUser();
-  const { roles, permissions, users } = await getAccessData();
+  const {
+    roles,
+    permissions,
+    users,
+    departments,
+    departmentModules,
+    generalModules,
+  } = await getAccessData();
 
   return (
     <AccessView
@@ -23,6 +30,9 @@ export default async function AccessPage() {
       permissions={permissions}
       users={users}
       resources={resources}
+      departments={departments}
+      departmentModules={departmentModules}
+      generalModules={generalModules}
       currentUserId={user.id}
     />
   );

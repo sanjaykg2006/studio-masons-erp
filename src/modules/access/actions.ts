@@ -26,8 +26,15 @@ function toKey(label: string): string {
 const ok: ActionResult = { ok: true };
 const fail = (error: string): ActionResult => ({ ok: false, error });
 
-/** Create a new (non-system) role. */
-export async function createRole(label: string): Promise<ActionResult> {
+/**
+ * Create a new (non-system) role, optionally under a department. A role with a
+ * department can only be granted that department's modules + general ones (the
+ * DB guard enforces this); a department-less role is a global role.
+ */
+export async function createRole(
+  label: string,
+  departmentId: string | null = null
+): Promise<ActionResult> {
   await requirePermission("access", "create");
   const trimmed = label.trim();
   const key = toKey(trimmed);
@@ -36,14 +43,17 @@ export async function createRole(label: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase
     .from("roles")
-    .insert({ key, label: trimmed });
+    .insert({ key, label: trimmed, department_id: departmentId });
 
   if (error) {
     return fail(
       error.code === "23505" ? "A role with that name already exists." : error.message
     );
   }
-  await logAudit("role.create", `Created role "${trimmed}"`, { key });
+  await logAudit("role.create", `Created role "${trimmed}"`, {
+    key,
+    departmentId,
+  });
   revalidatePath("/access");
   return ok;
 }
@@ -208,6 +218,165 @@ export async function assignUserRole(
     "user.role_change",
     roleId ? "Assigned a role to a user" : "Cleared a user's role",
     { userId, roleId }
+  );
+  revalidatePath("/access");
+  return ok;
+}
+
+// --- Departments -----------------------------------------------------------
+
+/** Create a department (a named group that owns a set of modules). */
+export async function createDepartment(label: string): Promise<ActionResult> {
+  await requirePermission("access", "create");
+  const trimmed = label.trim();
+  const key = toKey(trimmed);
+  if (!trimmed || !key) return fail("Enter a department name.");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("departments")
+    .insert({ key, label: trimmed });
+
+  if (error) {
+    return fail(
+      error.code === "23505"
+        ? "A department with that name already exists."
+        : error.message
+    );
+  }
+  await logAudit("department.create", `Created department "${trimmed}"`, { key });
+  revalidatePath("/access");
+  return ok;
+}
+
+/** Rename / re-describe a department. The stable `key` is never changed. */
+export async function updateDepartment(
+  departmentId: string,
+  label: string,
+  description: string | null
+): Promise<ActionResult> {
+  await requirePermission("access", "update");
+  const trimmed = label.trim();
+  if (!trimmed) return fail("Enter a department name.");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("departments")
+    .update({ label: trimmed, description: description?.trim() || null })
+    .eq("id", departmentId);
+
+  if (error) return fail(error.message);
+  await logAudit("department.update", `Updated department "${trimmed}"`, {
+    departmentId,
+  });
+  revalidatePath("/access");
+  return ok;
+}
+
+/**
+ * Delete a department. Refused if any role still lives under it — reassign or
+ * delete those roles first so no one is silently orphaned.
+ */
+export async function deleteDepartment(
+  departmentId: string
+): Promise<ActionResult> {
+  await requirePermission("access", "delete");
+
+  const supabase = await createClient();
+  const { count, error: countError } = await supabase
+    .from("roles")
+    .select("id", { count: "exact", head: true })
+    .eq("department_id", departmentId);
+
+  if (countError) return fail(countError.message);
+  if ((count ?? 0) > 0) {
+    return fail(
+      "This department still has roles. Delete or move them before removing it."
+    );
+  }
+
+  const { error } = await supabase
+    .from("departments")
+    .delete()
+    .eq("id", departmentId);
+
+  if (error) return fail(error.message);
+  await logAudit("department.delete", "Deleted a department", { departmentId });
+  revalidatePath("/access");
+  return ok;
+}
+
+/**
+ * Add or remove a module from a department. Removing also revokes any grants
+ * roles in that department held on the module, so no hidden permissions linger.
+ */
+export async function setDepartmentModule(
+  departmentId: string,
+  moduleId: string,
+  include: boolean
+): Promise<ActionResult> {
+  await requirePermission("access", "update");
+
+  const supabase = await createClient();
+
+  if (include) {
+    const { error } = await supabase
+      .from("department_modules")
+      .upsert({ department_id: departmentId, module_id: moduleId });
+    if (error) return fail(error.message);
+  } else {
+    // Revoke grants on this module for every role in the department first.
+    const { data: deptRoles, error: rolesError } = await supabase
+      .from("roles")
+      .select("id")
+      .eq("department_id", departmentId);
+    if (rolesError) return fail(rolesError.message);
+
+    const roleIds = (deptRoles ?? []).map((r) => r.id);
+    if (roleIds.length > 0) {
+      const { error: permError } = await supabase
+        .from("role_permissions")
+        .delete()
+        .eq("resource", moduleId)
+        .in("role_id", roleIds);
+      if (permError) return fail(permError.message);
+    }
+
+    const { error } = await supabase
+      .from("department_modules")
+      .delete()
+      .match({ department_id: departmentId, module_id: moduleId });
+    if (error) return fail(error.message);
+  }
+
+  await logAudit(
+    "department.module",
+    `${include ? "Added" : "Removed"} module "${moduleId}" ${
+      include ? "to" : "from"
+    } a department`,
+    { departmentId, moduleId, include }
+  );
+  revalidatePath("/access");
+  return ok;
+}
+
+/** Flag (or unflag) a module as "general" — shown in every role's matrix. */
+export async function setModuleGeneral(
+  moduleId: string,
+  isGeneral: boolean
+): Promise<ActionResult> {
+  await requirePermission("access", "update");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("module_settings")
+    .upsert({ module_id: moduleId, is_general: isGeneral });
+
+  if (error) return fail(error.message);
+  await logAudit(
+    "module.general",
+    `${isGeneral ? "Marked" : "Unmarked"} module "${moduleId}" as general`,
+    { moduleId, isGeneral }
   );
   revalidatePath("/access");
   return ok;

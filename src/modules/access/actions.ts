@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 
 import { createClient } from "@/core/supabase/server";
 import { createAdminClient } from "@/core/supabase/admin";
-import { requirePermission } from "@/core/rbac/can";
+import { authorize } from "@/core/rbac/can";
 import { getUser } from "@/core/auth/get-user";
 import { isValidEmail } from "@/modules/access/validation";
 import { logAudit } from "@/modules/audit/log";
@@ -35,7 +35,8 @@ export async function createRole(
   label: string,
   departmentId: string | null = null
 ): Promise<ActionResult> {
-  await requirePermission("access", "create");
+  const denied = await authorize("access", "create");
+  if (denied) return denied;
   const trimmed = label.trim();
   const key = toKey(trimmed);
   if (!trimmed || !key) return fail("Enter a role name.");
@@ -64,7 +65,8 @@ export async function updateRole(
   label: string,
   description: string | null
 ): Promise<ActionResult> {
-  await requirePermission("access", "update");
+  const denied = await authorize("access", "update");
+  if (denied) return denied;
   const trimmed = label.trim();
   if (!trimmed) return fail("Enter a role name.");
 
@@ -82,7 +84,8 @@ export async function updateRole(
 
 /** Delete a role. System roles are blocked by RLS even if this is called. */
 export async function deleteRole(roleId: string): Promise<ActionResult> {
-  await requirePermission("access", "delete");
+  const denied = await authorize("access", "delete");
+  if (denied) return denied;
 
   const supabase = await createClient();
   const { error } = await supabase.from("roles").delete().eq("id", roleId);
@@ -103,7 +106,8 @@ export async function setPermission(
   action: Action,
   grant: boolean
 ): Promise<ActionResult> {
-  await requirePermission("access", "update");
+  const denied = await authorize("access", "update");
+  if (denied) return denied;
 
   const supabase = await createClient();
   const { error } = grant
@@ -147,7 +151,8 @@ export async function inviteUser(
   fullName: string,
   roleId: string | null
 ): Promise<ActionResult> {
-  await requirePermission("access", "create");
+  const denied = await authorize("access", "create");
+  if (denied) return denied;
 
   const cleanEmail = email.trim().toLowerCase();
   if (!isValidEmail(cleanEmail)) return fail("Enter a valid email address.");
@@ -186,7 +191,8 @@ export async function inviteUser(
  * Guards against deleting your own account by accident.
  */
 export async function removeUser(userId: string): Promise<ActionResult> {
-  await requirePermission("access", "delete");
+  const denied = await authorize("access", "delete");
+  if (denied) return denied;
 
   const current = await getUser();
   if (current?.id === userId) return fail("You can't remove your own account.");
@@ -205,7 +211,8 @@ export async function assignUserRole(
   userId: string,
   roleId: string | null
 ): Promise<ActionResult> {
-  await requirePermission("access", "update");
+  const denied = await authorize("access", "update");
+  if (denied) return denied;
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -227,7 +234,8 @@ export async function assignUserRole(
 
 /** Create a department (a named group that owns a set of modules). */
 export async function createDepartment(label: string): Promise<ActionResult> {
-  await requirePermission("access", "create");
+  const denied = await authorize("access", "create");
+  if (denied) return denied;
   const trimmed = label.trim();
   const key = toKey(trimmed);
   if (!trimmed || !key) return fail("Enter a department name.");
@@ -255,7 +263,8 @@ export async function updateDepartment(
   label: string,
   description: string | null
 ): Promise<ActionResult> {
-  await requirePermission("access", "update");
+  const denied = await authorize("access", "update");
+  if (denied) return denied;
   const trimmed = label.trim();
   if (!trimmed) return fail("Enter a department name.");
 
@@ -280,7 +289,8 @@ export async function updateDepartment(
 export async function deleteDepartment(
   departmentId: string
 ): Promise<ActionResult> {
-  await requirePermission("access", "delete");
+  const denied = await authorize("access", "delete");
+  if (denied) return denied;
 
   const supabase = await createClient();
   const { count, error: countError } = await supabase
@@ -315,7 +325,8 @@ export async function setDepartmentModule(
   moduleId: string,
   include: boolean
 ): Promise<ActionResult> {
-  await requirePermission("access", "update");
+  const denied = await authorize("access", "update");
+  if (denied) return denied;
 
   const supabase = await createClient();
 
@@ -365,7 +376,8 @@ export async function setModuleGeneral(
   moduleId: string,
   isGeneral: boolean
 ): Promise<ActionResult> {
-  await requirePermission("access", "update");
+  const denied = await authorize("access", "update");
+  if (denied) return denied;
 
   const supabase = await createClient();
   const { error } = await supabase

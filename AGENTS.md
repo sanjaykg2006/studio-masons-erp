@@ -73,10 +73,11 @@ Do all of this for a new data module (`<id>` = the module id = the permission
    - `for update using (...'update') with check (...'update')`
    - `for delete using (has_permission('<id>','delete'))`
    RLS is what stops a crafted request; never rely on app guards alone.
-3. **Guard pages/server actions.** Start each page with
-   `await requirePermission('<id>','read')` and each mutating server action with
-   `await requirePermission('<id>', '<action>')`. (Convenience layer; redirects
-   instead of erroring.)
+3. **Guard pages/server actions.** Pages: start with
+   `await requirePermission('<id>','read')` — redirects to `/forbidden` with a
+   clear message. Server actions: `const denied = await authorize('<id>','<action>'); if (denied) return denied;`
+   — returns a readable "no permission" ActionResult the UI shows inline (never
+   redirect mid-click). Convenience layer; RLS is the real boundary.
 4. **Gate the UI.** Wrap action buttons in `<Can resource="<id>" action="...">` or
    check `usePermissions()` so users don't see controls they can't use (cosmetic).
 5. **Departments.** New non-general modules are department-scoped: an admin must add

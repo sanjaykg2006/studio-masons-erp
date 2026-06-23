@@ -23,6 +23,28 @@ export const permissionKey = (
   action: Action
 ): PermissionKey => `${resource}:${action}`;
 
+/** Plain-English verb for each action, used in "no permission" messages. */
+const ACTION_VERB: Record<Action, string> = {
+  create: "create",
+  read: "view",
+  update: "change",
+  delete: "delete",
+};
+
+/**
+ * A human-readable "you can't do this" message for a denied (resource, action).
+ * Pure (no server deps) so both server guards and the Forbidden page can use it.
+ * `label` overrides the raw resource id with a friendly name when known.
+ */
+export function permissionMessage(
+  resource: Resource,
+  action: Action,
+  label?: string
+): string {
+  const what = label ?? (resource === "*" ? "this" : `"${resource}"`);
+  return `You don't have permission to ${ACTION_VERB[action]} ${what}.`;
+}
+
 /** A role row as stored in `public.roles`. */
 export type Role = {
   id: string;

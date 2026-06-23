@@ -7,7 +7,7 @@ import { env } from "@/core/config/env";
  * Route groups that require an authenticated user. Anything else is public.
  * Auth routes (/login, /auth/*) are intentionally excluded.
  */
-const PROTECTED_PREFIXES = ["/dashboard", "/access"];
+const PROTECTED_PREFIXES = ["/dashboard", "/access", "/audit"];
 
 const isProtected = (pathname: string) =>
   PROTECTED_PREFIXES.some(

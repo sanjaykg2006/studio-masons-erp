@@ -8,6 +8,7 @@ import { createAdminClient } from "@/core/supabase/admin";
 import { requirePermission } from "@/core/rbac/can";
 import { getUser } from "@/core/auth/get-user";
 import { isValidEmail } from "@/modules/access/validation";
+import { logAudit } from "@/modules/audit/log";
 import type { Action } from "@/core/rbac/types";
 
 /** Uniform result for the Access Control forms. */
@@ -42,6 +43,7 @@ export async function createRole(label: string): Promise<ActionResult> {
       error.code === "23505" ? "A role with that name already exists." : error.message
     );
   }
+  await logAudit("role.create", `Created role "${trimmed}"`, { key });
   revalidatePath("/access");
   return ok;
 }
@@ -63,6 +65,7 @@ export async function updateRole(
     .eq("id", roleId);
 
   if (error) return fail(error.message);
+  await logAudit("role.update", `Updated role "${trimmed}"`, { roleId });
   revalidatePath("/access");
   return ok;
 }
@@ -75,6 +78,7 @@ export async function deleteRole(roleId: string): Promise<ActionResult> {
   const { error } = await supabase.from("roles").delete().eq("id", roleId);
 
   if (error) return fail(error.message);
+  await logAudit("role.delete", "Deleted a role", { roleId });
   revalidatePath("/access");
   return ok;
 }
@@ -102,6 +106,11 @@ export async function setPermission(
         .match({ role_id: roleId, resource, action });
 
   if (error) return fail(error.message);
+  await logAudit(
+    "permission.update",
+    `${grant ? "Granted" : "Revoked"} ${resource}:${action} on a role`,
+    { roleId, resource, action, grant }
+  );
   revalidatePath("/access");
   return ok;
 }
@@ -154,6 +163,10 @@ export async function inviteUser(
   });
 
   if (profileError) return fail(profileError.message);
+  await logAudit("user.invite", `Invited ${cleanEmail}`, {
+    userId: data.user.id,
+    roleId,
+  });
   revalidatePath("/access");
   return ok;
 }
@@ -172,6 +185,7 @@ export async function removeUser(userId: string): Promise<ActionResult> {
   const { error } = await admin.auth.admin.deleteUser(userId);
 
   if (error) return fail(error.message);
+  await logAudit("user.remove", "Removed a user", { userId });
   revalidatePath("/access");
   return ok;
 }
@@ -190,6 +204,11 @@ export async function assignUserRole(
     .eq("id", userId);
 
   if (error) return fail(error.message);
+  await logAudit(
+    "user.role_change",
+    roleId ? "Assigned a role to a user" : "Cleared a user's role",
+    { userId, roleId }
+  );
   revalidatePath("/access");
   return ok;
 }

@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import type { Action } from "@/core/rbac/types";
 import { dashboardModule } from "@/modules/dashboard";
 import { accessModule } from "@/modules/access";
+import { auditModule } from "@/modules/audit";
 
 /**
  * A feature module's public contract.
@@ -44,7 +45,11 @@ export type ModuleDefinition = {
  *   3. Add the module to this array.
  * The sidebar updates automatically. Nothing else to wire up.
  */
-export const modules: ModuleDefinition[] = [dashboardModule, accessModule];
+export const modules: ModuleDefinition[] = [
+  dashboardModule,
+  accessModule,
+  auditModule,
+];
 
 /** Modules that should appear in the sidebar, in order. */
 export const navModules = modules.filter((m) => m.nav !== false);

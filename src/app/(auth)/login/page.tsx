@@ -27,7 +27,9 @@ export default async function LoginPage({
     <div className="bg-muted/40 flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-xl">Studio-Masons ERP</CardTitle>
+          <CardTitle className="text-xl">
+            Studio-<span className="text-primary">Masons</span> ERP
+          </CardTitle>
           <CardDescription>Sign in to continue</CardDescription>
         </CardHeader>
         <CardContent>

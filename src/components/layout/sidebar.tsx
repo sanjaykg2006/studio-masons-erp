@@ -16,7 +16,7 @@ export function Sidebar() {
   return (
     <aside className="bg-sidebar text-sidebar-foreground hidden w-60 shrink-0 flex-col border-r md:flex">
       <div className="flex h-14 items-center border-b px-5 font-semibold tracking-tight">
-        Studio-Masons
+        Studio-<span className="text-primary">Masons</span>
       </div>
       <nav className="flex-1 space-y-1 p-3">
         {navModules.map((m) => {

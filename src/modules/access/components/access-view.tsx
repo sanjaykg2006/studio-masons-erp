@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { Lock, Plus, Trash2 } from "lucide-react";
+import { type FormEvent, useState, useTransition } from "react";
+import { Lock, Plus, Trash2, UserPlus } from "lucide-react";
 
 import { ACTIONS, type Action, type Role, type RolePermission } from "@/core/rbac/types";
 import {
@@ -20,6 +20,8 @@ import {
   assignUserRole,
   createRole,
   deleteRole,
+  inviteUser,
+  removeUser,
   setPermission,
 } from "@/modules/access/actions";
 
@@ -31,12 +33,19 @@ type Props = {
   permissions: RolePermission[];
   users: AccessUser[];
   resources: AccessResource[];
+  currentUserId: string;
 };
 
 const grantKey = (roleId: string, resource: string, action: Action) =>
   `${roleId}:${resource}:${action}`;
 
-export function AccessView({ roles, permissions, users, resources }: Props) {
+export function AccessView({
+  roles,
+  permissions,
+  users,
+  resources,
+  currentUserId,
+}: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +53,10 @@ export function AccessView({ roles, permissions, users, resources }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(
     roles[0]?.id ?? null
   );
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteName, setInviteName] = useState("");
+  const [inviteRole, setInviteRole] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
 
   const selected = roles.find((r) => r.id === selectedId) ?? null;
 
@@ -61,10 +74,32 @@ export function AccessView({ roles, permissions, users, resources }: Props) {
   const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) =>
     startTransition(async () => {
       setError(null);
+      setNotice(null);
       const res = await fn();
       if (!res.ok) setError(res.error);
       else router.refresh();
     });
+
+  /** Invite a new user, then clear the form and confirm on success. */
+  const handleInvite = (e: FormEvent) => {
+    e.preventDefault();
+    const email = inviteEmail.trim();
+    if (!email) return;
+    startTransition(async () => {
+      setError(null);
+      setNotice(null);
+      const res = await inviteUser(email, inviteName, inviteRole || null);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setNotice(`Invitation sent to ${email}.`);
+      setInviteEmail("");
+      setInviteName("");
+      setInviteRole("");
+      router.refresh();
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -78,6 +113,12 @@ export function AccessView({ roles, permissions, users, resources }: Props) {
       {error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
           {error}
+        </div>
+      )}
+
+      {notice && (
+        <div className="rounded-md border border-emerald-500/50 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-700 dark:text-emerald-400">
+          {notice}
         </div>
       )}
 
@@ -222,14 +263,57 @@ export function AccessView({ roles, permissions, users, resources }: Props) {
       <Card>
         <CardHeader>
           <CardTitle>Members</CardTitle>
-          <CardDescription>Assign each user a role.</CardDescription>
+          <CardDescription>
+            Invite people, assign each a role, and remove those who leave.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
+          {/* Invite a new user ------------------------------------------- */}
+          <form
+            onSubmit={handleInvite}
+            className="flex flex-col gap-2 sm:flex-row sm:items-center"
+          >
+            <Input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="name@studio-masons.com"
+              className="h-9 sm:flex-1"
+              aria-label="Invite email"
+            />
+            <Input
+              value={inviteName}
+              onChange={(e) => setInviteName(e.target.value)}
+              placeholder="Full name (optional)"
+              className="h-9 sm:flex-1"
+              aria-label="Invite full name"
+            />
+            <select
+              className="border-input bg-background h-9 rounded-md border px-2"
+              value={inviteRole}
+              disabled={pending}
+              onChange={(e) => setInviteRole(e.target.value)}
+              aria-label="Invite role"
+            >
+              <option value="">— no role —</option>
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+            <Button type="submit" size="sm" disabled={pending}>
+              <UserPlus className="size-4" /> Invite
+            </Button>
+          </form>
+
+          {/* Existing members ------------------------------------------- */}
           <table className="w-full text-sm">
             <thead>
               <tr className="text-muted-foreground border-b text-left">
                 <th className="py-2 font-medium">User</th>
                 <th className="py-2 font-medium">Role</th>
+                <th className="py-2 text-right font-medium">Remove</th>
               </tr>
             </thead>
             <tbody>
@@ -254,6 +338,31 @@ export function AccessView({ roles, permissions, users, resources }: Props) {
                         </option>
                       ))}
                     </select>
+                  </td>
+                  <td className="py-2 text-right">
+                    {u.id === currentUserId ? (
+                      <span className="text-muted-foreground/50 text-xs">
+                        you
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => {
+                          if (
+                            confirm(
+                              `Remove ${u.full_name ?? u.email ?? "this user"}? This permanently deletes their account.`
+                            )
+                          ) {
+                            run(() => removeUser(u.id));
+                          }
+                        }}
+                        className="text-muted-foreground hover:text-destructive"
+                        aria-label={`Remove ${u.email ?? u.id}`}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -28,8 +28,11 @@ Strict layering — each layer has one job, never mix them:
 - `src/app/` — **routing only.** Thin pages/layouts that read data and delegate
   to modules/components. Route groups: `(auth)` = public, `(app)` = protected.
 - `src/core/` — **shared, cross-cutting infrastructure.** Stable, reusable:
-  - `core/config/env.ts` — zod-validated env access (the only place to read `process.env`).
-  - `core/supabase/{client,server,middleware}.ts` — the three Supabase clients.
+  - `core/config/env.ts` — zod-validated PUBLIC env (`NEXT_PUBLIC_*`). Server-only
+    secrets go in `core/config/server-env.ts` (lazy, `server-only`).
+  - `core/supabase/{client,server,middleware}.ts` — the three request clients.
+    `core/supabase/admin.ts` — privileged service-role client; bypasses RLS, use
+    only inside permission-gated server actions.
   - `core/auth/` — `actions.ts` (server actions), `get-user.ts` (`getUser`/`requireUser` guards), `types.ts` (the `AuthProvider` abstraction).
   - `core/modules/registry.ts` — the feature registry + `ModuleDefinition` type.
 - `src/modules/<feature>/` — **feature modules** (where the ERP grows). Each has

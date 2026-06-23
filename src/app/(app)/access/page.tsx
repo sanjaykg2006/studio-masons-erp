@@ -1,4 +1,5 @@
 import { requirePermission } from "@/core/rbac/can";
+import { requireUser } from "@/core/auth/get-user";
 import { modules } from "@/core/modules/registry";
 import { getAccessData } from "@/modules/access/data";
 import {
@@ -13,6 +14,7 @@ const resources: AccessResource[] = modules
 
 export default async function AccessPage() {
   await requirePermission("access", "read");
+  const user = await requireUser();
   const { roles, permissions, users } = await getAccessData();
 
   return (
@@ -21,6 +23,7 @@ export default async function AccessPage() {
       permissions={permissions}
       users={users}
       resources={resources}
+      currentUserId={user.id}
     />
   );
 }

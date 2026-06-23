@@ -1,9 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 import { createClient } from "@/core/supabase/server";
+import { createAdminClient } from "@/core/supabase/admin";
 import { requirePermission } from "@/core/rbac/can";
+import { getUser } from "@/core/auth/get-user";
+import { isValidEmail } from "@/modules/access/validation";
 import type { Action } from "@/core/rbac/types";
 
 /** Uniform result for the Access Control forms. */
@@ -96,6 +100,76 @@ export async function setPermission(
         .from("role_permissions")
         .delete()
         .match({ role_id: roleId, resource, action });
+
+  if (error) return fail(error.message);
+  revalidatePath("/access");
+  return ok;
+}
+
+/** Build an absolute URL for the invite-acceptance redirect. */
+async function siteOrigin() {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host")!;
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  return `${proto}://${host}`;
+}
+
+/**
+ * Invite a new user by email and give them an app profile + role.
+ *
+ * Uses the privileged admin client (the anon key can't create auth users).
+ * Supabase emails an invite link; on acceptance the user lands on /auth/callback
+ * and is signed in. The profile is created immediately so the person shows up in
+ * the members list straight away. Upholds the invite-only model — there is still
+ * no self-signup.
+ */
+export async function inviteUser(
+  email: string,
+  fullName: string,
+  roleId: string | null
+): Promise<ActionResult> {
+  await requirePermission("access", "create");
+
+  const cleanEmail = email.trim().toLowerCase();
+  if (!isValidEmail(cleanEmail)) return fail("Enter a valid email address.");
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(cleanEmail, {
+    redirectTo: `${await siteOrigin()}/auth/callback`,
+  });
+
+  if (error) {
+    return fail(
+      /already.*registered|exists/i.test(error.message)
+        ? "A user with that email already exists."
+        : error.message
+    );
+  }
+
+  const { error: profileError } = await admin.from("profiles").upsert({
+    id: data.user.id,
+    email: cleanEmail,
+    full_name: fullName.trim() || null,
+    role_id: roleId,
+  });
+
+  if (profileError) return fail(profileError.message);
+  revalidatePath("/access");
+  return ok;
+}
+
+/**
+ * Permanently remove a user (their auth login and, by cascade, their profile).
+ * Guards against deleting your own account by accident.
+ */
+export async function removeUser(userId: string): Promise<ActionResult> {
+  await requirePermission("access", "delete");
+
+  const current = await getUser();
+  if (current?.id === userId) return fail("You can't remove your own account.");
+
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.deleteUser(userId);
 
   if (error) return fail(error.message);
   revalidatePath("/access");

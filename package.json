@@ -13,7 +13,8 @@
     "db:link": "supabase link",
     "db:new": "supabase migration new",
     "db:push": "supabase db push",
-    "db:diff": "supabase db diff"
+    "db:diff": "supabase db diff",
+    "db:backup": "node scripts/backup.mjs"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.2.0",

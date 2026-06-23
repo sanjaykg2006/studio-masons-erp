@@ -41,6 +41,9 @@ yarn-error.log*
 supabase/.temp
 supabase/.branches
 
+# database backups — contain real data, keep OFF git; store them elsewhere
+/backups
+
 # personal project tracker (living local file, not source)
 ERP-Project-Tracker.xlsx
 

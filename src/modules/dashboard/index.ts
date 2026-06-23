@@ -12,4 +12,7 @@ export const dashboardModule: ModuleDefinition = {
   href: "/dashboard",
   icon: LayoutDashboard,
   nav: true,
+  // Appears in the access-control matrix. No `requires`, so the nav link stays
+  // ungated — the dashboard is everyone's safe home.
+  actions: ["read"],
 };

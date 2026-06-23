@@ -1,0 +1,45 @@
+import "server-only";
+
+import { createClient } from "@/core/supabase/server";
+import type { Action, Role, RolePermission } from "@/core/rbac/types";
+
+/** A user row for the role-assignment table. */
+export type AccessUser = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  role_id: string | null;
+};
+
+/**
+ * Loads everything the Access Control page renders, in one place. All reads go
+ * through the authenticated server client, so RLS (which requires access:read)
+ * is the gate — these return empty for anyone not allowed.
+ */
+export async function getAccessData(): Promise<{
+  roles: Role[];
+  permissions: RolePermission[];
+  users: AccessUser[];
+}> {
+  const supabase = await createClient();
+
+  const [rolesRes, permsRes, usersRes] = await Promise.all([
+    supabase
+      .from("roles")
+      .select("id, key, label, description, is_system")
+      .order("label"),
+    supabase.from("role_permissions").select("role_id, resource, action"),
+    supabase
+      .from("profiles")
+      .select("id, email, full_name, role_id")
+      .order("email"),
+  ]);
+
+  return {
+    roles: (rolesRes.data ?? []) as Role[],
+    permissions: ((permsRes.data ?? []) as { role_id: string; resource: string; action: Action }[]).map(
+      (p) => ({ role_id: p.role_id, resource: p.resource, action: p.action })
+    ),
+    users: (usersRes.data ?? []) as AccessUser[],
+  };
+}

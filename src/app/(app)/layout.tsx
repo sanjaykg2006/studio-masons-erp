@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { requireUser } from "@/core/auth/get-user";
+import { getPermissions } from "@/core/rbac/permissions";
 import { AppShell } from "@/components/layout/app-shell";
 
 /**
@@ -15,5 +16,10 @@ export default async function AppLayout({
   children: ReactNode;
 }) {
   const user = await requireUser();
-  return <AppShell user={user}>{children}</AppShell>;
+  const permissions = [...(await getPermissions())];
+  return (
+    <AppShell user={user} permissions={permissions}>
+      {children}
+    </AppShell>
+  );
 }

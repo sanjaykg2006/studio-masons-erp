@@ -3,15 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { navModules } from "@/core/modules/registry";
+import { navModules, type ModuleDefinition } from "@/core/modules/registry";
+import { usePermissions } from "@/core/rbac/can-client";
 import { cn } from "@/lib/utils";
 
 /**
  * App sidebar. The nav list is generated entirely from the module registry —
- * to add a link, register a module, not edit this file.
+ * to add a link, register a module, not edit this file. A module hides its link
+ * only when it declares an explicit `requires` permission the user lacks
+ * (cosmetic; RLS is the real boundary).
  */
 export function Sidebar() {
   const pathname = usePathname();
+  const can = usePermissions();
+  const visibleModules = navModules.filter(
+    (m: ModuleDefinition) =>
+      !m.requires || can(m.requires.resource, m.requires.action)
+  );
 
   return (
     <aside className="bg-sidebar text-sidebar-foreground hidden w-60 shrink-0 flex-col border-r md:flex">
@@ -19,7 +27,7 @@ export function Sidebar() {
         Studio-<span className="text-primary">Masons</span>
       </div>
       <nav className="flex-1 space-y-1 p-3">
-        {navModules.map((m) => {
+        {visibleModules.map((m) => {
           const active =
             pathname === m.href || pathname.startsWith(`${m.href}/`);
           const Icon = m.icon;

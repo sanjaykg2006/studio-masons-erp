@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -23,8 +24,15 @@ export function Sidebar() {
 
   return (
     <aside className="bg-sidebar text-sidebar-foreground hidden w-60 shrink-0 flex-col border-r md:flex">
-      <div className="flex h-14 items-center border-b px-5 font-semibold tracking-tight">
-        Studio-<span className="text-primary">Masons</span>
+      <div className="flex h-16 items-center border-b px-5">
+        <Image
+          src="/studio-masons-logo.svg"
+          alt="Studio Masons"
+          width={64}
+          height={32}
+          priority
+          className="h-14 w-auto"
+        />
       </div>
       <nav className="flex-1 space-y-1 p-3">
         {visibleModules.map((m) => {

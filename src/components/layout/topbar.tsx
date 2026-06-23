@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { LogOut } from "lucide-react";
 
 import { signOut } from "@/core/auth/actions";
@@ -22,8 +23,15 @@ function initials(email: string | null) {
 /** Top bar with the user menu and sign-out (a Server Action form). */
 export function Topbar({ user }: { user: AppUser }) {
   return (
-    <header className="flex h-14 items-center justify-between border-b px-5">
-      <div className="text-sm font-medium md:hidden">Studio-Masons</div>
+    <header className="flex h-16 items-center justify-between border-b px-5">
+      <Image
+        src="/studio-masons-logo.svg"
+        alt="Studio Masons"
+        width={56}
+        height={28}
+        priority
+        className="h-12 w-auto md:hidden"
+      />
       <div className="ml-auto">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

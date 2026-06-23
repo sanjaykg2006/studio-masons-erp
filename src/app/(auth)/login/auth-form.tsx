@@ -2,22 +2,19 @@
 
 import { useActionState, useState } from "react";
 
-import {
-  signIn,
-  signUp,
-  signInWithMagicLink,
-} from "@/core/auth/actions";
+import { signIn, signInWithMagicLink } from "@/core/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-type Mode = "signin" | "signup" | "magic";
+type Mode = "signin" | "magic";
 
 /**
- * The login form. Three sign-in methods share one UI:
- *   - signin / signup  → email + password (Server Action: signIn / signUp)
- *   - magic            → passwordless email link (Server Action: signInWithMagicLink)
+ * Login form for an invite-only ERP — sign-in only, no self-registration.
+ * Two methods for existing accounts:
+ *   - signin → email + password   (Server Action: signIn)
+ *   - magic  → passwordless link   (Server Action: signInWithMagicLink)
  *
  * Adding Microsoft Entra ID SSO later means dropping an OAuth button here that
  * calls supabase.auth.signInWithOAuth({ provider: "azure" }). No other change.
@@ -29,37 +26,21 @@ export function AuthForm({ redirectTo }: { redirectTo: string }) {
     signIn,
     null
   );
-  const [signupState, signupAction, signupPending] = useActionState(
-    signUp,
-    null
-  );
   const [magicState, magicAction, magicPending] = useActionState(
     signInWithMagicLink,
     null
   );
 
-  const action =
-    mode === "signin"
-      ? signinAction
-      : mode === "signup"
-        ? signupAction
-        : magicAction;
-  const pending =
-    mode === "signin"
-      ? signinPending
-      : mode === "signup"
-        ? signupPending
-        : magicPending;
-  const errorState =
-    mode === "signin" ? signinState : mode === "signup" ? signupState : magicState;
+  const action = mode === "signin" ? signinAction : magicAction;
+  const pending = mode === "signin" ? signinPending : magicPending;
+  const errorState = mode === "signin" ? signinState : magicState;
 
   return (
     <div className="space-y-4">
-      <div className="bg-muted text-muted-foreground grid grid-cols-3 gap-1 rounded-lg p-1 text-sm">
+      <div className="bg-muted text-muted-foreground grid grid-cols-2 gap-1 rounded-lg p-1 text-sm">
         {(
           [
-            ["signin", "Sign in"],
-            ["signup", "Sign up"],
+            ["signin", "Password"],
             ["magic", "Magic link"],
           ] as const
         ).map(([value, label]) => (
@@ -94,18 +75,15 @@ export function AuthForm({ redirectTo }: { redirectTo: string }) {
           />
         </div>
 
-        {mode !== "magic" && (
+        {mode === "signin" && (
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               name="password"
               type="password"
-              autoComplete={
-                mode === "signup" ? "new-password" : "current-password"
-              }
+              autoComplete="current-password"
               placeholder="••••••••"
-              minLength={6}
               required
             />
           </div>
@@ -115,14 +93,10 @@ export function AuthForm({ redirectTo }: { redirectTo: string }) {
           <p className="text-destructive text-sm">{errorState.error}</p>
         )}
 
-        {mode === "signup" && signupState?.ok && (
-          <p className="text-sm text-green-600 dark:text-green-500">
-            Check your email to confirm your account, then sign in.
-          </p>
-        )}
         {mode === "magic" && magicState?.ok && (
           <p className="text-sm text-green-600 dark:text-green-500">
-            Magic link sent — check your email to finish signing in.
+            If that account exists, a sign-in link is on its way — check your
+            email.
           </p>
         )}
 
@@ -131,9 +105,7 @@ export function AuthForm({ redirectTo }: { redirectTo: string }) {
             ? "Please wait…"
             : mode === "signin"
               ? "Sign in"
-              : mode === "signup"
-                ? "Create account"
-                : "Send magic link"}
+              : "Send magic link"}
         </Button>
       </form>
     </div>

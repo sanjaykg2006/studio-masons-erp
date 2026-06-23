@@ -34,28 +34,11 @@ export async function signIn(
 }
 
 /**
- * Email + password sign up. Depending on your Supabase email-confirmation
- * setting, the user may need to confirm via email before signing in.
+ * Passwordless magic-link sign in for EXISTING accounts only.
+ *
+ * shouldCreateUser:false enforces the invite-only model — a link is only sent
+ * to a user that already exists; it never self-registers a new account.
  */
-export async function signUp(
-  _prev: AuthResult | null,
-  formData: FormData
-): Promise<AuthResult> {
-  const email = String(formData.get("email") ?? "");
-  const password = String(formData.get("password") ?? "");
-
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { emailRedirectTo: `${await siteOrigin()}/auth/callback` },
-  });
-
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
-}
-
-/** Passwordless magic-link sign in. Sends a login link to the email. */
 export async function signInWithMagicLink(
   _prev: AuthResult | null,
   formData: FormData
@@ -65,7 +48,10 @@ export async function signInWithMagicLink(
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: `${await siteOrigin()}/auth/callback` },
+    options: {
+      shouldCreateUser: false,
+      emailRedirectTo: `${await siteOrigin()}/auth/callback`,
+    },
   });
 
   if (error) return { ok: false, error: error.message };

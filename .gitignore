@@ -46,6 +46,11 @@ supabase/.branches
 
 # personal project tracker (living local file, not source)
 ERP-Project-Tracker.xlsx
+# Excel lock/temp files
+~$*
+
+# local Claude Code settings
+.claude/settings.local.json
 
 # typescript
 *.tsbuildinfo

@@ -1,0 +1,16 @@
+# Supabase CLI configuration.
+#
+# This lets database changes be applied with one repeatable command instead of
+# being pasted by hand into the dashboard SQL editor. Migration files live in
+# ./migrations and run in filename order.
+#
+# Typical workflow (see ./README.md for detail):
+#   npm run db:new "add projects table"   # scaffold a new migration file
+#   npm run db:push                        # apply pending migrations to the DB
+#   npm run db:diff                        # see how the DB differs from migrations
+
+project_id = "studio-masons-erp"
+
+[db]
+# Match your Supabase project's Postgres major version.
+major_version = 15

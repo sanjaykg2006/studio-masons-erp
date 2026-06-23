@@ -37,6 +37,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# supabase cli (local link state, temp files — never commit)
+supabase/.temp
+supabase/.branches
+
 # personal project tracker (living local file, not source)
 ERP-Project-Tracker.xlsx
 

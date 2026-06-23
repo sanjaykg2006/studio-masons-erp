@@ -1,0 +1,212 @@
+================================================================================
+STUDIO-MASONS ERP - PROJECT REVIEW
+Prepared for leadership. No technical knowledge assumed.
+Date: 2026-06-23
+================================================================================
+
+
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY
+--------------------------------------------------------------------------------
+
+Studio-Masons ERP is a custom, in-house business management system being built
+from scratch. The goal is a single web application that will eventually run
+multiple areas of the business ("modules" - e.g. projects, inventory,
+invoicing), each one bolted onto a shared, secure foundation.
+
+Where it stands today: the foundation is built; the business features are not
+yet. Think of it as a well-constructed, empty office building. The plumbing,
+electrical, security system, and front door are all professionally installed -
+but none of the offices (the actual day-to-day tools your staff would use) have
+been fitted out yet.
+
+What genuinely exists and works:
+
+  * Secure login - invite-only. Nobody can self-register; accounts are created
+    deliberately. Staff sign in with a password or a "magic link" emailed to
+    them.
+
+  * A proper permissions system ("who can see and do what"). An administrator
+    can create roles (e.g. "Project Manager", "Accountant"), tick boxes to grant
+    each role specific abilities, and assign each person a role. Critically,
+    these rules are enforced at the database level - the strongest possible
+    place - not just hidden in the screen. This is enterprise-grade and was
+    done well.
+
+  * An admin screen to manage all of the above without touching code.
+
+  * A dashboard shell - the navigation frame and branding (your Studio Masons
+    logo and colours) are in place, but the dashboard itself is currently a
+    placeholder.
+
+What does NOT yet exist: any actual ERP function. There is no projects module,
+no clients/CRM, no inventory, no quoting or invoicing, no reporting. The system
+cannot yet do any real business work.
+
+Technology choices are modern and sensible (Next.js, Supabase, hosted on
+Vercel) - mainstream, well-supported, and cost-effective for a small team. The
+code is clean, consistently structured, and explicitly designed so new modules
+can be added quickly.
+
+The headline risks are not about quality - the quality is good - they are about
+maturity and operational readiness: there are no automated tests, no automated
+quality checks before changes go live, user setup still requires a developer to
+run database commands by hand, and there's no audit trail or error monitoring.
+These are normal gaps for a project this young, but they must be closed before
+the system carries real business data.
+
+Bottom line: Solid, professional groundwork with the hardest "plumbing"
+(security and permissions) already done to a high standard. The project is at
+the very start of delivering business value - the next phase is where that
+value actually gets created. The single biggest question to put to the
+developer is: what is the roadmap and timeline to the first feature that staff
+will actually use day-to-day?
+
+
+--------------------------------------------------------------------------------
+2. TOP 10 CONCERNS TO DISCUSS WITH THE DEVELOPER
+--------------------------------------------------------------------------------
+
+1.  There are no business features yet - what's the roadmap and timeline?
+    Eight rounds of work have produced a foundation but zero usable ERP
+    functions. Ask for a prioritised feature roadmap with dates.
+
+2.  No automated tests exist. Nothing automatically verifies the software still
+    works after a change. As the system grows, this makes every change
+    progressively riskier. Ask when a basic test safety-net will be added.
+
+3.  No automated quality gate before changes go live. Changes appear to go
+    straight to the main version with no second pair of eyes and no automated
+    checks (CI/CD). For a system that will hold business data, this is a gap.
+
+4.  Setting up a new user requires a developer to run database commands by hand.
+    There is no "invite a user" button in the admin screen yet. This doesn't
+    scale, is error-prone, and makes you dependent on the developer for routine
+    staff onboarding.
+
+5.  No audit trail. There's no record of who changed what and when (e.g. who
+    changed someone's permissions or deleted a record). For an ERP, this is
+    usually a compliance and accountability must-have.
+
+6.  No error monitoring. If something breaks for a user in production, no one is
+    automatically alerted. You'd only find out when a staff member complains.
+    (Note: traffic analytics ARE installed, but that's not the same thing.)
+
+7.  Key-person / "bus factor" risk. The project history shows a single
+    developer. There's no second person who understands the system. Discuss
+    documentation and continuity if that person becomes unavailable.
+
+8.  Database changes are applied manually. The structure of the database is
+    updated by copy-pasting scripts into a web console by hand. This works now
+    but is fragile and easy to get wrong as complexity grows.
+
+9.  Login security depth. Login is solid and invite-only, but there's no
+    multi-factor authentication (MFA) yet. For a system holding business data,
+    confirm whether MFA is planned - especially once the promised Microsoft 365
+    single-sign-on is connected.
+
+10. Backup and disaster recovery. The plan relies entirely on the hosting
+    provider (Supabase). Confirm what happens if data is accidentally deleted or
+    the provider has an outage - is there an independent backup and a tested
+    recovery process?
+
+
+--------------------------------------------------------------------------------
+3. STATUS REPORT (RED / YELLOW / GREEN)
+--------------------------------------------------------------------------------
+
+  AREA                        STATUS    COMMENT
+  ------------------------------------------------------------------------------
+  Code quality & structure    GREEN     Clean, consistent, modern, well-
+                                        documented. Genuinely good engineering.
+
+  Security & permissions      GREEN     Enforced at the database level, deny-by-
+                                        default, with safeguards against users
+                                        escalating their own access. Strongest
+                                        part of the project.
+
+  Technology choices          GREEN     Mainstream, well-supported, cost-
+                                        effective, easy to hire for.
+
+  Architecture for growth     GREEN     Deliberately built so new features slot
+                                        in quickly. Foundation is fit for
+                                        purpose.
+
+  Login / authentication      YELLOW    Works and is invite-only, but no MFA;
+                                        promised Microsoft 365 sign-on not yet
+                                        connected.
+
+  Operational readiness       YELLOW    Manual user setup, manual database
+                                        updates, no error alerting. Fine for a
+                                        prototype, not for live business use.
+
+  Testing & quality gates     RED       No automated tests and no automated
+                                        checks before release. Must be addressed
+                                        before real data goes in.
+
+  Business value delivered    RED       No usable ERP features exist yet. The
+                                        system cannot do real work today.
+
+  Audit & compliance          RED       No audit trail of changes; no backup/
+                                        recovery plan confirmed.
+
+  ------------------------------------------------------------------------------
+  OVERALL: YELLOW. A healthy, well-built foundation (lots of green), but not yet
+  delivering business value and not yet operationally ready for live use (the
+  reds). The project is on a good track; it simply hasn't reached the value-
+  delivery phase.
+
+
+--------------------------------------------------------------------------------
+4. FEATURES THAT WOULD DELIVER THE BIGGEST BUSINESS VALUE NEXT
+--------------------------------------------------------------------------------
+
+These are ordered by recommendation. The first two are "enablers" - unglamorous
+but they unlock safe everyday use; the rest are real business tools.
+
+TIER 1 - Make it safe to actually use (do these first)
+
+  1. User management screen ("Invite a user" button). Let an admin add/remove
+     staff without a developer. Removes your dependency on the developer for
+     routine onboarding. Small effort, high operational payoff.
+
+  2. Audit log. A simple, automatic record of who did what. Essential for
+     accountability and trust before any real data goes in.
+
+TIER 2 - The first real business module (pick ONE to start, based on your
+biggest pain point)
+
+  3. Projects / Jobs module - the natural heart of an ERP for a studio/
+     contractor business: track each project, its status, dates, and people.
+     Most ERPs are built around this, and the codebase is literally designed
+     with "projects" as the example next module.
+
+  4. Clients / CRM module - a central record of customers and contacts that
+     every other module (projects, quotes, invoices) can reference.
+
+  5. Quoting & Invoicing module - directly tied to revenue; often the fastest
+     way to show tangible ROI from the system.
+
+TIER 3 - Insight, once data exists
+
+  6. A real dashboard with live numbers - replace the placeholder with actual
+     figures (active projects, outstanding invoices, etc.) once there's data to
+     show. Turns the system into a daily management tool.
+
+RECOMMENDATION: Build #1 and #2 immediately (they're cheap and make the system
+safe to operate), then commit to ONE Tier-2 module end-to-end - most likely
+Projects - so you get a complete, genuinely useful feature in staff's hands
+rather than several half-finished ones. That single completed module also
+becomes the proven template that makes every subsequent module faster to build.
+
+
+--------------------------------------------------------------------------------
+NOTE
+--------------------------------------------------------------------------------
+
+This assessment is of the code as it stands today. The repository also contains
+a personal project-tracker spreadsheet (ERP-Project-Tracker.xlsx) that was not
+opened as part of this review - if it contains the developer's own roadmap, it's
+worth reviewing alongside this report and cross-checking against the gaps above.
+
+================================================================================

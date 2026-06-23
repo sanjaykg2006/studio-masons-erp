@@ -51,3 +51,37 @@ Strict layering — each layer has one job, never mix them:
 2. Create the route `src/app/(app)/<feature>/page.tsx` (guard with `requireUser()`).
 3. Add the module to the `modules` array in `src/core/modules/registry.ts`.
 The sidebar nav updates automatically. Use `src/modules/dashboard/` as the template.
+
+### Make the module permission-aware (REQUIRED if it has its own data)
+The access-control matrix shows a checkbox for every `(module, action)` a module
+declares in `ModuleDefinition.actions`. **A checkbox does nothing on its own** — it
+just records a grant. The module must actually enforce it. Without these steps a
+ticked box is cosmetic. `src/modules/access/` is the worked reference.
+
+Do all of this for a new data module (`<id>` = the module id = the permission
+`resource`; pick from `create | read | update | delete`):
+
+1. **Declare the verbs.** Set `actions: [...]` in the `ModuleDefinition` so the
+   matrix renders those columns. Set `requires: { resource: "<id>", action: "read" }`
+   so the sidebar link is hidden from users without read.
+2. **Enforce in the DB — this is the real boundary.** In the module's migration,
+   `enable row level security` on each table and add policies that call
+   `has_permission('<id>', '<action>')`:
+   - `for select using (has_permission('<id>','read'))`
+   - `for insert with check (has_permission('<id>','create'))`
+   - `for update using (...'update') with check (...'update')`
+   - `for delete using (has_permission('<id>','delete'))`
+   RLS is what stops a crafted request; never rely on app guards alone.
+3. **Guard pages/server actions.** Start each page with
+   `await requirePermission('<id>','read')` and each mutating server action with
+   `await requirePermission('<id>', '<action>')`. (Convenience layer; redirects
+   instead of erroring.)
+4. **Gate the UI.** Wrap action buttons in `<Can resource="<id>" action="...">` or
+   check `usePermissions()` so users don't see controls they can't use (cosmetic).
+5. **Departments.** New non-general modules are department-scoped: an admin must add
+   the module to a department under `/access` before that department's roles can be
+   granted it. Mark it general there only if every role should get it.
+
+Checklist before calling a module "done": actions declared ✓ · RLS policies on
+every table ✓ · `requirePermission` on page + each action ✓ · `<Can>`/`usePermissions`
+in the UI ✓ · migration applied (`npm run db:push`) ✓.

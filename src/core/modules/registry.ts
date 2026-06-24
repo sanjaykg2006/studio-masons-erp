@@ -4,6 +4,7 @@ import type { Action } from "@/core/rbac/types";
 import { dashboardModule } from "@/modules/dashboard";
 import { accessModule } from "@/modules/access";
 import { auditModule } from "@/modules/audit";
+import { designModule } from "@/modules/design";
 
 /**
  * A feature module's public contract.
@@ -74,6 +75,7 @@ export function moduleResources(): ModuleResource[] {
  */
 export const modules: ModuleDefinition[] = [
   dashboardModule,
+  designModule,
   accessModule,
   auditModule,
 ];

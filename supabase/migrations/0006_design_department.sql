@@ -344,6 +344,74 @@ create trigger design_brief_answers_lock
   before insert or update or delete on public.design_brief_answers
   for each row execute function public.guard_brief_answer_lock();
 
+-- 7b. Read helpers so project managers see member names without access:read ---
+-- A Project Lead can manage their project's membership but has no global
+-- access:read on profiles. These SECURITY DEFINER functions expose just the
+-- names/emails needed, each behind its own permission check.
+
+create or replace function public.design_project_members_view(p_project uuid)
+returns table (user_id uuid, full_name text, email text, role_id uuid)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select m.user_id, p.full_name, p.email, m.role_id
+  from public.design_project_members m
+  join public.profiles p on p.id = m.user_id
+  where m.project_id = p_project
+    and public.has_project_permission(p_project, 'design.project', 'read');
+$$;
+
+-- Candidate users for the "add member" picker. Only callers who can manage
+-- membership somewhere (department-wide or via a project role) get the list.
+create or replace function public.design_assignable_users()
+returns table (id uuid, full_name text, email text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.id, p.full_name, p.email
+  from public.profiles p
+  where public.has_permission('design.member', 'manage')
+     or exists (
+       select 1
+       from public.design_project_members m
+       join public.role_permissions rp on rp.role_id = m.role_id
+       where m.user_id = auth.uid()
+         and rp.action = 'manage'
+         and rp.resource in ('design.member', '*')
+     );
+$$;
+
+-- The Design department's roles, for the member-role picker. Same gate as the
+-- assignable-users list (managing membership doesn't imply access:read).
+create or replace function public.design_roles()
+returns table (id uuid, label text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select r.id, r.label
+  from public.roles r
+  join public.departments d on d.id = r.department_id
+  where d.key = 'design'
+    and (
+      public.has_permission('design.member', 'manage')
+      or exists (
+        select 1
+        from public.design_project_members m
+        join public.role_permissions rp on rp.role_id = m.role_id
+        where m.user_id = auth.uid()
+          and rp.action = 'manage'
+          and rp.resource in ('design.member', '*')
+      )
+    )
+  order by r.label;
+$$;
+
 -- 8. Register the Design department + its module resources --------------------
 insert into public.departments (key, label, description, is_system)
 values ('design', 'Design Department',

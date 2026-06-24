@@ -3,6 +3,8 @@ import "server-only";
 import { createClient } from "@/core/supabase/server";
 import { getProjectPermissions } from "@/core/rbac/permissions";
 import { permissionKey, type PermissionKey } from "@/core/rbac/types";
+import type { BriefPdfData } from "@/modules/design/brief-pdf";
+import { DISCIPLINE_LABEL } from "@/modules/design/types";
 import {
   DESIGN_STAGES,
   DESIGN_STAGE_LABEL,
@@ -299,6 +301,48 @@ export async function getBriefDetail(
     canEdit: has("update") && (brief.status as BriefStatus) !== "approved",
     canReview: has("review"),
     canApprove: has("approve"),
+  };
+}
+
+/** Everything needed to render an approved brief as an archived PDF. */
+export async function getBriefForPdf(
+  briefId: string
+): Promise<BriefPdfData | null> {
+  const supabase = await createClient();
+  const { data: brief } = await supabase
+    .from("design_briefs")
+    .select("project_id, template_id, template_version_id, discipline, approved_at")
+    .eq("id", briefId)
+    .maybeSingle();
+  if (!brief) return null;
+
+  const [{ data: project }, tree, { data: answerRows }] = await Promise.all([
+    supabase.from("design_projects").select("name").eq("id", brief.project_id).single(),
+    loadVersionTree(brief.template_version_id),
+    supabase.from("design_brief_answers").select("question_id, values").eq("brief_id", briefId),
+  ]);
+  if (!tree || !project) return null;
+
+  const answers: Record<string, Record<string, string>> = {};
+  for (const row of (answerRows ?? []) as {
+    question_id: string;
+    values: Record<string, string>;
+  }[]) {
+    answers[row.question_id] = row.values ?? {};
+  }
+
+  return {
+    projectName: project.name,
+    templateLabel: tree.template.label,
+    disciplineLabel: DISCIPLINE_LABEL[brief.discipline as keyof typeof DISCIPLINE_LABEL],
+    versionNo: tree.version.version_no,
+    approvedAt: brief.approved_at,
+    columns: tree.columns.map((c) => ({ key: c.key, label: c.label })),
+    sections: tree.sections.map((s) => ({
+      title: s.title,
+      questions: s.questions.map((q) => ({ id: q.id, text: q.text })),
+    })),
+    answers,
   };
 }
 

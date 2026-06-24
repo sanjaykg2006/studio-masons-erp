@@ -7,6 +7,8 @@ import { createAdminClient } from "@/core/supabase/admin";
 import { authorize, authorizeProject } from "@/core/rbac/can";
 import { getUser } from "@/core/auth/get-user";
 import { logAudit } from "@/modules/audit/log";
+import { getBriefForPdf } from "@/modules/design/data";
+import { renderBriefPdf } from "@/modules/design/brief-pdf";
 import type {
   Discipline,
   DesignStage,
@@ -551,6 +553,60 @@ export async function returnBriefForChanges(briefId: string): Promise<ActionResu
   return ok;
 }
 
+/** Render the approved brief as a PDF and file it into the Project Brief folder.
+ * System-generated, so it uses the service role (the approver may not hold
+ * folder edit rights). Best-effort — the caller must not let it block approval. */
+async function fileApprovedBriefPdf(
+  briefId: string,
+  projectId: string,
+  userId: string | null
+): Promise<void> {
+  const data = await getBriefForPdf(briefId);
+  if (!data) return;
+  const bytes = await renderBriefPdf(data);
+  const name = `Project Brief — ${data.templateLabel}.pdf`;
+
+  const admin = createAdminClient();
+  // Supersede any prior auto-filed version of the same brief document.
+  const { data: prior } = await admin
+    .from("design_files")
+    .select("id, version_no")
+    .eq("project_id", projectId)
+    .eq("folder_key", "project_brief")
+    .eq("name", name)
+    .order("version_no", { ascending: false });
+  const nextNo = (prior?.[0]?.version_no ?? 0) + 1;
+
+  const id = crypto.randomUUID();
+  const safeName = name.replace(/[^\w.\- ]+/g, "_");
+  const path = `${projectId}/project_brief/${id}-v${nextNo}-${safeName}`;
+  const { error: upErr } = await admin.storage
+    .from(BUCKET)
+    .upload(path, Buffer.from(bytes), { contentType: "application/pdf", upsert: false });
+  if (upErr) throw upErr;
+
+  if (prior?.length) {
+    await admin
+      .from("design_files")
+      .update({ is_current: false })
+      .eq("project_id", projectId)
+      .eq("folder_key", "project_brief")
+      .eq("name", name);
+  }
+  await admin.from("design_files").insert({
+    id,
+    project_id: projectId,
+    folder_key: "project_brief",
+    name,
+    storage_path: path,
+    mime_type: "application/pdf",
+    size_bytes: bytes.length,
+    version_no: nextNo,
+    is_current: true,
+    uploaded_by: userId,
+  });
+}
+
 export async function approveBrief(briefId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: brief } = await supabase
@@ -583,9 +639,18 @@ export async function approveBrief(briefId: string): Promise<ActionResult> {
       .eq("id", brief.project_id);
   }
 
+  // Archive the signed-off brief as a PDF in the Project Brief folder.
+  // Best-effort: a failure here must never undo the approval.
+  try {
+    await fileApprovedBriefPdf(briefId, brief.project_id, user?.id ?? null);
+  } catch (e) {
+    console.error("Failed to file approved brief PDF:", e);
+  }
+
   await logAudit("design.brief.approve", "Approved a brief", { briefId });
   revalidatePath(`/design/${brief.project_id}/brief/${briefId}`);
   revalidatePath(`/design/${brief.project_id}`);
+  revalidatePath(`/design/${brief.project_id}/folder/project_brief`);
   return ok;
 }
 

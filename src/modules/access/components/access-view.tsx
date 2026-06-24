@@ -102,8 +102,13 @@ export function AccessView({
   const selectedRole =
     rolesInScope.find((r) => r.id === roleId) ?? rolesInScope[0] ?? null;
 
-  // Global/system roles can hold ANY module — show every resource as a row.
-  const matrixResources = resources;
+  // What the admin edits here:
+  //  * Global/system roles → every module (they can hold anything).
+  //  * Department roles → GENERAL/shared modules only. The department's OWN
+  //    modules are the lead's job on Team Access; general access stays admin's.
+  const matrixResources = isGlobal
+    ? resources
+    : resources.filter((r) => generalSet.has(r.id));
 
   // Fast lookups for the global-role matrix.
   const granted = new Set(
@@ -527,18 +532,18 @@ export function AccessView({
                 <CardDescription>
                   {isGlobal
                     ? "Tick an action to grant it. System-wide (★) access is managed in the database, not here."
-                    : "These roles' permissions are set by the department's lead on their Team Access page."}
+                    : "General/shared access only — tick to grant. This department's own modules are managed by its lead on Team Access."}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {!isGlobal ? (
-                  <p className="text-muted-foreground text-sm">
-                    Appoint a lead above; they manage permissions for this
-                    department&apos;s roles. Here you control which modules the
-                    department may use and who its roles are.
-                  </p>
-                ) : !selectedRole ? (
+                {!selectedRole ? (
                   <p className="text-muted-foreground text-sm">Select a role.</p>
+                ) : matrixResources.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    {isGlobal
+                      ? "No modules yet."
+                      : "No general modules yet. Mark a module as general above to grant it to this department's roles here."}
+                  </p>
                 ) : (
                   <PermissionMatrix
                     role={selectedRole}

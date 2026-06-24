@@ -8,8 +8,23 @@
  * the database and are edited through the UI — never hard-coded here.
  */
 
-/** The four CRUD verbs. Must stay in sync with the DB `app_action` enum. */
-export const ACTIONS = ["create", "read", "update", "delete"] as const;
+/**
+ * The access verbs. The first four are the CRUD core; the last four are the
+ * governance verbs the Design Department workflow needs (review before approval,
+ * formal approval, external issue, and manage-access). The column order here is
+ * the order shown in the permission matrix. Must stay in sync with the DB
+ * `app_action` enum.
+ */
+export const ACTIONS = [
+  "read",
+  "create",
+  "update",
+  "review",
+  "approve",
+  "issue",
+  "delete",
+  "manage",
+] as const;
 export type Action = (typeof ACTIONS)[number];
 
 /** A resource is a module id (free-form string). "*" is the wildcard. */
@@ -25,10 +40,26 @@ export const permissionKey = (
 
 /** Plain-English verb for each action, used in "no permission" messages. */
 const ACTION_VERB: Record<Action, string> = {
-  create: "create",
   read: "view",
+  create: "create",
   update: "change",
+  review: "review",
+  approve: "approve",
+  issue: "issue",
   delete: "delete",
+  manage: "manage access to",
+};
+
+/** Short column label for each verb, matching the framework's wording. */
+export const ACTION_LABEL: Record<Action, string> = {
+  read: "View",
+  create: "Create",
+  update: "Edit",
+  review: "Review",
+  approve: "Approve",
+  issue: "Issue",
+  delete: "Delete",
+  manage: "Manage",
 };
 
 /**

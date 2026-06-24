@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useMemo, useState, useTransition } from "react";
 import { Building2, Globe, Lock, Plus, Trash2, UserPlus } from "lucide-react";
 
-import { ACTIONS, type Action, type Department, type DepartmentModule, type Role, type RolePermission } from "@/core/rbac/types";
+import { ACTIONS, ACTION_LABEL, type Action, type Department, type DepartmentModule, type Role, type RolePermission } from "@/core/rbac/types";
 import {
   Card,
   CardContent,
@@ -439,6 +439,7 @@ export function AccessView({
                     department above, or mark modules as general.
                   </p>
                 ) : (
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-muted-foreground border-b text-left">
@@ -446,9 +447,9 @@ export function AccessView({
                         {ACTIONS.map((a) => (
                           <th
                             key={a}
-                            className="py-2 text-center font-medium capitalize"
+                            className="px-2 py-2 text-center font-medium"
                           >
-                            {a}
+                            {ACTION_LABEL[a]}
                           </th>
                         ))}
                       </tr>
@@ -510,6 +511,7 @@ export function AccessView({
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 )}
               </CardContent>
             </Card>

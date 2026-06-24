@@ -82,6 +82,33 @@ export async function updateRole(
   return ok;
 }
 
+/**
+ * Mark a role department-wide (sees every project in scope) or project-scoped
+ * (reaches a project only via membership). Drives has_project_permission().
+ */
+export async function setRoleDepartmentWide(
+  roleId: string,
+  isDepartmentWide: boolean
+): Promise<ActionResult> {
+  const denied = await authorize("access", "update");
+  if (denied) return denied;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("roles")
+    .update({ is_department_wide: isDepartmentWide })
+    .eq("id", roleId);
+
+  if (error) return fail(error.message);
+  await logAudit(
+    "role.scope",
+    `Set a role ${isDepartmentWide ? "department-wide" : "project-scoped"}`,
+    { roleId, isDepartmentWide }
+  );
+  revalidatePath("/access");
+  return ok;
+}
+
 /** Delete a role. System roles are blocked by RLS even if this is called. */
 export async function deleteRole(roleId: string): Promise<ActionResult> {
   const denied = await authorize("access", "delete");

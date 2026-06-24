@@ -27,6 +27,7 @@ import {
   setDepartmentModule,
   setModuleGeneral,
   setPermission,
+  setRoleDepartmentWide,
 } from "@/modules/access/actions";
 
 /** A gated resource (module) shown as a row in the permission matrix. */
@@ -433,6 +434,28 @@ export function AccessView({
                   admin modules keep their fixed set. System-wide (★) access is
                   managed in the database, not here.
                 </CardDescription>
+                {selectedRole && !selectedRole.is_system && (
+                  <label
+                    className="mt-2 flex items-center gap-2 text-sm"
+                    title="Department-wide roles see every project in scope; project-scoped roles reach a project only via membership."
+                  >
+                    <input
+                      type="checkbox"
+                      className="accent-primary size-4"
+                      checked={selectedRole.is_department_wide}
+                      disabled={pending}
+                      onChange={(e) =>
+                        run(() =>
+                          setRoleDepartmentWide(selectedRole.id, e.target.checked)
+                        )
+                      }
+                    />
+                    Department-wide{" "}
+                    <span className="text-muted-foreground">
+                      (sees all projects; otherwise access is per-project membership)
+                    </span>
+                  </label>
+                )}
               </CardHeader>
               <CardContent>
                 {!selectedRole ? (

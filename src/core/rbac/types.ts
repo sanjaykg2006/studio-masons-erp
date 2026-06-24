@@ -85,6 +85,11 @@ export type Role = {
   is_system: boolean;
   /** The department this role lives under. NULL = a global/system role. */
   department_id: string | null;
+  /**
+   * Department-wide roles see every project in scope (not just ones they're a
+   * member of). Project-scoped roles reach a project only via membership.
+   */
+  is_department_wide: boolean;
 };
 
 /** A single granted permission as stored in `public.role_permissions`. */

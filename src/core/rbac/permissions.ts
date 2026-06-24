@@ -40,3 +40,20 @@ export async function can(
     perms.has(permissionKey("*", action))
   );
 }
+
+/**
+ * The caller's effective permission keys ON A SPECIFIC PROJECT (their global
+ * grants ∪ grants from their membership role on that project). Used to gate the
+ * per-project UI; the DB (has_project_permission via RLS) is the real boundary.
+ */
+export async function getProjectPermissions(
+  projectId: string
+): Promise<Set<PermissionKey>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("my_project_permissions", {
+    p_project: projectId,
+  });
+  if (error || !data) return new Set();
+  const rows = data as { resource: string; action: Action }[];
+  return new Set(rows.map((row) => permissionKey(row.resource, row.action)));
+}

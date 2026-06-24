@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { createClient } from "@/core/supabase/server";
 import { can, getPermissions } from "@/core/rbac/permissions";
 import { permissionMessage, type Action, type Resource } from "@/core/rbac/types";
 
@@ -34,5 +35,45 @@ export async function authorize(
   action: Action
 ): Promise<{ ok: false; error: string } | null> {
   if (await can(resource, action)) return null;
+  return { ok: false, error: permissionMessage(resource, action) };
+}
+
+/**
+ * Project-aware check. True when the user has `action` on `resource` for this
+ * project — either department-wide (their global role) or via their membership
+ * on the project. Backed by the has_project_permission() DB function.
+ */
+export async function canOnProject(
+  projectId: string,
+  resource: Resource,
+  action: Action
+): Promise<boolean> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("has_project_permission", {
+    p_project: projectId,
+    p_resource: resource,
+    p_action: action,
+  });
+  return !error && data === true;
+}
+
+/** Project-aware page guard — redirects to /forbidden when not allowed. */
+export async function requireProjectPermission(
+  projectId: string,
+  resource: Resource,
+  action: Action
+): Promise<void> {
+  if (!(await canOnProject(projectId, resource, action))) {
+    redirect(`/forbidden?resource=${encodeURIComponent(resource)}&action=${action}`);
+  }
+}
+
+/** Project-aware server-action guard — returns an inline failure, or null. */
+export async function authorizeProject(
+  projectId: string,
+  resource: Resource,
+  action: Action
+): Promise<{ ok: false; error: string } | null> {
+  if (await canOnProject(projectId, resource, action)) return null;
   return { ok: false, error: permissionMessage(resource, action) };
 }

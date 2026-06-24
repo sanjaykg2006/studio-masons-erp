@@ -12,6 +12,16 @@ import { auditModule } from "@/modules/audit";
  * folder under src/modules and exposes one ModuleDefinition. The app shell and
  * sidebar are generated from the registry below — they never hard-code routes.
  */
+/** One gated resource shown as a row (with verb columns) in the access matrix. */
+export type ModuleResource = {
+  /** Permission `resource` id, e.g. "access" or "design.project". */
+  id: string;
+  /** Human label for the matrix row. */
+  label: string;
+  /** Verbs this resource supports (which checkboxes render). */
+  actions: Action[];
+};
+
 export type ModuleDefinition = {
   /** Stable unique id, e.g. "dashboard", "projects". */
   id: string;
@@ -30,11 +40,28 @@ export type ModuleDefinition = {
    */
   actions?: Action[];
   /**
+   * Modules with several gated resources (e.g. a project + its briefs +
+   * templates + membership) declare them here. Each becomes its own matrix row
+   * and its own permission `resource`. Takes precedence over `actions`.
+   */
+  resources?: ModuleResource[];
+  /**
    * Permission required to show this module's sidebar link. Omit to always show
    * it. Independent of `actions` (which is matrix metadata only).
    */
   requires?: { resource: string; action: Action };
 };
+
+/** Flattened matrix rows: every gated resource across all modules, in order. */
+export function moduleResources(): ModuleResource[] {
+  return modules.flatMap((m) =>
+    m.resources?.length
+      ? m.resources
+      : m.actions?.length
+        ? [{ id: m.id, label: m.label, actions: m.actions }]
+        : []
+  );
+}
 
 /**
  * THE REGISTRY — register every feature module here.

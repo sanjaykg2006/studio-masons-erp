@@ -1,3 +1,4 @@
+import { type EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 import { createClient } from "@/core/supabase/server";
@@ -5,28 +6,39 @@ import { createClient } from "@/core/supabase/server";
 /**
  * OAuth / magic-link / email-confirmation callback.
  *
- * Supabase redirects here with a `code` (PKCE) which we exchange for a session.
- * Handles email confirmations, magic links, and future OAuth providers
- * (e.g. Microsoft Entra ID) without changes.
+ * Handles two server-side (PKCE) flows, both of which establish the session via
+ * cookies so it can't leak in a URL hash:
+ *   - OAuth / code exchange: `?code=` -> exchangeCodeForSession.
+ *   - Email links (invite, magic link, recovery, email change): the email
+ *     template links here with `?token_hash=&type=` -> verifyOtp.
+ *
+ * IMPORTANT: the email templates must use {{ .TokenHash }}, not the default
+ * {{ .ConfirmationURL }} (which returns the session as a `#access_token=` hash
+ * the server cannot read — that produced the old "auth_callback" error).
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
+  const tokenHash = searchParams.get("token_hash");
+  const type = searchParams.get("type") as EmailOtpType | null;
   const next = searchParams.get("next") ?? "/dashboard";
 
-  if (code) {
-    const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      const forwardedHost = request.headers.get("x-forwarded-host");
-      const isLocal = process.env.NODE_ENV === "development";
-      const safeNext = next.startsWith("/") ? next : "/dashboard";
+  const supabase = await createClient();
+  const { error } = code
+    ? await supabase.auth.exchangeCodeForSession(code)
+    : tokenHash && type
+      ? await supabase.auth.verifyOtp({ type, token_hash: tokenHash })
+      : { error: new Error("Missing auth parameters") };
 
-      if (isLocal) return NextResponse.redirect(`${origin}${safeNext}`);
-      if (forwardedHost)
-        return NextResponse.redirect(`https://${forwardedHost}${safeNext}`);
-      return NextResponse.redirect(`${origin}${safeNext}`);
-    }
+  if (!error) {
+    const forwardedHost = request.headers.get("x-forwarded-host");
+    const isLocal = process.env.NODE_ENV === "development";
+    const safeNext = next.startsWith("/") ? next : "/dashboard";
+
+    if (isLocal) return NextResponse.redirect(`${origin}${safeNext}`);
+    if (forwardedHost)
+      return NextResponse.redirect(`https://${forwardedHost}${safeNext}`);
+    return NextResponse.redirect(`${origin}${safeNext}`);
   }
 
   return NextResponse.redirect(`${origin}/error?reason=auth_callback`);

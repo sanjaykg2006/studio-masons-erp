@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 
 import { createClient } from "@/core/supabase/server";
 import { createAdminClient } from "@/core/supabase/admin";
+import { env } from "@/core/config/env";
 import { authorize } from "@/core/rbac/can";
 import { getUser } from "@/core/auth/get-user";
 import { isValidEmail } from "@/modules/access/validation";
@@ -131,6 +132,7 @@ export async function setPermission(
 
 /** Build an absolute URL for the invite-acceptance redirect. */
 async function siteOrigin() {
+  if (env.NEXT_PUBLIC_SITE_URL) return env.NEXT_PUBLIC_SITE_URL;
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host")!;
   const proto = h.get("x-forwarded-proto") ?? "http";

@@ -5,10 +5,12 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 
 import { createClient } from "@/core/supabase/server";
+import { env } from "@/core/config/env";
 import type { AuthResult } from "@/core/auth/types";
 
-/** Build an absolute URL for auth redirects from the incoming request host. */
+/** Build an absolute URL for auth redirects (env override, else request host). */
 async function siteOrigin() {
+  if (env.NEXT_PUBLIC_SITE_URL) return env.NEXT_PUBLIC_SITE_URL;
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host")!;
   const proto = h.get("x-forwarded-proto") ?? "http";

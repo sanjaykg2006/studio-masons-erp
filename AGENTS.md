@@ -87,3 +87,27 @@ Do all of this for a new data module (`<id>` = the module id = the permission
 Checklist before calling a module "done": actions declared ✓ · RLS policies on
 every table ✓ · `requirePermission` on page + each action ✓ · `<Can>`/`usePermissions`
 in the UI ✓ · migration applied (`npm run db:push`) ✓.
+
+### Access verbs
+Eight verbs exist: the CRUD core (`create`/`read`/`update`/`delete`, shown as
+View/Create/Edit/Delete) plus the governance verbs `review`/`approve`/`issue`/
+`manage` used by approval workflows. They're listed in `ACTIONS`
+(core/rbac/types.ts) and the DB `app_action` enum — keep the two in sync.
+
+### Modules with several gated resources
+A module that gates more than one object (e.g. a project + its briefs +
+templates + membership) sets `resources: [...]` on its `ModuleDefinition`
+instead of a single `actions`. Each entry is its own permission `resource` and
+its own matrix row, under one sidebar item. `src/modules/design/` is the
+reference. Sub-resources are dotted, e.g. `design.project`.
+
+### Project-scoped (per-project) access
+When access depends on which project a user belongs to (not just their global
+role), gate with the project-aware layer instead of the global one:
+- DB: RLS policies call `has_project_permission(project_id, resource, action)`
+  (true for a department-wide global role OR a per-project membership role).
+- Pages: `await requireProjectPermission(projectId, '<id>', '<action>')`.
+- Server actions: `const denied = await authorizeProject(projectId, '<id>', '<action>'); if (denied) return denied;`
+- UI gating: load `getProjectPermissions(projectId)` and pass the keys down.
+Register the module's sub-resources to a department (so the 0004 guard permits
+granting them) — see migration 0006 for the worked example.

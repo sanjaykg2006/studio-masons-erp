@@ -113,3 +113,9 @@ export type DepartmentModule = {
   department_id: string;
   module_id: string;
 };
+
+/** A department<->lead assignment from `public.department_leads`. */
+export type DepartmentLead = {
+  department_id: string;
+  user_id: string;
+};

@@ -19,6 +19,7 @@ export default async function AccessPage() {
     users,
     departments,
     departmentModules,
+    departmentLeads,
     generalModules,
   } = await getAccessData();
 
@@ -30,6 +31,7 @@ export default async function AccessPage() {
       resources={resources}
       departments={departments}
       departmentModules={departmentModules}
+      departmentLeads={departmentLeads}
       generalModules={generalModules}
       currentUserId={user.id}
     />

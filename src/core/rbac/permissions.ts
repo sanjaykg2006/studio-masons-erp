@@ -69,3 +69,21 @@ export async function hasDesignAccess(): Promise<boolean> {
   const { data, error } = await supabase.rpc("has_design_access");
   return !error && data === true;
 }
+
+/**
+ * Whether the user is the lead of at least one department — drives the "Team
+ * Access" sidebar link and gates the /team page. Backed by leads_any_department().
+ */
+export async function leadsAnyDepartment(): Promise<boolean> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("leads_any_department");
+  return !error && data === true;
+}
+
+/** The department ids the current user leads. Empty for non-leads. */
+export async function myLeadDepartmentIds(): Promise<string[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("my_lead_departments");
+  if (error || !data) return [];
+  return (data as { department_id: string }[]).map((d) => d.department_id);
+}

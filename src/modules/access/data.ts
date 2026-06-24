@@ -4,6 +4,7 @@ import { createClient } from "@/core/supabase/server";
 import type {
   Action,
   Department,
+  DepartmentLead,
   DepartmentModule,
   Role,
   RolePermission,
@@ -28,30 +29,39 @@ export async function getAccessData(): Promise<{
   users: AccessUser[];
   departments: Department[];
   departmentModules: DepartmentModule[];
+  departmentLeads: DepartmentLead[];
   generalModules: string[];
 }> {
   const supabase = await createClient();
 
-  const [rolesRes, permsRes, usersRes, deptsRes, deptModsRes, settingsRes] =
-    await Promise.all([
-      supabase
-        .from("roles")
-        .select(
-          "id, key, label, description, is_system, department_id, is_department_wide"
-        )
-        .order("label"),
-      supabase.from("role_permissions").select("role_id, resource, action"),
-      supabase
-        .from("profiles")
-        .select("id, email, full_name, role_id")
-        .order("email"),
-      supabase
-        .from("departments")
-        .select("id, key, label, description, is_system")
-        .order("label"),
-      supabase.from("department_modules").select("department_id, module_id"),
-      supabase.from("module_settings").select("module_id, is_general"),
-    ]);
+  const [
+    rolesRes,
+    permsRes,
+    usersRes,
+    deptsRes,
+    deptModsRes,
+    leadsRes,
+    settingsRes,
+  ] = await Promise.all([
+    supabase
+      .from("roles")
+      .select(
+        "id, key, label, description, is_system, department_id, is_department_wide"
+      )
+      .order("label"),
+    supabase.from("role_permissions").select("role_id, resource, action"),
+    supabase
+      .from("profiles")
+      .select("id, email, full_name, role_id")
+      .order("email"),
+    supabase
+      .from("departments")
+      .select("id, key, label, description, is_system")
+      .order("label"),
+    supabase.from("department_modules").select("department_id, module_id"),
+    supabase.from("department_leads").select("department_id, user_id"),
+    supabase.from("module_settings").select("module_id, is_general"),
+  ]);
 
   return {
     roles: (rolesRes.data ?? []) as Role[],
@@ -61,6 +71,7 @@ export async function getAccessData(): Promise<{
     users: (usersRes.data ?? []) as AccessUser[],
     departments: (deptsRes.data ?? []) as Department[],
     departmentModules: (deptModsRes.data ?? []) as DepartmentModule[],
+    departmentLeads: (leadsRes.data ?? []) as DepartmentLead[],
     generalModules: (
       (settingsRes.data ?? []) as { module_id: string; is_general: boolean }[]
     )

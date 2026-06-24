@@ -84,6 +84,31 @@ Do all of this for a new data module (`<id>` = the module id = the permission
    the module to a department under `/access` before that department's roles can be
    granted it. Mark it general there only if every role should get it.
 
+### Who edits the matrix: admin vs department lead
+Two surfaces, one shared `roles`/`role_permissions` model:
+- **Central `/access` (admin, `access:*`)** — creates roles + departments, tags
+  each role to a department, picks each department's modules, marks "general",
+  invites people, and APPOINTS each department's lead (`department_leads`). It only
+  edits the GLOBAL/system roles' matrix.
+- **`/team` Team Access (a department lead)** — for the roles under THEIR department
+  only: ticks the permission matrix (their department's non-general modules),
+  flags a role department-wide, and assigns people into those roles.
+
+"Lead-ness" is membership in `public.department_leads`, not a matrix grant (mirrors
+project membership). The boundary is the DB, in `0010_department_leads.sql`:
+- `is_department_lead(dept)` / `leads_any_department()` / `my_lead_departments()` —
+  the lead-scoping primitives (parallel to `has_permission`).
+- Lead branches OR'd into the RLS on `roles`/`role_permissions`/`departments`/
+  `department_modules`/`module_settings` read, plus `role_permissions` insert/delete
+  gated by `lead_can_grant(role, resource)` (non-general module IN the role's
+  department the caller leads). A lead literally cannot touch another department,
+  the global roles, or general modules.
+- Role-scope and people-assignment go through SECURITY DEFINER RPCs
+  (`set_role_department_wide`, `set_member_department_role`,
+  `clear_member_department_role`) that re-check `is_department_lead`, so leads never
+  get a broad write policy. The sidebar link is shown via a `team.access:read` nav
+  hint injected in `app/(app)/layout.tsx` when `leads_any_department()`.
+
 Checklist before calling a module "done": actions declared ✓ · RLS policies on
 every table ✓ · `requirePermission` on page + each action ✓ · `<Can>`/`usePermissions`
 in the UI ✓ · migration applied (`npm run db:push`) ✓.

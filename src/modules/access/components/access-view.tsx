@@ -2,9 +2,23 @@
 
 import { useRouter } from "next/navigation";
 import { type FormEvent, useMemo, useState, useTransition } from "react";
-import { Building2, Globe, Lock, Plus, Trash2, UserPlus } from "lucide-react";
+import {
+  Building2,
+  Globe,
+  Lock,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  UserPlus,
+} from "lucide-react";
 
-import { ACTIONS, ACTION_LABEL, type Action, type Department, type DepartmentModule, type Role, type RolePermission } from "@/core/rbac/types";
+import {
+  type Department,
+  type DepartmentLead,
+  type DepartmentModule,
+  type Role,
+  type RolePermission,
+} from "@/core/rbac/types";
 import {
   Card,
   CardContent,
@@ -17,6 +31,11 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { AccessUser } from "@/modules/access/data";
 import {
+  PermissionMatrix,
+  grantKey,
+  type AccessResource,
+} from "@/modules/access/components/permission-matrix";
+import {
   assignUserRole,
   createDepartment,
   createRole,
@@ -24,14 +43,13 @@ import {
   deleteRole,
   inviteUser,
   removeUser,
+  setDepartmentLead,
   setDepartmentModule,
   setModuleGeneral,
   setPermission,
-  setRoleDepartmentWide,
 } from "@/modules/access/actions";
 
-/** A gated resource (module) shown as a row in the permission matrix. */
-export type AccessResource = { id: string; label: string; actions: Action[] };
+export type { AccessResource };
 
 type Props = {
   roles: Role[];
@@ -40,15 +58,13 @@ type Props = {
   resources: AccessResource[];
   departments: Department[];
   departmentModules: DepartmentModule[];
+  departmentLeads: DepartmentLead[];
   generalModules: string[];
   currentUserId: string;
 };
 
 /** Sentinel for the "Global / system roles" pseudo-department (department_id = null). */
 const GLOBAL = "__global__";
-
-const grantKey = (roleId: string, resource: string, action: Action) =>
-  `${roleId}:${resource}:${action}`;
 
 export function AccessView({
   roles,
@@ -57,6 +73,7 @@ export function AccessView({
   resources,
   departments,
   departmentModules,
+  departmentLeads,
   generalModules,
   currentUserId,
 }: Props) {
@@ -69,6 +86,7 @@ export function AccessView({
   const [newDept, setNewDept] = useState("");
   const [deptId, setDeptId] = useState<string>(departments[0]?.id ?? GLOBAL);
   const [roleId, setRoleId] = useState<string | null>(null);
+  const [newLead, setNewLead] = useState("");
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
@@ -77,16 +95,6 @@ export function AccessView({
   const isGlobal = deptId === GLOBAL;
   const generalSet = useMemo(() => new Set(generalModules), [generalModules]);
 
-  // Module ids assigned to each department.
-  const modulesByDept = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const dm of departmentModules) {
-      if (!map.has(dm.department_id)) map.set(dm.department_id, new Set());
-      map.get(dm.department_id)!.add(dm.module_id);
-    }
-    return map;
-  }, [departmentModules]);
-
   // Roles belonging to the selected department (or the global bucket).
   const rolesInScope = roles.filter(
     (r) => (r.department_id ?? GLOBAL) === deptId
@@ -94,21 +102,10 @@ export function AccessView({
   const selectedRole =
     rolesInScope.find((r) => r.id === roleId) ?? rolesInScope[0] ?? null;
 
-  // Matrix rows for the selected role. Plain computation — the React Compiler
-  // memoizes it; a manual useMemo can't (it depends on non-memoized state).
-  //   * A global/system role (no department) can hold ANY module.
-  //   * A department role gets general modules + its department's modules.
-  const matrixIds = new Set<string>(generalModules);
-  if (selectedRole && !selectedRole.department_id) {
-    for (const r of resources) matrixIds.add(r.id);
-  } else if (selectedRole?.department_id) {
-    for (const id of modulesByDept.get(selectedRole.department_id) ?? [])
-      matrixIds.add(id);
-  }
-  // Preserve registry order; only include modules the app actually knows.
-  const matrixResources = resources.filter((r) => matrixIds.has(r.id));
+  // Global/system roles can hold ANY module — show every resource as a row.
+  const matrixResources = resources;
 
-  // Fast lookups: explicit grants, and per-role wildcard actions.
+  // Fast lookups for the global-role matrix.
   const granted = new Set(
     permissions.map((p) => grantKey(p.role_id, p.resource, p.action))
   );
@@ -122,10 +119,30 @@ export function AccessView({
     () => new Map(departments.map((d) => [d.id, d])),
     [departments]
   );
+  const userById = useMemo(
+    () => new Map(users.map((u) => [u.id, u])),
+    [users]
+  );
   const roleLabel = (r: Role) =>
     r.department_id
       ? `${r.label} · ${deptById.get(r.department_id)?.label ?? "—"}`
       : r.label;
+  const userLabel = (u: AccessUser) => u.full_name ?? u.email ?? u.id;
+
+  // Module ids assigned to each department + leads of the selected department.
+  const modulesByDept = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const dm of departmentModules) {
+      if (!map.has(dm.department_id)) map.set(dm.department_id, new Set());
+      map.get(dm.department_id)!.add(dm.module_id);
+    }
+    return map;
+  }, [departmentModules]);
+
+  const leadsOfDept = isGlobal
+    ? []
+    : departmentLeads.filter((l) => l.department_id === deptId);
+  const leadUserIds = new Set(leadsOfDept.map((l) => l.user_id));
 
   /** Run a server action, surface its error, and refresh server data. */
   const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) =>
@@ -161,6 +178,7 @@ export function AccessView({
   const selectDept = (id: string) => {
     setDeptId(id);
     setRoleId(null);
+    setNewLead("");
   };
 
   return (
@@ -168,8 +186,9 @@ export function AccessView({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Access Control</h1>
         <p className="text-muted-foreground">
-          Organise module access by department, manage the roles under each, and
-          who holds which role.
+          Create roles and departments, choose each department&apos;s modules and
+          lead, and invite people. Each department&apos;s lead sets their own
+          roles&apos; permissions on their Team Access page.
         </p>
       </div>
 
@@ -197,10 +216,7 @@ export function AccessView({
         <CardContent>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             {resources.map((res) => (
-              <label
-                key={res.id}
-                className="flex items-center gap-2 text-sm"
-              >
+              <label key={res.id} className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   className="size-4 accent-primary"
@@ -295,59 +311,138 @@ export function AccessView({
         </Card>
 
         <div className="space-y-6">
-          {/* Modules in this department ----------------------------------- */}
+          {/* Department lead + modules (per-department admin setup) -------- */}
           {!isGlobal && (
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  Modules in {deptById.get(deptId)?.label ?? "this department"}
-                </CardTitle>
-                <CardDescription>
-                  Choose which modules this department&apos;s roles can be granted.
-                  General modules are always available and not listed here.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {resources.filter((r) => !generalSet.has(r.id)).length === 0 ? (
-                  <p className="text-muted-foreground text-sm">
-                    No department-specific modules exist yet. As business modules
-                    (e.g. Projects) are added, they&apos;ll appear here.
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-x-6 gap-y-2">
-                    {resources
-                      .filter((r) => !generalSet.has(r.id))
-                      .map((res) => {
-                        const included =
-                          modulesByDept.get(deptId)?.has(res.id) ?? false;
-                        return (
-                          <label
-                            key={res.id}
-                            className="flex items-center gap-2 text-sm"
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShieldCheck className="size-4" /> Department lead
+                  </CardTitle>
+                  <CardDescription>
+                    The lead manages this department&apos;s role permissions and
+                    team — and only this department&apos;s.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {leadsOfDept.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                      No lead appointed yet.
+                    </p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {leadsOfDept.map((l) => (
+                        <li
+                          key={l.user_id}
+                          className="flex items-center justify-between rounded-md bg-accent/40 px-2 py-1.5 text-sm"
+                        >
+                          {userById.get(l.user_id)
+                            ? userLabel(userById.get(l.user_id)!)
+                            : l.user_id}
+                          <button
+                            type="button"
+                            disabled={pending}
+                            onClick={() =>
+                              run(() =>
+                                setDepartmentLead(deptId, l.user_id, false)
+                              )
+                            }
+                            className="text-muted-foreground hover:text-destructive"
+                            aria-label="Remove lead"
                           >
-                            <input
-                              type="checkbox"
-                              className="size-4 accent-primary"
-                              checked={included}
-                              disabled={pending}
-                              onChange={(e) =>
-                                run(() =>
-                                  setDepartmentModule(
-                                    deptId,
-                                    res.id,
-                                    e.target.checked
-                                  )
-                                )
-                              }
-                            />
-                            {res.label}
-                          </label>
-                        );
-                      })}
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <div className="flex gap-2">
+                    <select
+                      className="border-input bg-background h-9 flex-1 rounded-md border px-2 text-sm"
+                      value={newLead}
+                      disabled={pending}
+                      onChange={(e) => setNewLead(e.target.value)}
+                      aria-label="Appoint a lead"
+                    >
+                      <option value="">— choose a person —</option>
+                      {users
+                        .filter((u) => !leadUserIds.has(u.id))
+                        .map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {userLabel(u)}
+                          </option>
+                        ))}
+                    </select>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={pending || !newLead}
+                      onClick={() => {
+                        const uid = newLead;
+                        setNewLead("");
+                        run(() => setDepartmentLead(deptId, uid, true));
+                      }}
+                    >
+                      Appoint
+                    </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    Modules in {deptById.get(deptId)?.label ?? "this department"}
+                  </CardTitle>
+                  <CardDescription>
+                    Choose which modules this department&apos;s roles can be
+                    granted. General modules are always available and not listed
+                    here.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {resources.filter((r) => !generalSet.has(r.id)).length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                      No department-specific modules exist yet. As business modules
+                      (e.g. Projects) are added, they&apos;ll appear here.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-x-6 gap-y-2">
+                      {resources
+                        .filter((r) => !generalSet.has(r.id))
+                        .map((res) => {
+                          const included =
+                            modulesByDept.get(deptId)?.has(res.id) ?? false;
+                          return (
+                            <label
+                              key={res.id}
+                              className="flex items-center gap-2 text-sm"
+                            >
+                              <input
+                                type="checkbox"
+                                className="size-4 accent-primary"
+                                checked={included}
+                                disabled={pending}
+                                onChange={(e) =>
+                                  run(() =>
+                                    setDepartmentModule(
+                                      deptId,
+                                      res.id,
+                                      e.target.checked
+                                    )
+                                  )
+                                }
+                              />
+                              {res.label}
+                            </label>
+                          );
+                        })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
           )}
 
           <div className="grid gap-6 md:grid-cols-[220px_1fr]">
@@ -356,7 +451,9 @@ export function AccessView({
               <CardHeader>
                 <CardTitle>Roles</CardTitle>
                 <CardDescription>
-                  {isGlobal ? "Global / system roles." : "Roles in this department."}
+                  {isGlobal
+                    ? "Global / system roles."
+                    : "Roles in this department."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-1">
@@ -402,9 +499,7 @@ export function AccessView({
                   onSubmit={(e) => {
                     e.preventDefault();
                     if (!newRole.trim()) return;
-                    run(() =>
-                      createRole(newRole, isGlobal ? null : deptId)
-                    );
+                    run(() => createRole(newRole, isGlobal ? null : deptId));
                     setNewRole("");
                   }}
                 >
@@ -421,7 +516,7 @@ export function AccessView({
               </CardContent>
             </Card>
 
-            {/* Permission matrix ----------------------------------------- */}
+            {/* Permissions: global roles edited here; department roles by lead */}
             <Card>
               <CardHeader>
                 <CardTitle>
@@ -430,120 +525,34 @@ export function AccessView({
                     : "Permissions"}
                 </CardTitle>
                 <CardDescription>
-                  Tick an action to grant it. Business modules show every verb;
-                  admin modules keep their fixed set. System-wide (★) access is
-                  managed in the database, not here.
+                  {isGlobal
+                    ? "Tick an action to grant it. System-wide (★) access is managed in the database, not here."
+                    : "These roles' permissions are set by the department's lead on their Team Access page."}
                 </CardDescription>
-                {selectedRole && !selectedRole.is_system && (
-                  <label
-                    className="mt-2 flex items-center gap-2 text-sm"
-                    title="Department-wide roles see every project in scope; project-scoped roles reach a project only via membership."
-                  >
-                    <input
-                      type="checkbox"
-                      className="accent-primary size-4"
-                      checked={selectedRole.is_department_wide}
-                      disabled={pending}
-                      onChange={(e) =>
-                        run(() =>
-                          setRoleDepartmentWide(selectedRole.id, e.target.checked)
-                        )
-                      }
-                    />
-                    Department-wide{" "}
-                    <span className="text-muted-foreground">
-                      (sees all projects; otherwise access is per-project membership)
-                    </span>
-                  </label>
-                )}
               </CardHeader>
               <CardContent>
-                {!selectedRole ? (
-                  <p className="text-muted-foreground text-sm">Select a role.</p>
-                ) : matrixResources.length === 0 ? (
+                {!isGlobal ? (
                   <p className="text-muted-foreground text-sm">
-                    No modules are available to this role yet. Add modules to its
-                    department above, or mark modules as general.
+                    Appoint a lead above; they manage permissions for this
+                    department&apos;s roles. Here you control which modules the
+                    department may use and who its roles are.
                   </p>
+                ) : !selectedRole ? (
+                  <p className="text-muted-foreground text-sm">Select a role.</p>
                 ) : (
-                  <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-muted-foreground border-b text-left">
-                        <th className="py-2 font-medium">Module</th>
-                        {ACTIONS.map((a) => (
-                          <th
-                            key={a}
-                            className="px-2 py-2 text-center font-medium"
-                          >
-                            {ACTION_LABEL[a]}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {matrixResources.map((res) => (
-                        <tr key={res.id} className="border-b last:border-0">
-                          <td className="py-2 font-medium">
-                            {res.label}
-                            {generalSet.has(res.id) && (
-                              <span className="text-muted-foreground ml-1 text-xs">
-                                (general)
-                              </span>
-                            )}
-                          </td>
-                          {ACTIONS.map((action) => {
-                            // Business modules are fully open (every verb
-                            // grantable); admin/general modules keep their
-                            // declared verb set.
-                            const supported = generalSet.has(res.id)
-                              ? res.actions.includes(action)
-                              : true;
-                            const isWildcard = wildcard.has(
-                              `${selectedRole.id}:${action}`
-                            );
-                            const checked =
-                              isWildcard ||
-                              granted.has(
-                                grantKey(selectedRole.id, res.id, action)
-                              );
-                            return (
-                              <td key={action} className="py-2 text-center">
-                                {supported ? (
-                                  <input
-                                    type="checkbox"
-                                    className="size-4 accent-primary"
-                                    checked={checked}
-                                    disabled={pending || isWildcard}
-                                    title={
-                                      isWildcard
-                                        ? "Granted system-wide (★)"
-                                        : undefined
-                                    }
-                                    onChange={(e) =>
-                                      run(() =>
-                                        setPermission(
-                                          selectedRole.id,
-                                          res.id,
-                                          action,
-                                          e.target.checked
-                                        )
-                                      )
-                                    }
-                                  />
-                                ) : (
-                                  <span className="text-muted-foreground/40">
-                                    —
-                                  </span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  </div>
+                  <PermissionMatrix
+                    role={selectedRole}
+                    resources={matrixResources}
+                    granted={granted}
+                    wildcard={wildcard}
+                    generalSet={generalSet}
+                    disabled={pending}
+                    onToggle={(resource, action, checked) =>
+                      run(() =>
+                        setPermission(selectedRole.id, resource, action, checked)
+                      )
+                    }
+                  />
                 )}
               </CardContent>
             </Card>
@@ -611,7 +620,7 @@ export function AccessView({
             <tbody>
               {users.map((u) => (
                 <tr key={u.id} className="border-b last:border-0">
-                  <td className="py-2">{u.full_name ?? u.email ?? u.id}</td>
+                  <td className="py-2">{userLabel(u)}</td>
                   <td className="py-2">
                     <select
                       className="border-input bg-background h-8 rounded-md border px-2"
@@ -631,9 +640,7 @@ export function AccessView({
                   </td>
                   <td className="py-2 text-right">
                     {u.id === currentUserId ? (
-                      <span className="text-muted-foreground/50 text-xs">
-                        you
-                      </span>
+                      <span className="text-muted-foreground/50 text-xs">you</span>
                     ) : (
                       <button
                         type="button"
@@ -641,7 +648,7 @@ export function AccessView({
                         onClick={() => {
                           if (
                             confirm(
-                              `Remove ${u.full_name ?? u.email ?? "this user"}? This permanently deletes their account.`
+                              `Remove ${userLabel(u)}? This permanently deletes their account.`
                             )
                           ) {
                             run(() => removeUser(u.id));

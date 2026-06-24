@@ -5,6 +5,7 @@ import { dashboardModule } from "@/modules/dashboard";
 import { accessModule } from "@/modules/access";
 import { auditModule } from "@/modules/audit";
 import { designModule } from "@/modules/design";
+import { teamAccessModule } from "@/modules/team-access";
 
 /**
  * A feature module's public contract.
@@ -76,6 +77,7 @@ export function moduleResources(): ModuleResource[] {
 export const modules: ModuleDefinition[] = [
   dashboardModule,
   designModule,
+  teamAccessModule,
   accessModule,
   auditModule,
 ];

@@ -7,7 +7,11 @@ import { createAdminClient } from "@/core/supabase/admin";
 import { authorize, authorizeProject } from "@/core/rbac/can";
 import { getUser } from "@/core/auth/get-user";
 import { logAudit } from "@/modules/audit/log";
-import type { Discipline } from "@/modules/design/types";
+import type {
+  Discipline,
+  DesignStage,
+  FolderCapability,
+} from "@/modules/design/types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 const ok: ActionResult = { ok: true };
@@ -582,5 +586,360 @@ export async function approveBrief(briefId: string): Promise<ActionResult> {
   await logAudit("design.brief.approve", "Approved a brief", { briefId });
   revalidatePath(`/design/${brief.project_id}/brief/${briefId}`);
   revalidatePath(`/design/${brief.project_id}`);
+  return ok;
+}
+
+// ============================== STAGE PROGRESS ===============================
+
+/** Tick / untick a checklist step for a project. Drives the progress bars. */
+export async function toggleProjectStep(
+  projectId: string,
+  stepId: string,
+  done: boolean
+): Promise<ActionResult> {
+  const denied = await authorizeProject(projectId, "design.project", "update");
+  if (denied) return denied;
+
+  const supabase = await createClient();
+  const user = await getUser();
+  const { error } = await supabase.from("design_project_steps").upsert({
+    project_id: projectId,
+    step_id: stepId,
+    done,
+    done_by: done ? user?.id ?? null : null,
+    done_at: done ? new Date().toISOString() : null,
+  });
+  if (error) return fail(error.message);
+  revalidatePath(`/design/${projectId}`);
+  return ok;
+}
+
+// ============================== FOLDER ACCESS ================================
+
+/** Set (or clear, when capability is null) a role's capability on a folder. */
+export async function setFolderAccess(
+  folderKey: string,
+  roleId: string,
+  capability: FolderCapability | null
+): Promise<ActionResult> {
+  const denied = await authorize("design.folder", "manage");
+  if (denied) return denied;
+
+  const supabase = await createClient();
+  if (capability === null) {
+    const { error } = await supabase
+      .from("design_folder_access")
+      .delete()
+      .match({ folder_key: folderKey, role_id: roleId });
+    if (error) return fail(error.message);
+  } else {
+    const { error } = await supabase
+      .from("design_folder_access")
+      .upsert({ folder_key: folderKey, role_id: roleId, capability });
+    if (error) return fail(error.message);
+  }
+  await logAudit("design.folder.access", "Changed folder access", {
+    folderKey,
+    roleId,
+    capability,
+  });
+  revalidatePath("/design/settings");
+  return ok;
+}
+
+// ============================== STAGE CHECKLIST ==============================
+
+export async function addStageStep(
+  stage: DesignStage,
+  label: string
+): Promise<ActionResult> {
+  const denied = await authorize("design.folder", "manage");
+  if (denied) return denied;
+  const t = label.trim();
+  if (!t) return fail("Enter a step.");
+  const supabase = await createClient();
+  const { data: max } = await supabase
+    .from("design_stage_steps")
+    .select("sort")
+    .eq("stage", stage)
+    .order("sort", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const { error } = await supabase
+    .from("design_stage_steps")
+    .insert({ stage, label: t, sort: (max?.sort ?? 0) + 1 });
+  if (error) return fail(error.message);
+  revalidatePath("/design/settings");
+  return ok;
+}
+
+export async function updateStageStep(
+  stepId: string,
+  label: string
+): Promise<ActionResult> {
+  const denied = await authorize("design.folder", "manage");
+  if (denied) return denied;
+  const t = label.trim();
+  if (!t) return fail("Enter a step.");
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("design_stage_steps")
+    .update({ label: t })
+    .eq("id", stepId);
+  if (error) return fail(error.message);
+  revalidatePath("/design/settings");
+  return ok;
+}
+
+export async function deleteStageStep(stepId: string): Promise<ActionResult> {
+  const denied = await authorize("design.folder", "manage");
+  if (denied) return denied;
+  const supabase = await createClient();
+  const { error } = await supabase.from("design_stage_steps").delete().eq("id", stepId);
+  if (error) return fail(error.message);
+  revalidatePath("/design/settings");
+  return ok;
+}
+
+// ============================== FILES ========================================
+
+const BUCKET = "design-files";
+
+/** Whether the caller may add/replace/remove files in a folder right now
+ * (approver any time; editor only while the folder isn't locked). */
+async function canWriteFolder(
+  projectId: string,
+  folderKey: string
+): Promise<boolean> {
+  const supabase = await createClient();
+  const [{ data: approve }, { data: edit }, { data: locked }] = await Promise.all([
+    supabase.rpc("has_folder_capability", { p_project: projectId, p_folder: folderKey, p_min: "approve" }),
+    supabase.rpc("has_folder_capability", { p_project: projectId, p_folder: folderKey, p_min: "edit" }),
+    supabase.rpc("is_folder_locked", { p_project: projectId, p_folder: folderKey }),
+  ]);
+  return approve === true || (edit === true && locked !== true);
+}
+
+/** Upload a file into a project folder. Bytes go to private Storage via the
+ * service role; the metadata row is written through RLS as the user. */
+export async function uploadFile(
+  projectId: string,
+  folderKey: string,
+  formData: FormData
+): Promise<ActionResult> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return fail("Choose a file.");
+  if (!(await canWriteFolder(projectId, folderKey)))
+    return fail("This folder is read-only for you, or it's locked at this stage.");
+
+  const id = crypto.randomUUID();
+  const safeName = file.name.replace(/[^\w.\- ]+/g, "_");
+  const path = `${projectId}/${folderKey}/${id}-${safeName}`;
+
+  const admin = createAdminClient();
+  const { error: upErr } = await admin.storage
+    .from(BUCKET)
+    .upload(path, file, { contentType: file.type || undefined, upsert: false });
+  if (upErr) return fail(upErr.message);
+
+  const supabase = await createClient();
+  const user = await getUser();
+  const { error } = await supabase.from("design_files").insert({
+    id,
+    project_id: projectId,
+    folder_key: folderKey,
+    name: file.name,
+    storage_path: path,
+    mime_type: file.type || null,
+    size_bytes: file.size,
+    uploaded_by: user?.id ?? null,
+  });
+  if (error) {
+    // RLS rejected (or other) — don't leave orphaned bytes.
+    await admin.storage.from(BUCKET).remove([path]);
+    return fail(error.message);
+  }
+  await logAudit("design.folder.upload", "Uploaded a file", { projectId, folderKey, name: file.name });
+  revalidatePath(`/design/${projectId}/folder/${folderKey}`);
+  return ok;
+}
+
+/** A short-lived signed download URL for a file the caller can view. */
+export async function getFileDownloadUrl(
+  fileId: string
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  // RLS ensures the caller can only read files in folders they can view.
+  const { data: file } = await supabase
+    .from("design_files")
+    .select("storage_path, name")
+    .eq("id", fileId)
+    .maybeSingle();
+  if (!file) return { ok: false, error: "File not found." };
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.storage
+    .from(BUCKET)
+    .createSignedUrl(file.storage_path, 60, { download: file.name });
+  if (error || !data)
+    return { ok: false, error: error?.message ?? "Could not create a link." };
+  return { ok: true, url: data.signedUrl };
+}
+
+export async function deleteFile(fileId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: file } = await supabase
+    .from("design_files")
+    .select("project_id, folder_key, storage_path, name")
+    .eq("id", fileId)
+    .maybeSingle();
+  if (!file) return fail("File not found.");
+  if (!(await canWriteFolder(file.project_id, file.folder_key)))
+    return fail("This folder is read-only for you, or it's locked at this stage.");
+
+  const { error } = await supabase.from("design_files").delete().eq("id", fileId);
+  if (error) return fail(error.message);
+  createAdminClient().storage.from(BUCKET).remove([file.storage_path]);
+  await logAudit("design.folder.delete-file", "Deleted a file", {
+    projectId: file.project_id,
+    folderKey: file.folder_key,
+    name: file.name,
+  });
+  revalidatePath(`/design/${file.project_id}/folder/${file.folder_key}`);
+  return ok;
+}
+
+/** Issue a controlled GFC package: copy the chosen files into GFC Issued as the
+ * new current version, superseding any prior issue with the same name. */
+export async function issueFiles(
+  projectId: string,
+  fileIds: string[]
+): Promise<ActionResult> {
+  if (!fileIds.length) return fail("Pick at least one file to issue.");
+  const supabase = await createClient();
+  const { data: canIssue } = await supabase.rpc("has_folder_capability", {
+    p_project: projectId,
+    p_folder: "gfc_issued",
+    p_min: "approve",
+  });
+  if (canIssue !== true) return fail("Only the design head can issue the GFC package.");
+
+  const admin = createAdminClient();
+  const user = await getUser();
+  for (const fileId of fileIds) {
+    const { data: src } = await supabase
+      .from("design_files")
+      .select("name, storage_path, mime_type, size_bytes")
+      .eq("id", fileId)
+      .maybeSingle();
+    if (!src) continue;
+
+    // Latest issued version of this name, so we can bump it.
+    const { data: prior } = await supabase
+      .from("design_files")
+      .select("id, version_no")
+      .eq("project_id", projectId)
+      .eq("folder_key", "gfc_issued")
+      .eq("name", src.name)
+      .order("version_no", { ascending: false });
+    const nextNo = (prior?.[0]?.version_no ?? 0) + 1;
+
+    const newId = crypto.randomUUID();
+    const safeName = src.name.replace(/[^\w.\- ]+/g, "_");
+    const toPath = `${projectId}/gfc_issued/${newId}-v${nextNo}-${safeName}`;
+    const { error: copyErr } = await admin.storage
+      .from(BUCKET)
+      .copy(src.storage_path, toPath);
+    if (copyErr) return fail(copyErr.message);
+
+    // Supersede previous current issues of this name.
+    if (prior?.length) {
+      await supabase
+        .from("design_files")
+        .update({ is_current: false })
+        .eq("project_id", projectId)
+        .eq("folder_key", "gfc_issued")
+        .eq("name", src.name);
+    }
+    const { error } = await supabase.from("design_files").insert({
+      id: newId,
+      project_id: projectId,
+      folder_key: "gfc_issued",
+      name: src.name,
+      storage_path: toPath,
+      mime_type: src.mime_type,
+      size_bytes: src.size_bytes,
+      version_no: nextNo,
+      is_current: true,
+      source_file_id: fileId,
+      uploaded_by: user?.id ?? null,
+    });
+    if (error) {
+      await admin.storage.from(BUCKET).remove([toPath]);
+      return fail(error.message);
+    }
+  }
+  await logAudit("design.folder.issue", "Issued GFC files", { projectId, count: fileIds.length });
+  revalidatePath(`/design/${projectId}/folder/gfc_issued`);
+  revalidatePath(`/design/${projectId}`);
+  return ok;
+}
+
+// ============================== CHANGE ORDERS ================================
+
+export async function raiseChangeRequest(
+  projectId: string,
+  title: string,
+  reason: string,
+  folderKey: string | null
+): Promise<ActionResult> {
+  const denied = await authorizeProject(projectId, "design.project", "read");
+  if (denied) return denied;
+  const t = title.trim();
+  if (!t) return fail("Enter what needs to change.");
+  const supabase = await createClient();
+  const user = await getUser();
+  const { error } = await supabase.from("design_change_requests").insert({
+    project_id: projectId,
+    title: t,
+    reason: reason.trim() || null,
+    folder_key: folderKey,
+    raised_by: user?.id ?? null,
+  });
+  if (error) return fail(error.message);
+  await logAudit("design.change.raise", "Raised a change request", { projectId, title: t });
+  revalidatePath(`/design/${projectId}`);
+  return ok;
+}
+
+export async function decideChangeRequest(
+  requestId: string,
+  decision: "approved" | "rejected",
+  note: string
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: cr } = await supabase
+    .from("design_change_requests")
+    .select("project_id, status")
+    .eq("id", requestId)
+    .maybeSingle();
+  if (!cr) return fail("Change request not found.");
+  const denied = await authorizeProject(cr.project_id, "design.project", "approve");
+  if (denied) return denied;
+  if (cr.status !== "open") return fail("This request has already been decided.");
+
+  const user = await getUser();
+  const { error } = await supabase
+    .from("design_change_requests")
+    .update({
+      status: decision,
+      decided_by: user?.id ?? null,
+      decided_at: new Date().toISOString(),
+      decision_note: note.trim() || null,
+    })
+    .eq("id", requestId);
+  if (error) return fail(error.message);
+  await logAudit("design.change.decide", `Change request ${decision}`, { requestId });
+  revalidatePath(`/design/${cr.project_id}`);
   return ok;
 }

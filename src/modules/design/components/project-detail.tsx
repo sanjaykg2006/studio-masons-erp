@@ -20,7 +20,12 @@ import type {
   ProjectBriefRow,
   ProjectMemberView,
 } from "@/modules/design/data";
-import type { DesignProject } from "@/modules/design/types";
+import type {
+  DesignChangeRequest,
+  DesignProject,
+  ProjectFolder,
+  ProjectProgress,
+} from "@/modules/design/types";
 import {
   addMember,
   createBriefs,
@@ -32,9 +37,16 @@ import {
   BriefStatusBadge,
   ProjectStatusBadge,
 } from "@/modules/design/components/status-badge";
+import { ProgressTracker } from "@/modules/design/components/progress-tracker";
+import { FoldersCard } from "@/modules/design/components/folders-card";
+import { ChangeRequestsCard } from "@/modules/design/components/change-requests-card";
 
 type Props = {
   project: DesignProject;
+  progress: ProjectProgress;
+  folders: ProjectFolder[];
+  changeRequests: DesignChangeRequest[];
+  canDecideChanges: boolean;
   members: ProjectMemberView[];
   briefs: ProjectBriefRow[];
   roleLabels: Record<string, string>;
@@ -50,12 +62,17 @@ type Props = {
 
 export function ProjectDetail({
   project,
+  progress,
+  folders,
+  changeRequests,
+  canDecideChanges,
   members,
   briefs,
   roleLabels,
   users,
   roles,
   templates,
+  canUpdate,
   canDelete,
   canFinalise,
   canManageMembers,
@@ -136,6 +153,23 @@ export function ProjectDetail({
           {error}
         </div>
       )}
+
+      {/* Progress tracker --------------------------------------------------- */}
+      <ProgressTracker
+        projectId={project.id}
+        progress={progress}
+        canUpdate={canUpdate}
+      />
+
+      {/* Controlled folders ------------------------------------------------- */}
+      <FoldersCard projectId={project.id} folders={folders} />
+
+      {/* Change Order Register ---------------------------------------------- */}
+      <ChangeRequestsCard
+        projectId={project.id}
+        requests={changeRequests}
+        canDecide={canDecideChanges}
+      />
 
       {/* Brief(s) ------------------------------------------------------------ */}
       <Card>

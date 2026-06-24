@@ -22,10 +22,12 @@ export function ProjectsList({
   projects,
   canCreate,
   canTemplates,
+  canSettings,
 }: {
   projects: DesignProject[];
   canCreate: boolean;
   canTemplates: boolean;
+  canSettings: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -63,6 +65,11 @@ export function ProjectsList({
           {canTemplates && (
             <Button asChild size="sm" variant="outline">
               <Link href="/design/templates">Templates</Link>
+            </Button>
+          )}
+          {canSettings && (
+            <Button asChild size="sm" variant="outline">
+              <Link href="/design/settings">Settings</Link>
             </Button>
           )}
           {canCreate && (

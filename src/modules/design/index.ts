@@ -37,5 +37,10 @@ export const designModule: ModuleDefinition = {
       label: "Design · Membership",
       actions: ["read", "manage"],
     },
+    {
+      id: "design.folder",
+      label: "Design · Folders & Settings",
+      actions: ["read", "issue", "manage"],
+    },
   ],
 };

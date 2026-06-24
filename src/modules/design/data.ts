@@ -3,18 +3,31 @@ import "server-only";
 import { createClient } from "@/core/supabase/server";
 import { getProjectPermissions } from "@/core/rbac/permissions";
 import { permissionKey, type PermissionKey } from "@/core/rbac/types";
-import type {
-  BriefStatus,
-  DesignBrief,
-  DesignProject,
-  DesignTemplate,
-  DesignTemplateColumn,
-  DesignTemplateQuestion,
-  DesignTemplateSection,
-  DesignTemplateVersion,
-  Discipline,
-  ProjectStatus,
-  TemplateStatus,
+import {
+  DESIGN_STAGES,
+  DESIGN_STAGE_LABEL,
+  type BriefStatus,
+  type DesignBrief,
+  type DesignChangeRequest,
+  type DesignFile,
+  type DesignFolderAccess,
+  type DesignFolderType,
+  type DesignProject,
+  type DesignStage,
+  type DesignStageStep,
+  type FolderCapability,
+  type ProjectFolder,
+  type ProjectStep,
+  type DesignTemplate,
+  type DesignTemplateColumn,
+  type DesignTemplateQuestion,
+  type DesignTemplateSection,
+  type DesignTemplateVersion,
+  type Discipline,
+  type ProjectProgress,
+  type ProjectStatus,
+  type StageProgress,
+  type TemplateStatus,
 } from "@/modules/design/types";
 
 // --- Templates ---------------------------------------------------------------
@@ -348,6 +361,137 @@ export async function getPublishableTemplates(): Promise<
     if (versionId) result.push({ id: info.id, label: info.label, discipline: info.discipline, version_id: versionId });
   }
   return result.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+// --- Stage progress ----------------------------------------------------------
+
+/** A project's checklist progress: per-stage %, the current stage, and overall %. */
+export async function getProjectProgress(
+  projectId: string
+): Promise<ProjectProgress> {
+  const supabase = await createClient();
+  const [{ data: steps }, { data: done }] = await Promise.all([
+    supabase.from("design_stage_steps").select("id, stage, sort, label").order("sort"),
+    supabase.from("design_project_steps").select("step_id, done").eq("project_id", projectId),
+  ]);
+
+  const doneSet = new Set(
+    ((done ?? []) as { step_id: string; done: boolean }[])
+      .filter((d) => d.done)
+      .map((d) => d.step_id)
+  );
+
+  const byStage = new Map<DesignStage, ProjectStep[]>();
+  for (const s of (steps ?? []) as DesignStageStep[]) {
+    if (!byStage.has(s.stage)) byStage.set(s.stage, []);
+    byStage.get(s.stage)!.push({ ...s, done: doneSet.has(s.id) });
+  }
+
+  const stages: StageProgress[] = DESIGN_STAGES.map((stage) => {
+    const stageSteps = (byStage.get(stage) ?? []).sort((a, b) => a.sort - b.sort);
+    const total = stageSteps.length;
+    const completed = stageSteps.filter((s) => s.done).length;
+    return {
+      stage,
+      label: DESIGN_STAGE_LABEL[stage],
+      steps: stageSteps,
+      pct: total === 0 ? 0 : Math.round((completed / total) * 100),
+    };
+  });
+
+  // Current stage = first stage not yet fully complete; the last once all done.
+  const current = stages.find((s) => s.pct < 100) ?? stages[stages.length - 1];
+  // Overall = each stage weighted equally (20%), filling gradually within a stage.
+  const overallPct = Math.round(
+    stages.reduce((sum, s) => sum + s.pct, 0) / stages.length
+  );
+
+  return { stages, currentStage: current.stage, overallPct };
+}
+
+// --- Controlled folders (settings) -------------------------------------------
+
+export type FolderAccessConfig = {
+  folders: DesignFolderType[];
+  /** Design department roles, for the matrix columns. */
+  roles: DesignRole[];
+  /** Capability keyed by `${folder_key}:${role_id}`; absent = no access. */
+  access: Record<string, FolderCapability>;
+};
+
+/** The folder catalogue + design roles + current access grants, for the editor. */
+export async function getFolderAccessConfig(): Promise<FolderAccessConfig> {
+  const supabase = await createClient();
+  const [foldersRes, rolesRes, accessRes] = await Promise.all([
+    supabase.from("design_folder_types").select("key, label, sort, description").order("sort"),
+    supabase.rpc("design_roles"),
+    supabase.from("design_folder_access").select("folder_key, role_id, capability"),
+  ]);
+
+  const access: Record<string, FolderCapability> = {};
+  for (const a of (accessRes.data ?? []) as DesignFolderAccess[]) {
+    access[`${a.folder_key}:${a.role_id}`] = a.capability;
+  }
+  return {
+    folders: (foldersRes.data ?? []) as DesignFolderType[],
+    roles: (rolesRes.data ?? []) as DesignRole[],
+    access,
+  };
+}
+
+// --- Controlled folders (per project) ----------------------------------------
+
+/** The 12 folders for a project with the caller's capability rank + lock state. */
+export async function getProjectFolders(
+  projectId: string
+): Promise<ProjectFolder[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("design_project_folders", {
+    p_project: projectId,
+  });
+  return (data ?? []) as ProjectFolder[];
+}
+
+/** Files in one project folder (RLS scopes to folders the caller can view). */
+export async function getFolderFiles(
+  projectId: string,
+  folderKey: string
+): Promise<DesignFile[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("design_files")
+    .select(
+      "id, project_id, folder_key, name, storage_path, mime_type, size_bytes, version_no, is_current, source_file_id, created_at"
+    )
+    .eq("project_id", projectId)
+    .eq("folder_key", folderKey)
+    .order("created_at", { ascending: false });
+  return (data ?? []) as DesignFile[];
+}
+
+/** The change-order register for a project. */
+export async function getProjectChangeRequests(
+  projectId: string
+): Promise<DesignChangeRequest[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("design_change_requests")
+    .select(
+      "id, project_id, folder_key, title, reason, status, raised_at, decided_at, decision_note"
+    )
+    .eq("project_id", projectId)
+    .order("raised_at", { ascending: false });
+  return (data ?? []) as DesignChangeRequest[];
+}
+
+/** Every checklist step (across stages), for the checklist editor. */
+export async function getStageSteps(): Promise<DesignStageStep[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("design_stage_steps")
+    .select("id, stage, sort, label")
+    .order("sort");
+  return (data ?? []) as DesignStageStep[];
 }
 
 export type { ProjectStatus, BriefStatus };

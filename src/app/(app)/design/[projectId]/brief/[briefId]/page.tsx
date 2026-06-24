@@ -23,6 +23,7 @@ export default async function BriefPage({
       tree={detail.tree}
       answers={detail.answers}
       canEdit={detail.canEdit}
+      canReview={detail.canReview}
       canApprove={detail.canApprove}
     />
   );

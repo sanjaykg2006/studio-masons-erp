@@ -93,11 +93,14 @@ export function AccessView({
   const selectedRole =
     rolesInScope.find((r) => r.id === roleId) ?? rolesInScope[0] ?? null;
 
-  // Matrix rows for the selected role: general modules + its department's
-  // modules. Plain computation — the React Compiler memoizes it; a manual
-  // useMemo can't (it depends on the non-memoized `selectedRole`).
+  // Matrix rows for the selected role. Plain computation — the React Compiler
+  // memoizes it; a manual useMemo can't (it depends on non-memoized state).
+  //   * A global/system role (no department) can hold ANY module.
+  //   * A department role gets general modules + its department's modules.
   const matrixIds = new Set<string>(generalModules);
-  if (selectedRole?.department_id) {
+  if (selectedRole && !selectedRole.department_id) {
+    for (const r of resources) matrixIds.add(r.id);
+  } else if (selectedRole?.department_id) {
     for (const id of modulesByDept.get(selectedRole.department_id) ?? [])
       matrixIds.add(id);
   }
@@ -426,8 +429,9 @@ export function AccessView({
                     : "Permissions"}
                 </CardTitle>
                 <CardDescription>
-                  Tick an action to grant it. System-wide (★) access is managed in
-                  the database, not here.
+                  Tick an action to grant it. Business modules show every verb;
+                  admin modules keep their fixed set. System-wide (★) access is
+                  managed in the database, not here.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -466,7 +470,12 @@ export function AccessView({
                             )}
                           </td>
                           {ACTIONS.map((action) => {
-                            const supported = res.actions.includes(action);
+                            // Business modules are fully open (every verb
+                            // grantable); admin/general modules keep their
+                            // declared verb set.
+                            const supported = generalSet.has(res.id)
+                              ? res.actions.includes(action)
+                              : true;
                             const isWildcard = wildcard.has(
                               `${selectedRole.id}:${action}`
                             );

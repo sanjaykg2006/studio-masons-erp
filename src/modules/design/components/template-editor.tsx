@@ -34,10 +34,12 @@ export function TemplateEditor({
   templateId,
   tree,
   canEdit,
+  canApprove,
 }: {
   templateId: string;
   tree: TemplateTree;
   canEdit: boolean;
+  canApprove: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -77,9 +79,9 @@ export function TemplateEditor({
               Edit (new draft)
             </Button>
           )}
-          {editable && (
+          {canApprove && isDraft && (
             <Button size="sm" disabled={pending} onClick={() => run(() => publishTemplateVersion(tree.version.id))}>
-              Publish version
+              Approve &amp; publish
             </Button>
           )}
         </div>

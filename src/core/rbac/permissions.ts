@@ -57,3 +57,15 @@ export async function getProjectPermissions(
   const rows = data as { resource: string; action: Action }[];
   return new Set(rows.map((row) => permissionKey(row.resource, row.action)));
 }
+
+/**
+ * Whether the user belongs to the Design module — department-wide OR a member of
+ * at least one project. Used for the sidebar link and the /design landing page,
+ * since project-only members have no global design grant. Backed by the
+ * has_design_access() DB function.
+ */
+export async function hasDesignAccess(): Promise<boolean> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("has_design_access");
+  return !error && data === true;
+}

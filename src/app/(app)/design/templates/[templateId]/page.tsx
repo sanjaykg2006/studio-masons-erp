@@ -15,6 +15,16 @@ export default async function TemplateEditorPage({
   const tree = await getEditableTemplate(templateId);
   if (!tree) notFound();
 
-  const canEdit = await can("design.template", "update");
-  return <TemplateEditor templateId={templateId} tree={tree} canEdit={canEdit} />;
+  const [canEdit, canApprove] = await Promise.all([
+    can("design.template", "update"),
+    can("design.template", "approve"),
+  ]);
+  return (
+    <TemplateEditor
+      templateId={templateId}
+      tree={tree}
+      canEdit={canEdit}
+      canApprove={canApprove}
+    />
+  );
 }

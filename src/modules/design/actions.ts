@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/core/supabase/server";
 import { createAdminClient } from "@/core/supabase/admin";
-import { authorize, authorizeProject, can } from "@/core/rbac/can";
+import { authorize, authorizeProject } from "@/core/rbac/can";
 import { getUser } from "@/core/auth/get-user";
 import { logAudit } from "@/modules/audit/log";
 import type { Discipline } from "@/modules/design/types";
@@ -122,9 +122,10 @@ async function cloneVersionStructure(fromId: string, toId: string): Promise<stri
   return null;
 }
 
-/** Publish a draft version, retiring any previously published one. */
+/** Publish a draft version, retiring any previously published one. Publishing
+ * is the approval step, so it needs the template "approve" verb. */
 export async function publishTemplateVersion(versionId: string): Promise<ActionResult> {
-  const denied = await authorize("design.template", "update");
+  const denied = await authorize("design.template", "approve");
   if (denied) return denied;
 
   const supabase = await createClient();
@@ -315,24 +316,23 @@ export async function createProject(
   if (error)
     return fail(error.code === "23505" ? "That project code is already in use." : error.message);
 
-  // If the creator isn't already department-wide, make them the project's
-  // accountable Project Lead so they can see and run it.
-  if (!(await can("design.project", "read"))) {
-    const admin = createAdminClient();
-    const user = await getUser();
-    const { data: lead } = await admin
-      .from("roles")
-      .select("id")
-      .eq("key", "design_project_lead")
-      .maybeSingle();
-    if (user && lead) {
-      await admin.from("design_project_members").insert({
-        project_id: project.id,
-        user_id: user.id,
-        role_id: lead.id,
-        added_by: user.id,
-      });
-    }
+  // Make the creator the project's accountable Project Lead so they can see and
+  // run it. Uses the admin client (role lookup + membership bypass RLS) after
+  // the create permission check above.
+  const admin = createAdminClient();
+  const user = await getUser();
+  const { data: lead } = await admin
+    .from("roles")
+    .select("id")
+    .eq("key", "design_project_lead")
+    .maybeSingle();
+  if (user && lead) {
+    await admin.from("design_project_members").upsert({
+      project_id: project.id,
+      user_id: user.id,
+      role_id: lead.id,
+      added_by: user.id,
+    });
   }
 
   await logAudit("design.project.create", `Created project "${trimmed}"`, { projectId: project.id });
@@ -520,6 +520,29 @@ export async function submitBriefForReview(briefId: string): Promise<ActionResul
     .eq("id", briefId);
   if (error) return fail(error.message);
   await logAudit("design.brief.submit", "Submitted a brief for review", { briefId });
+  revalidatePath(`/design/${brief.project_id}/brief/${briefId}`);
+  return ok;
+}
+
+/** Reviewer sends a submitted brief back to the team for changes (review verb). */
+export async function returnBriefForChanges(briefId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: brief } = await supabase
+    .from("design_briefs")
+    .select("project_id, status")
+    .eq("id", briefId)
+    .single();
+  if (!brief) return fail("Brief not found.");
+  const denied = await authorizeProject(brief.project_id, "design.brief", "review");
+  if (denied) return denied;
+  if (brief.status !== "in_review") return fail("Only a brief in review can be returned.");
+
+  const { error } = await supabase
+    .from("design_briefs")
+    .update({ status: "in_progress" })
+    .eq("id", briefId);
+  if (error) return fail(error.message);
+  await logAudit("design.brief.return", "Returned a brief for changes", { briefId });
   revalidatePath(`/design/${brief.project_id}/brief/${briefId}`);
   return ok;
 }

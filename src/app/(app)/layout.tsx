@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 
 import { requireUser } from "@/core/auth/get-user";
-import { getPermissions } from "@/core/rbac/permissions";
+import { getPermissions, hasDesignAccess } from "@/core/rbac/permissions";
+import { permissionKey } from "@/core/rbac/types";
 import { AppShell } from "@/components/layout/app-shell";
 
 /**
@@ -16,7 +17,17 @@ export default async function AppLayout({
   children: ReactNode;
 }) {
   const user = await requireUser();
-  const permissions = [...(await getPermissions())];
+  const [perms, designAccess] = await Promise.all([
+    getPermissions(),
+    hasDesignAccess(),
+  ]);
+  const permissions = [...perms];
+  // Nav hint (cosmetic): project-only members have no global design grant, but
+  // still need the Design link. RLS remains the real boundary.
+  if (designAccess) {
+    const key = permissionKey("design.project", "read");
+    if (!permissions.includes(key)) permissions.push(key);
+  }
   return (
     <AppShell user={user} permissions={permissions}>
       {children}

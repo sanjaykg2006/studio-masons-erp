@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ArrowLeft, CheckCircle2, Lock, Send } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Lock, RotateCcw, Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +17,7 @@ import type { TemplateTree } from "@/modules/design/data";
 import type { DesignBrief } from "@/modules/design/types";
 import {
   approveBrief,
+  returnBriefForChanges,
   saveBriefAnswer,
   submitBriefForReview,
 } from "@/modules/design/actions";
@@ -29,6 +30,7 @@ type Props = {
   tree: TemplateTree;
   answers: Record<string, Record<string, string>>;
   canEdit: boolean;
+  canReview: boolean;
   canApprove: boolean;
 };
 
@@ -39,6 +41,7 @@ export function BriefForm({
   tree,
   answers: initial,
   canEdit,
+  canReview,
   canApprove,
 }: Props) {
   const router = useRouter();
@@ -96,6 +99,11 @@ export function BriefForm({
           {canEdit && brief.status === "in_progress" && (
             <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => submitBriefForReview(brief.id))}>
               <Send className="size-4" /> Submit for review
+            </Button>
+          )}
+          {canReview && brief.status === "in_review" && (
+            <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => returnBriefForChanges(brief.id))}>
+              <RotateCcw className="size-4" /> Return for changes
             </Button>
           )}
           {canApprove && brief.status !== "approved" && (

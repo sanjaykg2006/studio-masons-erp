@@ -155,32 +155,27 @@ export function ProjectRolesEditor({ roles, permissions, resources }: Props) {
                       <tr key={res.id} className="border-b last:border-0">
                         <td className="py-2 font-medium">{res.label}</td>
                         {ACTIONS.map((action) => {
-                          const supported = res.actions.includes(action);
                           const checked = granted.has(
                             cellKey(selectedRole.id, res.id, action)
                           );
                           return (
                             <td key={action} className="py-2 text-center">
-                              {supported ? (
-                                <input
-                                  type="checkbox"
-                                  className="size-4 accent-primary"
-                                  checked={checked}
-                                  disabled={pending}
-                                  onChange={(e) =>
-                                    run(() =>
-                                      setProjectRolePermission(
-                                        selectedRole.id,
-                                        res.id,
-                                        action,
-                                        e.target.checked
-                                      )
+                              <input
+                                type="checkbox"
+                                className="size-4 accent-primary"
+                                checked={checked}
+                                disabled={pending}
+                                onChange={(e) =>
+                                  run(() =>
+                                    setProjectRolePermission(
+                                      selectedRole.id,
+                                      res.id,
+                                      action,
+                                      e.target.checked
                                     )
-                                  }
-                                />
-                              ) : (
-                                <span className="text-muted-foreground/40">—</span>
-                              )}
+                                  )
+                                }
+                              />
                             </td>
                           );
                         })}

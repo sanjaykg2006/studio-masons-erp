@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@/core/supabase/server";
 import { getProjectPermissions } from "@/core/rbac/permissions";
-import { permissionKey, type PermissionKey } from "@/core/rbac/types";
+import { permissionKey, type Action, type PermissionKey } from "@/core/rbac/types";
 import type { BriefPdfData } from "@/modules/design/brief-pdf";
 import { DISCIPLINE_LABEL } from "@/modules/design/types";
 import {
@@ -480,6 +480,45 @@ export async function getFolderAccessConfig(): Promise<FolderAccessConfig> {
     folders: (foldersRes.data ?? []) as DesignFolderType[],
     roles: (rolesRes.data ?? []) as DesignRole[],
     access,
+  };
+}
+
+// --- Project roles (settings) ------------------------------------------------
+
+/** A Design project role as shown in the settings editor. */
+export type ProjectRoleRow = {
+  id: string;
+  key: string;
+  label: string;
+  description: string | null;
+  is_system: boolean;
+};
+
+export type ProjectRolesConfig = {
+  roles: ProjectRoleRow[];
+  /** Grants for those roles, as (role_id, resource, action) tuples. */
+  permissions: { role_id: string; resource: string; action: Action }[];
+};
+
+/**
+ * The Design department's project roles + their grants, for the self-service
+ * "Project roles" matrix on the settings page. Backed by SECURITY DEFINER RPCs
+ * gated on design.folder:manage, so a Design manager can read them without the
+ * global access:read permission.
+ */
+export async function getProjectRolesConfig(): Promise<ProjectRolesConfig> {
+  const supabase = await createClient();
+  const [rolesRes, permsRes] = await Promise.all([
+    supabase.rpc("design_settings_roles"),
+    supabase.rpc("design_settings_role_permissions"),
+  ]);
+  return {
+    roles: (rolesRes.data ?? []) as ProjectRoleRow[],
+    permissions: (permsRes.data ?? []) as {
+      role_id: string;
+      resource: string;
+      action: Action;
+    }[],
   };
 }
 

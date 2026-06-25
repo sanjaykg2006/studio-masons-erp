@@ -9,15 +9,38 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getFolderAccessConfig, getStageSteps } from "@/modules/design/data";
+import { designModule } from "@/modules/design";
+import {
+  getFolderAccessConfig,
+  getProjectRolesConfig,
+  getStageSteps,
+} from "@/modules/design/data";
 import { FolderAccessMatrix } from "@/modules/design/components/folder-access-matrix";
+import {
+  ProjectRolesEditor,
+  type ProjectRoleResource,
+} from "@/modules/design/components/project-roles-editor";
 import { StageStepsEditor } from "@/modules/design/components/stage-steps-editor";
 
-/** Design configuration: folder access matrix + the stage progress checklist. */
+/**
+ * The matrix rows: every Design resource the module declares, with a friendly
+ * label (the "Design · " prefix dropped). Driven by the registry, so any new
+ * Design sub-resource shows up here automatically — no code change needed.
+ */
+const PROJECT_ROLE_RESOURCES: ProjectRoleResource[] = (
+  designModule.resources ?? []
+).map((r) => ({
+  id: r.id,
+  label: r.label.replace(/^Design ·\s*/, ""),
+  actions: r.actions,
+}));
+
+/** Design configuration: project roles + folder access + the stage checklist. */
 export default async function DesignSettingsPage() {
   await requirePermission("design.folder", "manage");
 
-  const [config, steps] = await Promise.all([
+  const [roleConfig, config, steps] = await Promise.all([
+    getProjectRolesConfig(),
     getFolderAccessConfig(),
     getStageSteps(),
   ]);
@@ -37,6 +60,24 @@ export default async function DesignSettingsPage() {
           These rules apply to every design project. Changes take effect immediately.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Project roles</CardTitle>
+          <CardDescription>
+            Create the roles people are given on a project and tick what each can
+            do. New roles appear in every project&apos;s &ldquo;add member&rdquo;
+            list straight away.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ProjectRolesEditor
+            roles={roleConfig.roles}
+            permissions={roleConfig.permissions}
+            resources={PROJECT_ROLE_RESOURCES}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

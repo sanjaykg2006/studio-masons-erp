@@ -4,11 +4,12 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { Trash2, UserPlus } from "lucide-react";
 
-import type {
-  Department,
-  DepartmentModule,
-  Role,
-  RolePermission,
+import {
+  ACTIONS,
+  ACTION_LABEL,
+  type Action,
+  type Department,
+  type DepartmentModule,
 } from "@/core/rbac/types";
 import {
   Card,
@@ -20,34 +21,42 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AccessUser } from "@/modules/access/data";
+import type { AccessResource } from "@/modules/access/components/permission-matrix";
+import type { TeamGrant, TeamMember, TeamRole } from "@/modules/team-access/data";
 import {
-  PermissionMatrix,
-  grantKey,
-  type AccessResource,
-} from "@/modules/access/components/permission-matrix";
-import {
-  assignTeamMember,
+  addTeamMember,
   removeTeamMember,
-  setTeamPermission,
-  setTeamRoleWide,
+  setTeamMemberAllProjects,
+  setTeamMemberPermission,
 } from "@/modules/team-access/actions";
 
 type Props = {
   departments: Department[];
-  roles: Role[];
-  permissions: RolePermission[];
   departmentModules: DepartmentModule[];
-  members: AccessUser[];
+  members: TeamMember[];
+  grants: TeamGrant[];
+  people: AccessUser[];
+  roles: TeamRole[];
   resources: AccessResource[];
   generalModules: string[];
 };
 
+const cellKey = (userId: string, resource: string, action: Action) =>
+  `${userId}:${resource}:${action}`;
+
+/**
+ * A department lead's self-service page — PER PERSON. Pick a teammate, tick what
+ * they can do. Their grants apply across the whole department (every project in
+ * it). People who should only see specific projects are added inside those
+ * projects instead. The database (RLS + the 0015 RPCs) is the real boundary.
+ */
 export function TeamAccessView({
   departments,
-  roles,
-  permissions,
   departmentModules,
   members,
+  grants,
+  people,
+  roles,
   resources,
   generalModules,
 }: Props) {
@@ -56,13 +65,20 @@ export function TeamAccessView({
   const [error, setError] = useState<string | null>(null);
 
   const [deptId, setDeptId] = useState<string>(departments[0]?.id ?? "");
-  const [roleId, setRoleId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [addUser, setAddUser] = useState("");
-  const [addRole, setAddRole] = useState("");
 
   const generalSet = useMemo(() => new Set(generalModules), [generalModules]);
+  const peopleById = useMemo(
+    () => new Map(people.map((p) => [p.id, p])),
+    [people]
+  );
+  const userLabel = (id: string) => {
+    const u = peopleById.get(id);
+    return u?.full_name ?? u?.email ?? id;
+  };
 
-  // Modules assigned to the selected department (lead-editable, minus general).
+  // This department's own modules (never the general/back-office ones).
   const deptModuleIds = useMemo(
     () =>
       new Set(
@@ -72,33 +88,25 @@ export function TeamAccessView({
       ),
     [departmentModules, deptId]
   );
-
-  const rolesInDept = roles.filter((r) => r.department_id === deptId);
-  const selectedRole =
-    rolesInDept.find((r) => r.id === roleId) ?? rolesInDept[0] ?? null;
-  const roleIdsInDept = new Set(rolesInDept.map((r) => r.id));
-
-  // Matrix rows: this department's own modules (never general), in registry order.
   const matrixResources = resources.filter(
     (r) => deptModuleIds.has(r.id) && !generalSet.has(r.id)
   );
 
+  const membersInDept = members.filter((m) => m.department_id === deptId);
+  const memberIds = membersInDept.map((m) => m.user_id);
+  const selectedUserId =
+    userId && memberIds.includes(userId) ? userId : memberIds[0] ?? null;
+  const selectedMember =
+    membersInDept.find((m) => m.user_id === selectedUserId) ?? null;
+  const rolesInDept = roles.filter((r) => r.department_id === deptId);
+
   const granted = new Set(
-    permissions.map((p) => grantKey(p.role_id, p.resource, p.action))
-  );
-  const wildcard = new Set(
-    permissions
-      .filter((p) => p.resource === "*")
-      .map((p) => `${p.role_id}:${p.action}`)
+    grants
+      .filter((g) => g.department_id === deptId)
+      .map((g) => cellKey(g.user_id, g.resource, g.action))
   );
 
-  const userLabel = (u: AccessUser) => u.full_name ?? u.email ?? u.id;
-  const membersInDept = members.filter(
-    (u) => u.role_id && roleIdsInDept.has(u.role_id)
-  );
-  const assignableUsers = members.filter(
-    (u) => !u.role_id || !roleIdsInDept.has(u.role_id)
-  );
+  const assignablePeople = people.filter((p) => !memberIds.includes(p.id));
 
   const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) =>
     startTransition(async () => {
@@ -110,7 +118,7 @@ export function TeamAccessView({
 
   const selectDept = (id: string) => {
     setDeptId(id);
-    setRoleId(null);
+    setUserId(null);
   };
 
   const currentDept = departments.find((d) => d.id === deptId);
@@ -120,8 +128,11 @@ export function TeamAccessView({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Team Access</h1>
         <p className="text-muted-foreground">
-          Set what each of your department&apos;s roles can do, and assign your
-          people to them. You only ever see your own department.
+          Pick a teammate and set their department-level access — managing the
+          template library, creating projects, editing settings. Work on actual
+          projects is given by project roles (inside each project). Use the
+          &ldquo;works on all projects&rdquo; switch for seniors who should reach
+          every project at once. You only ever see your own department.
         </p>
       </div>
 
@@ -152,207 +163,223 @@ export function TeamAccessView({
         </div>
       )}
 
-      <div className="grid gap-6 md:grid-cols-[220px_1fr]">
-        {/* Roles in this department (read-only set — admin creates them) --- */}
+      <div className="grid gap-6 md:grid-cols-[240px_1fr]">
+        {/* People in this department -------------------------------------- */}
         <Card>
           <CardHeader>
-            <CardTitle>Roles</CardTitle>
+            <CardTitle>People</CardTitle>
             <CardDescription>
-              {currentDept ? `${currentDept.label} roles.` : "Your roles."}
+              {currentDept ? `${currentDept.label} team.` : "Your team."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-1">
-            {rolesInDept.length === 0 && (
-              <p className="text-muted-foreground text-sm">
-                No roles yet — ask an admin to add roles to your department.
-              </p>
+            {memberIds.length === 0 && (
+              <p className="text-muted-foreground text-sm">No one added yet.</p>
             )}
-            {rolesInDept.map((role) => (
-              <button
-                key={role.id}
-                type="button"
-                onClick={() => setRoleId(role.id)}
+            {memberIds.map((id) => (
+              <div
+                key={id}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm",
-                  role.id === selectedRole?.id
+                  "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm",
+                  id === selectedUserId
                     ? "bg-accent text-accent-foreground"
                     : "hover:bg-accent/50"
                 )}
               >
-                {role.label}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setUserId(id)}
+                  className="flex-1 text-left"
+                >
+                  {userLabel(id)}
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    if (confirm(`Remove ${userLabel(id)} from this team?`))
+                      run(() => removeTeamMember(deptId, id));
+                  }}
+                  className="text-muted-foreground hover:text-destructive"
+                  aria-label={`Remove ${userLabel(id)}`}
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
             ))}
+
+            <div className="flex gap-2 pt-3">
+              <select
+                className="border-input bg-background h-8 flex-1 rounded-md border px-2 text-sm"
+                value={addUser}
+                disabled={pending}
+                onChange={(e) => setAddUser(e.target.value)}
+                aria-label="Add a person"
+              >
+                <option value="">— add a person —</option>
+                {assignablePeople.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.full_name ?? u.email ?? u.id}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                size="sm"
+                disabled={pending || !addUser}
+                onClick={() => {
+                  const uid = addUser;
+                  setAddUser("");
+                  run(() => addTeamMember(deptId, uid));
+                }}
+              >
+                <UserPlus className="size-4" />
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Permission matrix for the selected role ----------------------- */}
+        {/* Selected person's permissions ---------------------------------- */}
         <Card>
           <CardHeader>
             <CardTitle>
-              {selectedRole
-                ? `${selectedRole.label} — permissions`
+              {selectedUserId
+                ? `${userLabel(selectedUserId)} — what they can do`
                 : "Permissions"}
             </CardTitle>
             <CardDescription>
-              Tick an action to grant it. Only your department&apos;s modules are
-              shown.
+              Tick a department-level action to grant it (e.g. manage templates,
+              create projects, edit settings). Work on individual projects is set
+              by project roles instead.
             </CardDescription>
-            {selectedRole && (
-              <label
-                className="mt-2 flex items-center gap-2 text-sm"
-                title="Department-wide roles see every project; otherwise access is per-project membership."
-              >
-                <input
-                  type="checkbox"
-                  className="accent-primary size-4"
-                  checked={selectedRole.is_department_wide}
-                  disabled={pending}
-                  onChange={(e) =>
-                    run(() => setTeamRoleWide(selectedRole.id, e.target.checked))
-                  }
-                />
-                Sees all projects in the department{" "}
-                <span className="text-muted-foreground">
-                  (otherwise only projects they&apos;re added to)
-                </span>
-              </label>
-            )}
           </CardHeader>
-          <CardContent>
-            {!selectedRole ? (
-              <p className="text-muted-foreground text-sm">Select a role.</p>
+          <CardContent className="space-y-4">
+            {/* Works on all projects ------------------------------------- */}
+            {selectedUserId && selectedMember && (
+              <div className="bg-accent/30 space-y-2 rounded-md border p-3">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-primary"
+                    checked={selectedMember.all_projects}
+                    disabled={pending}
+                    onChange={(e) =>
+                      run(() =>
+                        setTeamMemberAllProjects(
+                          deptId,
+                          selectedUserId,
+                          e.target.checked,
+                          e.target.checked
+                            ? selectedMember.all_projects_role_id ??
+                                rolesInDept[0]?.id ??
+                                null
+                            : null
+                        )
+                      )
+                    }
+                  />
+                  Works on all projects
+                </label>
+                {selectedMember.all_projects && (
+                  <div className="flex items-center gap-2 pl-6 text-sm">
+                    <span className="text-muted-foreground">as</span>
+                    <select
+                      className="border-input bg-background h-8 rounded-md border px-2"
+                      value={selectedMember.all_projects_role_id ?? ""}
+                      disabled={pending}
+                      onChange={(e) =>
+                        run(() =>
+                          setTeamMemberAllProjects(
+                            deptId,
+                            selectedUserId,
+                            true,
+                            e.target.value || null
+                          )
+                        )
+                      }
+                      aria-label="Role applied on all projects"
+                    >
+                      <option value="">— pick a project role —</option>
+                      {rolesInDept.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-muted-foreground">
+                      on every project
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!selectedUserId ? (
+              <p className="text-muted-foreground text-sm">
+                Add a person, then pick them to set their permissions.
+              </p>
             ) : matrixResources.length === 0 ? (
               <p className="text-muted-foreground text-sm">
                 No modules are assigned to your department yet — ask an admin to
                 add them in Access Control.
               </p>
             ) : (
-              <PermissionMatrix
-                role={selectedRole}
-                resources={matrixResources}
-                granted={granted}
-                wildcard={wildcard}
-                generalSet={generalSet}
-                disabled={pending}
-                onToggle={(resource, action, checked) =>
-                  run(() =>
-                    setTeamPermission(selectedRole.id, resource, action, checked)
-                  )
-                }
-              />
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-muted-foreground border-b text-left">
+                      <th className="py-2 font-medium">Module</th>
+                      {ACTIONS.map((a) => (
+                        <th key={a} className="px-2 py-2 text-center font-medium">
+                          {ACTION_LABEL[a]}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matrixResources.map((res) => (
+                      <tr key={res.id} className="border-b last:border-0">
+                        <td className="py-2 font-medium">{res.label}</td>
+                        {ACTIONS.map((action) => {
+                          const supported = res.actions.includes(action);
+                          const checked = granted.has(
+                            cellKey(selectedUserId, res.id, action)
+                          );
+                          return (
+                            <td key={action} className="py-2 text-center">
+                              {supported ? (
+                                <input
+                                  type="checkbox"
+                                  className="size-4 accent-primary"
+                                  checked={checked}
+                                  disabled={pending}
+                                  onChange={(e) =>
+                                    run(() =>
+                                      setTeamMemberPermission(
+                                        deptId,
+                                        selectedUserId,
+                                        res.id,
+                                        action,
+                                        e.target.checked
+                                      )
+                                    )
+                                  }
+                                />
+                              ) : (
+                                <span className="text-muted-foreground/40">—</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
-
-      {/* People in this department -------------------------------------- */}
-      <Card>
-        <CardHeader>
-          <CardTitle>People</CardTitle>
-          <CardDescription>
-            Put your team members into the right role, or remove them from the
-            department.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Add someone --------------------------------------------- */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <select
-              className="border-input bg-background h-9 rounded-md border px-2 text-sm sm:flex-1"
-              value={addUser}
-              disabled={pending}
-              onChange={(e) => setAddUser(e.target.value)}
-              aria-label="Choose a person"
-            >
-              <option value="">— choose a person —</option>
-              {assignableUsers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {userLabel(u)}
-                </option>
-              ))}
-            </select>
-            <select
-              className="border-input bg-background h-9 rounded-md border px-2 text-sm sm:flex-1"
-              value={addRole}
-              disabled={pending}
-              onChange={(e) => setAddRole(e.target.value)}
-              aria-label="Choose a role"
-            >
-              <option value="">— choose a role —</option>
-              {rolesInDept.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-            <Button
-              type="button"
-              size="sm"
-              disabled={pending || !addUser || !addRole}
-              onClick={() => {
-                const uid = addUser;
-                const rid = addRole;
-                setAddUser("");
-                setAddRole("");
-                run(() => assignTeamMember(uid, rid));
-              }}
-            >
-              <UserPlus className="size-4" /> Add
-            </Button>
-          </div>
-
-          {/* Current team ------------------------------------------- */}
-          {membersInDept.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No one is in this department yet.
-            </p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-muted-foreground border-b text-left">
-                  <th className="py-2 font-medium">Person</th>
-                  <th className="py-2 font-medium">Role</th>
-                  <th className="py-2 text-right font-medium">Remove</th>
-                </tr>
-              </thead>
-              <tbody>
-                {membersInDept.map((u) => (
-                  <tr key={u.id} className="border-b last:border-0">
-                    <td className="py-2">{userLabel(u)}</td>
-                    <td className="py-2">
-                      <select
-                        className="border-input bg-background h-8 rounded-md border px-2"
-                        value={u.role_id ?? ""}
-                        disabled={pending}
-                        onChange={(e) =>
-                          run(() => assignTeamMember(u.id, e.target.value))
-                        }
-                      >
-                        {rolesInDept.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-2 text-right">
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => run(() => removeTeamMember(u.id))}
-                        className="text-muted-foreground hover:text-destructive"
-                        aria-label={`Remove ${userLabel(u)}`}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

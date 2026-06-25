@@ -1,95 +1,110 @@
 import "server-only";
 
 import { createClient } from "@/core/supabase/server";
-import type {
-  Action,
-  Department,
-  DepartmentModule,
-  Role,
-  RolePermission,
-} from "@/core/rbac/types";
+import type { Action, Department, DepartmentModule } from "@/core/rbac/types";
 import type { AccessUser } from "@/modules/access/data";
+
+/** A person on a department's team. */
+export type TeamMember = {
+  department_id: string;
+  user_id: string;
+  /** Works across every project in the department, via all_projects_role_id. */
+  all_projects: boolean;
+  /** The project role applied on all projects when all_projects is on. */
+  all_projects_role_id: string | null;
+};
+
+/** A project role in a department, for the "sees all projects" picker. */
+export type TeamRole = { id: string; label: string; department_id: string | null };
+
+/** One per-user grant within a department. */
+export type TeamGrant = {
+  department_id: string;
+  user_id: string;
+  resource: string;
+  action: Action;
+};
 
 export type TeamAccessData = {
   departments: Department[];
-  roles: Role[];
-  permissions: RolePermission[];
   departmentModules: DepartmentModule[];
-  members: AccessUser[];
+  /** Who is on each led department's team. */
+  members: TeamMember[];
+  /** Each member's ticked permissions. */
+  grants: TeamGrant[];
+  /** Everyone (for the "add a person" picker and name lookups). */
+  people: AccessUser[];
+  /** The led departments' project roles, for the "sees all projects" picker. */
+  roles: TeamRole[];
   generalModules: string[];
 };
 
 /**
  * Loads everything a department lead's Team Access page renders, scoped to the
- * departments they lead. All reads go through the authenticated client; RLS only
- * returns a lead their own department's roles/grants/modules, so this is scoped
- * both by the explicit `deptIds` filter AND by the database. General modules are
- * loaded so the matrix can mark them (they are not lead-editable here).
+ * departments they lead. Reads go through the authenticated client; RLS only
+ * returns a lead their own department's team rows and grants, so this is scoped
+ * both by the explicit `deptIds` filter AND by the database.
  */
 export async function getTeamAccessData(
   deptIds: string[]
 ): Promise<TeamAccessData> {
+  const empty: TeamAccessData = {
+    departments: [],
+    departmentModules: [],
+    members: [],
+    grants: [],
+    people: [],
+    roles: [],
+    generalModules: [],
+  };
+  if (deptIds.length === 0) return empty;
+
   const supabase = await createClient();
-
-  if (deptIds.length === 0) {
-    return {
-      departments: [],
-      roles: [],
-      permissions: [],
-      departmentModules: [],
-      members: [],
-      generalModules: [],
-    };
-  }
-
-  const [deptsRes, rolesRes, deptModsRes, membersRes, settingsRes] =
-    await Promise.all([
-      supabase
-        .from("departments")
-        .select("id, key, label, description, is_system")
-        .in("id", deptIds)
-        .order("label"),
-      supabase
-        .from("roles")
-        .select(
-          "id, key, label, description, is_system, department_id, is_department_wide"
-        )
-        .in("department_id", deptIds)
-        .order("label"),
-      supabase
-        .from("department_modules")
-        .select("department_id, module_id")
-        .in("department_id", deptIds),
-      supabase
-        .from("profiles")
-        .select("id, email, full_name, role_id")
-        .order("email"),
-      supabase.from("module_settings").select("module_id, is_general"),
-    ]);
-
-  const roles = (rolesRes.data ?? []) as Role[];
-  const roleIds = roles.map((r) => r.id);
-
-  // Grants only for the in-scope roles (RLS already restricts, this keeps it tight).
-  const permsRes = roleIds.length
-    ? await supabase
-        .from("role_permissions")
-        .select("role_id, resource, action")
-        .in("role_id", roleIds)
-    : { data: [] as { role_id: string; resource: string; action: Action }[] };
+  const [
+    deptsRes,
+    deptModsRes,
+    membersRes,
+    grantsRes,
+    peopleRes,
+    rolesRes,
+    settingsRes,
+  ] = await Promise.all([
+    supabase
+      .from("departments")
+      .select("id, key, label, description, is_system")
+      .in("id", deptIds)
+      .order("label"),
+    supabase
+      .from("department_modules")
+      .select("department_id, module_id")
+      .in("department_id", deptIds),
+    supabase
+      .from("team_members")
+      .select("department_id, user_id, all_projects, all_projects_role_id")
+      .in("department_id", deptIds),
+    supabase
+      .from("team_member_permissions")
+      .select("department_id, user_id, resource, action")
+      .in("department_id", deptIds),
+    supabase
+      .from("profiles")
+      .select("id, email, full_name, role_id")
+      .order("email"),
+    supabase
+      .from("roles")
+      .select("id, label, department_id")
+      .in("department_id", deptIds)
+      .order("label"),
+    supabase.from("module_settings").select("module_id, is_general"),
+  ]);
 
   return {
     departments: (deptsRes.data ?? []) as Department[],
-    roles,
-    permissions: (
-      (permsRes.data ?? []) as {
-        role_id: string;
-        resource: string;
-        action: Action;
-      }[]
-    ).map((p) => ({ role_id: p.role_id, resource: p.resource, action: p.action })),
     departmentModules: (deptModsRes.data ?? []) as DepartmentModule[],
-    members: (membersRes.data ?? []) as AccessUser[],
+    members: (membersRes.data ?? []) as TeamMember[],
+    grants: (grantsRes.data ?? []) as TeamGrant[],
+    people: (peopleRes.data ?? []) as AccessUser[],
+    roles: (rolesRes.data ?? []) as TeamRole[],
     generalModules: (
       (settingsRes.data ?? []) as { module_id: string; is_general: boolean }[]
     )

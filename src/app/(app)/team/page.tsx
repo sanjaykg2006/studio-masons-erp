@@ -7,8 +7,14 @@ import { getTeamAccessData } from "@/modules/team-access/data";
 import { TeamAccessView } from "@/modules/team-access/components/team-access-view";
 import type { AccessResource } from "@/modules/access/components/permission-matrix";
 
-/** Matrix columns come from the registry, like the central page. */
-const resources: AccessResource[] = moduleResources();
+/**
+ * Team Access only manages DEPARTMENT-LEVEL capabilities (manage the template
+ * library, create projects, edit settings). Project + file access comes from
+ * project roles instead, so project-level resources are excluded here.
+ */
+const resources: AccessResource[] = moduleResources().filter(
+  (r) => r.departmentLevel
+);
 
 /** A department lead's self-service page — scoped to the department(s) they lead. */
 export default async function TeamAccessPage() {
@@ -20,20 +26,22 @@ export default async function TeamAccessPage() {
 
   const {
     departments,
-    roles,
-    permissions,
     departmentModules,
     members,
+    grants,
+    people,
+    roles,
     generalModules,
   } = await getTeamAccessData(deptIds);
 
   return (
     <TeamAccessView
       departments={departments}
-      roles={roles}
-      permissions={permissions}
       departmentModules={departmentModules}
       members={members}
+      grants={grants}
+      people={people}
+      roles={roles}
       resources={resources}
       generalModules={generalModules}
     />

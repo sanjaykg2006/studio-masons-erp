@@ -712,6 +712,77 @@ export async function setFolderAccess(
   return ok;
 }
 
+// ============================== PROJECT ROLES ================================
+// Self-service Design role management for the settings "Project roles" matrix.
+// All writes go through SECURITY DEFINER RPCs (0013) that re-check the
+// design.folder:manage permission; the authorize() here is a fast app-layer
+// mirror so denied clicks get a readable message instead of a raw DB error.
+
+/** Create a new Design project role. Appears immediately in the member picker. */
+export async function createProjectRole(label: string): Promise<ActionResult> {
+  const denied = await authorize("design.folder", "manage");
+  if (denied) return denied;
+  const trimmed = label.trim();
+  if (!trimmed) return fail("Enter a role name.");
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("create_design_role", { p_label: trimmed });
+  if (error)
+    return fail(
+      error.code === "23505" ? "A role with that name already exists." : error.message
+    );
+  await logAudit("design.role.create", `Created project role "${trimmed}"`, {
+    label: trimmed,
+  });
+  revalidatePath("/design/settings");
+  return ok;
+}
+
+/** Delete a Design project role (blocked if assigned to any project member). */
+export async function deleteProjectRole(roleId: string): Promise<ActionResult> {
+  const denied = await authorize("design.folder", "manage");
+  if (denied) return denied;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_design_role", { p_role: roleId });
+  if (error)
+    return fail(
+      error.code === "23503"
+        ? "This role is assigned to project members. Reassign them first."
+        : error.message
+    );
+  await logAudit("design.role.delete", "Deleted a project role", { roleId });
+  revalidatePath("/design/settings");
+  return ok;
+}
+
+/** Grant or revoke one (resource, action) on a Design role — one matrix cell. */
+export async function setProjectRolePermission(
+  roleId: string,
+  resource: string,
+  action: string,
+  grant: boolean
+): Promise<ActionResult> {
+  const denied = await authorize("design.folder", "manage");
+  if (denied) return denied;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_design_role_permission", {
+    p_role: roleId,
+    p_resource: resource,
+    p_action: action,
+    p_grant: grant,
+  });
+  if (error) return fail(error.message);
+  await logAudit(
+    "design.role.permission",
+    `${grant ? "Granted" : "Revoked"} ${resource}:${action} on a project role`,
+    { roleId, resource, action, grant }
+  );
+  revalidatePath("/design/settings");
+  return ok;
+}
+
 // ============================== STAGE CHECKLIST ==============================
 
 export async function addStageStep(

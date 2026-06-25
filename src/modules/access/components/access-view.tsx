@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, useMemo, useState, useTransition } from "react";
 import {
+  Briefcase,
   Building2,
-  Globe,
   Lock,
   Plus,
   ShieldCheck,
@@ -63,7 +63,7 @@ type Props = {
   currentUserId: string;
 };
 
-/** Sentinel for the "Global / system roles" pseudo-department (department_id = null). */
+/** Sentinel for the Back Office (department-less) roles bucket (department_id = null). */
 const GLOBAL = "__global__";
 
 export function AccessView({
@@ -102,13 +102,11 @@ export function AccessView({
   const selectedRole =
     rolesInScope.find((r) => r.id === roleId) ?? rolesInScope[0] ?? null;
 
-  // What the admin edits here:
-  //  * Global/system roles → every module (they can hold anything).
-  //  * Department roles → GENERAL/shared modules only. The department's OWN
-  //    modules are the lead's job on Team Access; general access stays admin's.
-  const matrixResources = isGlobal
-    ? resources
-    : resources.filter((r) => generalSet.has(r.id));
+  // What HR edits here, in BOTH scopes, is back-office (general) modules only:
+  //  * Back Office job titles → back-office modules (their whole world).
+  //  * Department roles → back-office/shared modules only; the department's OWN
+  //    modules are the lead's job on Team Access.
+  const matrixResources = resources.filter((r) => generalSet.has(r.id));
 
   // Fast lookups for the global-role matrix.
   const granted = new Set(
@@ -191,9 +189,10 @@ export function AccessView({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Access Control</h1>
         <p className="text-muted-foreground">
-          Create roles and departments, choose each department&apos;s modules and
-          lead, and invite people. Each department&apos;s lead sets their own
-          roles&apos; permissions on their Team Access page.
+          HR&apos;s control room. Create <strong>Back Office job titles</strong>{" "}
+          (which back-office screens each can open) and assign one to each person.
+          Set up departments, their modules and their lead — then each lead runs
+          their own team&apos;s and projects&apos; access.
         </p>
       </div>
 
@@ -209,13 +208,15 @@ export function AccessView({
         </div>
       )}
 
-      {/* General modules ------------------------------------------------- */}
+      {/* Back office modules --------------------------------------------- */}
       <Card>
         <CardHeader>
-          <CardTitle>General modules</CardTitle>
+          <CardTitle>Back office modules</CardTitle>
           <CardDescription>
-            General modules appear in every role&apos;s permission matrix,
-            regardless of department. Everything else is granted per department.
+            The company-wide screens that aren&apos;t tied to any project (e.g.
+            Dashboard, Activity Log). Tick a module here to make it a back-office
+            screen — these are the only screens a Back Office job title can be
+            given. Everything else is granted per department.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -254,8 +255,8 @@ export function AccessView({
                 isGlobal ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
               )}
             >
-              <Globe className="size-3.5 text-muted-foreground" />
-              Global / system
+              <Briefcase className="size-3.5 text-muted-foreground" />
+              Back Office
             </button>
 
             {departments.map((dept) => (
@@ -454,10 +455,10 @@ export function AccessView({
             {/* Roles in scope -------------------------------------------- */}
             <Card>
               <CardHeader>
-                <CardTitle>Roles</CardTitle>
+                <CardTitle>{isGlobal ? "Job titles" : "Roles"}</CardTitle>
                 <CardDescription>
                   {isGlobal
-                    ? "Global / system roles."
+                    ? "Back office job titles — assign one to each employee."
                     : "Roles in this department."}
                 </CardDescription>
               </CardHeader>
@@ -531,8 +532,8 @@ export function AccessView({
                 </CardTitle>
                 <CardDescription>
                   {isGlobal
-                    ? "Tick an action to grant it. System-wide (★) access is managed in the database, not here."
-                    : "General/shared access only — tick to grant. This department's own modules are managed by its lead on Team Access."}
+                    ? "Tick which back-office screens this job title can open. These are independent of every project and department. System-wide (★) access is managed in the database, not here."
+                    : "Back-office/shared access only — tick to grant. This department's own modules are managed by its lead on Team Access."}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -541,8 +542,8 @@ export function AccessView({
                 ) : matrixResources.length === 0 ? (
                   <p className="text-muted-foreground text-sm">
                     {isGlobal
-                      ? "No modules yet."
-                      : "No general modules yet. Mark a module as general above to grant it to this department's roles here."}
+                      ? "No back-office modules yet. Tick a module under “Back office modules” above to grant it here."
+                      : "No back-office modules yet. Tick a module under “Back office modules” above to grant it to this department's roles here."}
                   </p>
                 ) : (
                   <PermissionMatrix

@@ -21,6 +21,8 @@ export const designModule: ModuleDefinition = {
       id: "design.project",
       label: "Design · Projects",
       actions: ["read", "create", "update", "approve", "delete"],
+      // Creating projects is a department-level capability (Team Access).
+      departmentLevel: true,
     },
     {
       id: "design.brief",
@@ -31,6 +33,8 @@ export const designModule: ModuleDefinition = {
       id: "design.template",
       label: "Design · Templates",
       actions: ["read", "create", "update", "delete"],
+      // The template library is shared across the department.
+      departmentLevel: true,
     },
     {
       id: "design.member",
@@ -41,6 +45,8 @@ export const designModule: ModuleDefinition = {
       id: "design.folder",
       label: "Design · Folders & Settings",
       actions: ["read", "issue", "manage"],
+      // Folder catalogue, stage checklist + project-role settings are dept-level.
+      departmentLevel: true,
     },
   ],
 };

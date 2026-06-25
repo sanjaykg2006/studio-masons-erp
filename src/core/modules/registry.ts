@@ -22,6 +22,13 @@ export type ModuleResource = {
   label: string;
   /** Verbs this resource supports (which checkboxes render). */
   actions: Action[];
+  /**
+   * Department-level capability (e.g. manage the template library, create
+   * projects, edit settings) — granted per-person on the Team Access page.
+   * Resources without this are project-level: access comes from project roles,
+   * not Team Access. Default false.
+   */
+  departmentLevel?: boolean;
 };
 
 export type ModuleDefinition = {

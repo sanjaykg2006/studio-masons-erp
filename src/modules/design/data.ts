@@ -463,12 +463,15 @@ export type FolderAccessConfig = {
   access: Record<string, FolderCapability>;
 };
 
-/** The folder catalogue + design roles + current access grants, for the editor. */
+/** The folder catalogue + design roles + current access grants, for the editor.
+ * Roles come from design_settings_roles() — the SAME list (and same
+ * design.folder:manage gate) as the Project Roles editor — so every role you
+ * create shows up here as a new matrix column automatically. */
 export async function getFolderAccessConfig(): Promise<FolderAccessConfig> {
   const supabase = await createClient();
   const [foldersRes, rolesRes, accessRes] = await Promise.all([
     supabase.from("design_folder_types").select("key, label, sort, description").order("sort"),
-    supabase.rpc("design_roles"),
+    supabase.rpc("design_settings_roles"),
     supabase.from("design_folder_access").select("folder_key, role_id, capability"),
   ]);
 
@@ -478,7 +481,10 @@ export async function getFolderAccessConfig(): Promise<FolderAccessConfig> {
   }
   return {
     folders: (foldersRes.data ?? []) as DesignFolderType[],
-    roles: (rolesRes.data ?? []) as DesignRole[],
+    roles: ((rolesRes.data ?? []) as { id: string; label: string }[]).map((r) => ({
+      id: r.id,
+      label: r.label,
+    })) as DesignRole[],
     access,
   };
 }

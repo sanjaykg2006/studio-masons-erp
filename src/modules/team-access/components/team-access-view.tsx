@@ -341,6 +341,11 @@ export function TeamAccessView({
                       <tr key={res.id} className="border-b last:border-0">
                         <td className="py-2 font-medium">{res.label}</td>
                         {ACTIONS.map((action) => {
+                          // Only show a checkbox for actions this area actually
+                          // uses; others are left blank (they'd have no effect).
+                          if (!res.actions.includes(action)) {
+                            return <td key={action} />;
+                          }
                           const checked = granted.has(
                             cellKey(selectedUserId, res.id, action)
                           );

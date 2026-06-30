@@ -3,6 +3,7 @@ import { LogOut } from "lucide-react";
 
 import { signOut } from "@/core/auth/actions";
 import type { AppUser } from "@/core/auth/types";
+import { MobileNav } from "@/components/layout/mobile-nav";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,14 +25,17 @@ function initials(email: string | null) {
 export function Topbar({ user }: { user: AppUser }) {
   return (
     <header className="flex h-16 items-center justify-between border-b px-5">
-      <Image
-        src="/studio-masons-logo.svg"
-        alt="Studio Masons"
-        width={56}
-        height={28}
-        priority
-        className="h-12 w-auto md:hidden"
-      />
+      <div className="flex items-center gap-2">
+        <MobileNav />
+        <Image
+          src="/studio-masons-logo.svg"
+          alt="Studio Masons"
+          width={56}
+          height={28}
+          priority
+          className="h-12 w-auto md:hidden"
+        />
+      </div>
       <div className="ml-auto">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 
 import { SidebarNav } from "@/components/layout/sidebar-nav";
@@ -16,14 +15,9 @@ import { cn } from "@/lib/utils";
  */
 export function MobileNav() {
   const [open, setOpen] = useState(false);
-  const pathname = usePathname();
-
-  // Close on navigation.
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
 
   // Close on Escape and lock body scroll while the drawer is open.
+  // (Navigation closes the drawer via SidebarNav's onNavigate link handler.)
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {

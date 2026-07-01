@@ -15,6 +15,7 @@ import {
   getFolderAccessConfig,
   getProjectRolesConfig,
   getStageSteps,
+  getSubteamsConfig,
 } from "@/modules/design/data";
 import { FolderAccessMatrix } from "@/modules/design/components/folder-access-matrix";
 import {
@@ -22,6 +23,7 @@ import {
   type ProjectRoleResource,
 } from "@/modules/design/components/project-roles-editor";
 import { StageStepsEditor } from "@/modules/design/components/stage-steps-editor";
+import { SubteamsEditor } from "@/modules/design/components/subteams-editor";
 
 /**
  * The matrix rows for a Design project role: what it can do on a project (the
@@ -42,10 +44,11 @@ const PROJECT_ROLE_RESOURCES: ProjectRoleResource[] = [
 export default async function DesignSettingsPage() {
   await requirePermission("design.folder", "manage");
 
-  const [roleConfig, config, steps] = await Promise.all([
+  const [roleConfig, config, steps, subteams] = await Promise.all([
     getProjectRolesConfig(),
     getFolderAccessConfig(),
     getStageSteps(),
+    getSubteamsConfig(),
   ]);
 
   return (
@@ -94,6 +97,25 @@ export default async function DesignSettingsPage() {
             folders={config.folders}
             roles={config.roles}
             access={config.access}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Concept &amp; Technical teams</CardTitle>
+          <CardDescription>
+            Split the Design team into Concept (early design, up to the Design
+            Freeze) and Technical (detailed work after it). This sets who belongs
+            where; keeping each team&apos;s tasks private from the other comes
+            with the task board.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SubteamsEditor
+            subteams={subteams.subteams}
+            members={subteams.members}
+            membership={subteams.membership}
           />
         </CardContent>
       </Card>

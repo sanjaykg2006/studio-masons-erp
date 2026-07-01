@@ -997,6 +997,32 @@ export async function setProjectRolePermission(
   return ok;
 }
 
+// ============================== SUB-TEAMS ====================================
+
+/** Put a person into (or take them out of) a Concept / Technical sub-team.
+ * The RPC checks the caller can manage the team and that the person is already
+ * on the department's team. */
+export async function setSubteamMember(
+  subteamId: string,
+  userId: string,
+  grant: boolean
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_subteam_member", {
+    p_subteam: subteamId,
+    p_user: userId,
+    p_grant: grant,
+  });
+  if (error) return fail(error.message);
+  await logAudit(
+    "design.subteam.member",
+    `${grant ? "Added a person to" : "Removed a person from"} a sub-team`,
+    { subteamId, userId, grant }
+  );
+  revalidatePath("/design/settings");
+  return ok;
+}
+
 // ============================== STAGE CHECKLIST ==============================
 
 export async function addStageStep(

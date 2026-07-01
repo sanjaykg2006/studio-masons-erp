@@ -4,6 +4,7 @@ import { requireUser } from "@/core/auth/get-user";
 import {
   getPermissions,
   hasDesignAccess,
+  hasDesignTeamAccess,
   hasProjectAccess,
   leadsAnyDepartment,
 } from "@/core/rbac/permissions";
@@ -22,10 +23,11 @@ export default async function AppLayout({
   children: ReactNode;
 }) {
   const user = await requireUser();
-  const [perms, projectAccess, designAccess, isLead] = await Promise.all([
+  const [perms, projectAccess, designAccess, designTeam, isLead] = await Promise.all([
     getPermissions(),
     hasProjectAccess(),
     hasDesignAccess(),
+    hasDesignTeamAccess(),
     leadsAnyDepartment(),
   ]);
   const permissions = [...perms];
@@ -36,8 +38,9 @@ export default async function AppLayout({
     const key = permissionKey("project", "read");
     if (!permissions.includes(key)) permissions.push(key);
   }
-  //  - design-team members reach the Design department's own screens.
-  if (designAccess) {
+  //  - design-team members reach the Design department (templates and/or the
+  //    task board), even if they hold no template/folder grant of their own.
+  if (designAccess || designTeam) {
     const key = permissionKey("design.template", "read");
     if (!permissions.includes(key)) permissions.push(key);
   }

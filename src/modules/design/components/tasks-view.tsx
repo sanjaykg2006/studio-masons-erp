@@ -1,0 +1,218 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useState, useTransition } from "react";
+import { ArrowLeft, CalendarDays, LayoutList, Plus } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import type {
+  TaskPerson,
+  TaskProjectRef,
+  TaskRow,
+  TaskSubteam,
+} from "@/modules/design/task-types";
+import { createTask } from "@/modules/design/task-actions";
+import { TaskBoard } from "@/modules/design/components/task-board";
+import { TaskCalendar } from "@/modules/design/components/task-calendar";
+
+const field = "border-input bg-background h-9 rounded-md border px-2 text-sm";
+const emptyForm = {
+  title: "",
+  description: "",
+  subteamId: "",
+  projectId: "",
+  assigneeId: "",
+  startDate: "",
+  dueDate: "",
+};
+
+export function TasksView({
+  departmentId,
+  tasks,
+  people,
+  subteams,
+  projects,
+}: {
+  departmentId: string;
+  tasks: TaskRow[];
+  people: TaskPerson[];
+  subteams: TaskSubteam[];
+  projects: TaskProjectRef[];
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<"board" | "calendar">("board");
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim()) return;
+    startTransition(async () => {
+      setError(null);
+      const res = await createTask({ departmentId, ...form });
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setForm(emptyForm);
+      setOpen(false);
+      router.refresh();
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <Link
+        href="/design"
+        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+      >
+        <ArrowLeft className="size-4" /> Design Department
+      </Link>
+
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
+          <p className="text-muted-foreground text-sm">
+            The Design team&apos;s to-do board. Concept and Technical tasks stay
+            private to their own team.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <div className="flex rounded-md border p-0.5">
+            <button
+              type="button"
+              onClick={() => setView("board")}
+              className={cn(
+                "inline-flex items-center gap-1 rounded px-2 py-1 text-sm",
+                view === "board" ? "bg-muted font-medium" : "text-muted-foreground"
+              )}
+            >
+              <LayoutList className="size-4" /> Board
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("calendar")}
+              className={cn(
+                "inline-flex items-center gap-1 rounded px-2 py-1 text-sm",
+                view === "calendar" ? "bg-muted font-medium" : "text-muted-foreground"
+              )}
+            >
+              <CalendarDays className="size-4" /> Calendar
+            </button>
+          </div>
+          <Button size="sm" onClick={() => setOpen((o) => !o)}>
+            <Plus className="size-4" /> New task
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="border-destructive/50 bg-destructive/10 text-destructive rounded-md border px-4 py-2 text-sm">
+          {error}
+        </div>
+      )}
+
+      {open && (
+        <Card>
+          <CardContent className="pt-6">
+            <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
+              <Input
+                placeholder="Task title"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                aria-label="Task title"
+                className="sm:col-span-2"
+              />
+              <textarea
+                placeholder="Details (optional)"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                aria-label="Details"
+                rows={2}
+                className="border-input bg-background rounded-md border px-2 py-1 text-sm sm:col-span-2"
+              />
+              <select
+                className={field}
+                value={form.subteamId}
+                onChange={(e) => setForm({ ...form, subteamId: e.target.value })}
+                aria-label="Team"
+              >
+                <option value="">Shared (whole department)</option>
+                {subteams.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label} only
+                  </option>
+                ))}
+              </select>
+              <select
+                className={field}
+                value={form.assigneeId}
+                onChange={(e) => setForm({ ...form, assigneeId: e.target.value })}
+                aria-label="Assign to"
+              >
+                <option value="">Unassigned</option>
+                {people.map((p) => (
+                  <option key={p.user_id} value={p.user_id}>
+                    {p.full_name ?? p.email}
+                  </option>
+                ))}
+              </select>
+              <select
+                className={field}
+                value={form.projectId}
+                onChange={(e) => setForm({ ...form, projectId: e.target.value })}
+                aria-label="Linked project"
+              >
+                <option value="">No linked project</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-muted-foreground flex flex-col gap-1 text-xs">
+                  Start
+                  <input
+                    type="date"
+                    className={field}
+                    value={form.startDate}
+                    onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                    aria-label="Start date"
+                  />
+                </label>
+                <label className="text-muted-foreground flex flex-col gap-1 text-xs">
+                  Due
+                  <input
+                    type="date"
+                    className={field}
+                    value={form.dueDate}
+                    onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+                    aria-label="Due date"
+                  />
+                </label>
+              </div>
+              <div className="sm:col-span-2">
+                <Button type="submit" size="sm" disabled={pending}>
+                  Add task
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {view === "board" ? (
+        <TaskBoard tasks={tasks} people={people} onError={setError} />
+      ) : (
+        <TaskCalendar tasks={tasks} />
+      )}
+    </div>
+  );
+}

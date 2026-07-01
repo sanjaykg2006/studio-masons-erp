@@ -81,6 +81,20 @@ export async function hasDesignAccess(): Promise<boolean> {
 }
 
 /**
+ * Whether the user is on the Design department's team (or its lead / an admin).
+ * Drives access to the Design task board. Backed by on_department_team().
+ */
+export async function hasDesignTeamAccess(): Promise<boolean> {
+  const supabase = await createClient();
+  const { data: deptId } = await supabase.rpc("design_department_id");
+  if (!deptId) return false;
+  const { data, error } = await supabase.rpc("on_department_team", {
+    p_dept: deptId,
+  });
+  return !error && data === true;
+}
+
+/**
  * Whether the user is the lead of at least one department — drives the "Team
  * Access" sidebar link and gates the /team page. Backed by leads_any_department().
  */

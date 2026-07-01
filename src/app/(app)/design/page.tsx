@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FileText, Settings } from "lucide-react";
+import { CheckSquare, FileText, Settings } from "lucide-react";
 
 import { can } from "@/core/rbac/can";
-import { hasDesignAccess } from "@/core/rbac/permissions";
+import { hasDesignAccess, hasDesignTeamAccess } from "@/core/rbac/permissions";
 import {
   Card,
   CardDescription,
@@ -17,13 +17,14 @@ import {
  * template library and the folder/stage/role settings.
  */
 export default async function DesignPage() {
-  if (!(await hasDesignAccess())) {
-    redirect("/forbidden?resource=design.template&action=read");
-  }
-  const [canTemplates, canSettings] = await Promise.all([
+  const [canTemplates, canSettings, canTasks] = await Promise.all([
     can("design.template", "read"),
     can("design.folder", "manage"),
+    hasDesignTeamAccess(),
   ]);
+  if (!canTemplates && !canSettings && !canTasks && !(await hasDesignAccess())) {
+    redirect("/forbidden?resource=design.template&action=read");
+  }
 
   return (
     <div className="space-y-6">
@@ -41,6 +42,21 @@ export default async function DesignPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
+        {canTasks && (
+          <Link href="/design/tasks">
+            <Card className="hover:bg-accent/50 transition-colors">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <CheckSquare className="size-4" /> Tasks
+                </CardTitle>
+                <CardDescription>
+                  The team to-do board and calendar. Concept and Technical tasks
+                  stay private to their own team.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        )}
         {canTemplates && (
           <Link href="/design/templates">
             <Card className="hover:bg-accent/50 transition-colors">

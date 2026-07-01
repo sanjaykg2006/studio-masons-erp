@@ -193,6 +193,28 @@ export async function publishTemplateVersion(versionId: string): Promise<ActionR
   return ok;
 }
 
+/** Delete a template and its versions. Blocked if any brief was built from it. */
+export async function deleteTemplate(templateId: string): Promise<ActionResult> {
+  const denied = await authorizeAnyTemplate("delete");
+  if (denied) return denied;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("design_templates")
+    .delete()
+    .eq("id", templateId);
+  if (error)
+    return fail(
+      error.code === "23503"
+        ? "This template has briefs built from it and can't be deleted."
+        : error.message
+    );
+  await logAudit("design.template.delete", "Deleted a template", { templateId });
+  revalidatePath("/design/templates");
+  revalidatePath("/projects/templates");
+  return ok;
+}
+
 async function templateUpdate(): Promise<ActionResult | null> {
   return authorizeAnyTemplate("update");
 }

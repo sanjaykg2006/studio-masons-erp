@@ -5,14 +5,16 @@ import { TemplateLibrary } from "@/modules/design/components/template-library";
 /** The general, company-wide template library (usable across projects). */
 export default async function ProjectTemplatesPage() {
   await requirePermission("project.template", "read");
-  const [templates, canCreate] = await Promise.all([
+  const [templates, canCreate, canDelete] = await Promise.all([
     listTemplates("general"),
     can("project.template", "create"),
+    can("project.template", "delete"),
   ]);
   return (
     <TemplateLibrary
       templates={templates}
       canCreate={canCreate}
+      canDelete={canDelete}
       scope="general"
       basePath="/projects/templates"
       backHref="/projects"

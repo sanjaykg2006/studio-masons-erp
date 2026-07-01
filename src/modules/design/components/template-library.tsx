@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState, useTransition } from "react";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,11 +16,12 @@ import {
 } from "@/components/ui/card";
 import { DISCIPLINE_LABEL, type Discipline } from "@/modules/design/types";
 import type { TemplateSummary } from "@/modules/design/data";
-import { createTemplate } from "@/modules/design/actions";
+import { createTemplate, deleteTemplate } from "@/modules/design/actions";
 
 export function TemplateLibrary({
   templates,
   canCreate,
+  canDelete,
   scope,
   basePath,
   backHref,
@@ -30,6 +31,7 @@ export function TemplateLibrary({
 }: {
   templates: TemplateSummary[];
   canCreate: boolean;
+  canDelete: boolean;
   scope: "general" | "design";
   basePath: string;
   backHref: string;
@@ -55,6 +57,16 @@ export function TemplateLibrary({
       }
       setName("");
       router.refresh();
+    });
+  };
+
+  const remove = (id: string, label: string) => {
+    if (!confirm(`Delete template "${label}"? This can't be undone.`)) return;
+    startTransition(async () => {
+      setError(null);
+      const res = await deleteTemplate(id);
+      if (!res.ok) setError(res.error);
+      else router.refresh();
     });
   };
 
@@ -90,6 +102,7 @@ export function TemplateLibrary({
                   <th className="py-2 font-medium">Discipline</th>
                   <th className="py-2 font-medium">Published</th>
                   <th className="py-2 font-medium">State</th>
+                  {canDelete && <th className="py-2" />}
                 </tr>
               </thead>
               <tbody>
@@ -109,6 +122,19 @@ export function TemplateLibrary({
                     <td className="text-muted-foreground py-2">
                       {t.hasDraft ? "Draft in progress" : "Published"}
                     </td>
+                    {canDelete && (
+                      <td className="py-2 text-right">
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => remove(t.id, t.label)}
+                          className="text-muted-foreground hover:text-destructive"
+                          aria-label={`Delete ${t.label}`}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

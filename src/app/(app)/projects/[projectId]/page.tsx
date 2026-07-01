@@ -9,6 +9,7 @@ import {
   getProjectProgress,
   getPublishableTemplates,
 } from "@/modules/design/data";
+import { getProjectRfis } from "@/modules/design/rfi-data";
 import { ProjectDetail } from "@/modules/design/components/project-detail";
 
 export default async function ProjectPage({
@@ -25,12 +26,13 @@ export default async function ProjectPage({
   const canManageMembers = detail.can("project.member", "manage");
   const canCreateBrief = detail.can("project.brief", "create");
 
-  const [pickers, templates, progress, folders, changeRequests] = await Promise.all([
+  const [pickers, templates, progress, folders, changeRequests, rfis] = await Promise.all([
     canManageMembers ? getMembershipPickers() : Promise.resolve({ users: [], roles: [] }),
     canCreateBrief ? getPublishableTemplates() : Promise.resolve([]),
     getProjectProgress(projectId),
     getProjectFolders(projectId),
     getProjectChangeRequests(projectId),
+    getProjectRfis(projectId),
   ]);
 
   return (
@@ -39,6 +41,8 @@ export default async function ProjectPage({
       progress={progress}
       folders={folders}
       changeRequests={changeRequests}
+      rfis={rfis.rfis}
+      rfiDepartments={rfis.departments}
       canDecideChanges={detail.can("project", "approve")}
       members={detail.members}
       briefs={detail.briefs}

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Lock, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Lock, Plus, Trash2 } from "lucide-react";
 
 import { ACTIONS, ACTION_LABEL, type Action } from "@/core/rbac/types";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import type { ProjectRoleRow } from "@/modules/design/data";
 import {
   createProjectRole,
   deleteProjectRole,
+  moveProjectRole,
   setProjectRolePermission,
 } from "@/modules/design/actions";
 
@@ -65,10 +66,14 @@ export function ProjectRolesEditor({ roles, permissions, resources }: Props) {
       <div className="grid gap-6 md:grid-cols-[220px_1fr]">
         {/* Roles list ---------------------------------------------------- */}
         <div className="space-y-1">
+          <p className="text-muted-foreground text-xs">
+            Top = most senior. Order sets who a question climbs to when it&apos;s
+            escalated. Use the arrows to reorder.
+          </p>
           {roles.length === 0 && (
             <p className="text-muted-foreground text-sm">No project roles yet.</p>
           )}
-          {roles.map((role) => (
+          {roles.map((role, i) => (
             <div
               key={role.id}
               className={cn(
@@ -78,6 +83,26 @@ export function ProjectRolesEditor({ roles, permissions, resources }: Props) {
                   : "hover:bg-accent/50"
               )}
             >
+              <div className="flex flex-col">
+                <button
+                  type="button"
+                  disabled={pending || i === 0}
+                  onClick={() => run(() => moveProjectRole(role.id, true))}
+                  className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  aria-label={`Move ${role.label} up`}
+                >
+                  <ChevronUp className="size-3" />
+                </button>
+                <button
+                  type="button"
+                  disabled={pending || i === roles.length - 1}
+                  onClick={() => run(() => moveProjectRole(role.id, false))}
+                  className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  aria-label={`Move ${role.label} down`}
+                >
+                  <ChevronDown className="size-3" />
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => setRoleId(role.id)}

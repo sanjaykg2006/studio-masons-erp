@@ -997,6 +997,17 @@ export async function setProjectRolePermission(
   return ok;
 }
 
+/** Reorder a Design project role in the seniority ladder (up = more senior). */
+export async function moveProjectRole(roleId: string, up: boolean): Promise<ActionResult> {
+  const denied = await authorize("design.folder", "manage");
+  if (denied) return denied;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("move_design_role", { p_role: roleId, p_up: up });
+  if (error) return fail(error.message);
+  revalidatePath("/design/settings");
+  return ok;
+}
+
 // ============================== SUB-TEAMS ====================================
 
 /** Put a person into (or take them out of) a Concept / Technical sub-team.

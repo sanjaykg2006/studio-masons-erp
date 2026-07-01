@@ -43,12 +43,16 @@ import {
 import { ProgressTracker } from "@/modules/design/components/progress-tracker";
 import { FoldersCard } from "@/modules/design/components/folders-card";
 import { ChangeRequestsCard } from "@/modules/design/components/change-requests-card";
+import { RfiCard } from "@/modules/design/components/rfi-card";
+import type { DepartmentRef, RfiRow } from "@/modules/design/rfi-types";
 
 type Props = {
   project: DesignProject;
   progress: ProjectProgress;
   folders: ProjectFolder[];
   changeRequests: DesignChangeRequest[];
+  rfis: RfiRow[];
+  rfiDepartments: DepartmentRef[];
   canDecideChanges: boolean;
   members: ProjectMemberView[];
   briefs: ProjectBriefRow[];
@@ -69,6 +73,8 @@ export function ProjectDetail({
   progress,
   folders,
   changeRequests,
+  rfis,
+  rfiDepartments,
   canDecideChanges,
   members,
   briefs,
@@ -218,6 +224,9 @@ export function ProjectDetail({
         requests={changeRequests}
         canDecide={canDecideChanges}
       />
+
+      {/* Questions (RFIs) --------------------------------------------------- */}
+      <RfiCard projectId={project.id} rfis={rfis} departments={rfiDepartments} />
 
       {/* Brief(s) ------------------------------------------------------------ */}
       <Card>

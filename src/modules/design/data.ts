@@ -554,6 +554,8 @@ export type ProjectRoleRow = {
   label: string;
   description: string | null;
   is_system: boolean;
+  /** Seniority order within the department; 1 = most senior. */
+  rank: number;
 };
 
 export type ProjectRolesConfig = {

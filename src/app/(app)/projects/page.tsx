@@ -12,18 +12,9 @@ export default async function ProjectsPage() {
   if (!(await hasProjectAccess())) {
     redirect("/forbidden?resource=project&action=read");
   }
-  const [projects, canCreate, canTemplates, canSettings] = await Promise.all([
+  const [projects, canCreate] = await Promise.all([
     listProjects(),
     can("project", "create"),
-    can("design.template", "read"),
-    can("design.folder", "manage"),
   ]);
-  return (
-    <ProjectsList
-      projects={projects}
-      canCreate={canCreate}
-      canTemplates={canTemplates}
-      canSettings={canSettings}
-    />
-  );
+  return <ProjectsList projects={projects} canCreate={canCreate} />;
 }

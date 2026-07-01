@@ -21,13 +21,9 @@ import { ProjectStatusBadge } from "@/modules/design/components/status-badge";
 export function ProjectsList({
   projects,
   canCreate,
-  canTemplates,
-  canSettings,
 }: {
   projects: DesignProject[];
   canCreate: boolean;
-  canTemplates: boolean;
-  canSettings: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -55,23 +51,13 @@ export function ProjectsList({
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Design Department</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
           <p className="text-muted-foreground">
-            Projects move from draft through brief to finalised. You see the
-            projects you&apos;re a member of.
+            Every department&apos;s projects. You see the projects you&apos;re a
+            member of.
           </p>
         </div>
         <div className="flex gap-2">
-          {canTemplates && (
-            <Button asChild size="sm" variant="outline">
-              <Link href="/design/templates">Templates</Link>
-            </Button>
-          )}
-          {canSettings && (
-            <Button asChild size="sm" variant="outline">
-              <Link href="/design/settings">Settings</Link>
-            </Button>
-          )}
           {canCreate && (
             <Button onClick={() => setOpen((o) => !o)} size="sm">
               <Plus className="size-4" /> New project

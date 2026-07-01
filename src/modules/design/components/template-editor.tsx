@@ -35,11 +35,13 @@ export function TemplateEditor({
   tree,
   canEdit,
   canApprove,
+  backHref,
 }: {
   templateId: string;
   tree: TemplateTree;
   canEdit: boolean;
   canApprove: boolean;
+  backHref: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -60,7 +62,7 @@ export function TemplateEditor({
   return (
     <div className="space-y-6">
       <Link
-        href="/design/templates"
+        href={backHref}
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
       >
         <ArrowLeft className="size-4" /> All templates

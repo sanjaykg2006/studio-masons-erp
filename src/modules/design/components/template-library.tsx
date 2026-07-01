@@ -21,9 +21,21 @@ import { createTemplate } from "@/modules/design/actions";
 export function TemplateLibrary({
   templates,
   canCreate,
+  scope,
+  basePath,
+  backHref,
+  backLabel,
+  heading,
+  description,
 }: {
   templates: TemplateSummary[];
   canCreate: boolean;
+  scope: "general" | "design";
+  basePath: string;
+  backHref: string;
+  backLabel: string;
+  heading: string;
+  description: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -36,7 +48,7 @@ export function TemplateLibrary({
     if (!name.trim()) return;
     startTransition(async () => {
       setError(null);
-      const res = await createTemplate(name, discipline);
+      const res = await createTemplate(name, discipline, scope);
       if (!res.ok) {
         setError(res.error);
         return;
@@ -49,18 +61,15 @@ export function TemplateLibrary({
   return (
     <div className="space-y-6">
       <Link
-        href="/design"
+        href={backHref}
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
       >
-        <ArrowLeft className="size-4" /> Design Department
+        <ArrowLeft className="size-4" /> {backLabel}
       </Link>
 
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Brief templates</h1>
-        <p className="text-muted-foreground">
-          The questionnaires that power project briefs. Editing publishes a new
-          version; briefs already filled keep the version they used.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">{heading}</h1>
+        <p className="text-muted-foreground">{description}</p>
       </div>
 
       {error && (
@@ -87,7 +96,7 @@ export function TemplateLibrary({
                 {templates.map((t) => (
                   <tr key={t.id} className="border-b last:border-0">
                     <td className="py-2 font-medium">
-                      <Link href={`/design/templates/${t.id}`} className="hover:underline">
+                      <Link href={`${basePath}/${t.id}`} className="hover:underline">
                         {t.label}
                       </Link>
                     </td>

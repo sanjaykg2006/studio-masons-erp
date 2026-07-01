@@ -39,14 +39,34 @@ export type TemplateSummary = DesignTemplate & {
   hasDraft: boolean;
 };
 
-/** All templates with their version state, for the library page. */
-export async function listTemplates(): Promise<TemplateSummary[]> {
+/**
+ * All templates with their version state, for a library page. `scope` selects the
+ * library: "general" = company-wide templates (Projects, department_id NULL);
+ * "design" = the Design department's own (department_id = Design).
+ */
+export async function listTemplates(
+  scope: "general" | "design"
+): Promise<TemplateSummary[]> {
   const supabase = await createClient();
+  let templatesQuery = supabase
+    .from("design_templates")
+    .select("id, key, label, discipline, is_active, department_id")
+    .order("label");
+  if (scope === "general") {
+    templatesQuery = templatesQuery.is("department_id", null);
+  } else {
+    const { data: dept } = await supabase
+      .from("departments")
+      .select("id")
+      .eq("key", "design")
+      .maybeSingle();
+    templatesQuery = templatesQuery.eq(
+      "department_id",
+      dept?.id ?? "00000000-0000-0000-0000-000000000000"
+    );
+  }
   const [{ data: templates }, { data: versions }] = await Promise.all([
-    supabase
-      .from("design_templates")
-      .select("id, key, label, discipline, is_active")
-      .order("label"),
+    templatesQuery,
     supabase
       .from("design_template_versions")
       .select("id, template_id, version_no, status"),
@@ -373,7 +393,7 @@ export async function getPublishableTemplates(): Promise<
   const supabase = await createClient();
   const { data: versions } = await supabase
     .from("design_template_versions")
-    .select("id, template_id, version_no, status, design_templates(label, discipline, is_active)")
+    .select("id, template_id, version_no, status, design_templates(label, discipline, is_active, department_id)")
     .eq("status", "published");
 
   const best = new Map<
@@ -384,9 +404,16 @@ export async function getPublishableTemplates(): Promise<
     id: string;
     template_id: string;
     version_no: number;
-    design_templates: { label: string; discipline: Discipline; is_active: boolean } | null;
+    design_templates: {
+      label: string;
+      discipline: Discipline;
+      is_active: boolean;
+      department_id: string | null;
+    } | null;
   }[]) {
     if (!v.design_templates?.is_active) continue;
+    // Briefs are built from GENERAL templates (Projects), not a department's own.
+    if (v.design_templates.department_id !== null) continue;
     const prev = best.get(v.template_id);
     if (!prev || v.version_no > prev.version_no) {
       best.set(v.template_id, {

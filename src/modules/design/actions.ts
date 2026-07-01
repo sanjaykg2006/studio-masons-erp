@@ -23,23 +23,55 @@ function toKey(label: string): string {
   return label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
+/** A template library's scope: company-wide (Projects) or a department's own. */
+export type TemplateScope = "general" | "design";
+
+/** The resource that gates a scope's templates. */
+const scopeResource = (scope: TemplateScope) =>
+  scope === "design" ? "design.template" : "project.template";
+
+/**
+ * Allow a template mutation if the caller can do it in EITHER library. RLS
+ * enforces the exact scope per row, so this is just the app-layer convenience
+ * check that turns a denied click into a readable message.
+ */
+async function authorizeAnyTemplate(
+  action: Parameters<typeof authorize>[1]
+): Promise<ActionResult | null> {
+  const denied = await authorize("project.template", action);
+  if (!denied) return null;
+  return authorize("design.template", action);
+}
+
 // ============================== TEMPLATES ====================================
 
-/** Create a new template with an empty published-ready draft v1. */
+/** Create a new template in the given library with an empty draft v1. */
 export async function createTemplate(
   label: string,
-  discipline: Discipline
+  discipline: Discipline,
+  scope: TemplateScope
 ): Promise<ActionResult> {
-  const denied = await authorize("design.template", "create");
+  const denied = await authorize(scopeResource(scope), "create");
   if (denied) return denied;
   const trimmed = label.trim();
   const key = toKey(trimmed);
   if (!trimmed || !key) return fail("Enter a template name.");
 
   const supabase = await createClient();
+  // A "design" template is owned by the Design department; "general" ones are
+  // company-wide (department_id NULL) and live in the Projects module.
+  let departmentId: string | null = null;
+  if (scope === "design") {
+    const { data: dept } = await supabase
+      .from("departments")
+      .select("id")
+      .eq("key", "design")
+      .maybeSingle();
+    departmentId = dept?.id ?? null;
+  }
   const { data: tpl, error } = await supabase
     .from("design_templates")
-    .insert({ key, label: trimmed, discipline })
+    .insert({ key, label: trimmed, discipline, department_id: departmentId })
     .select("id")
     .single();
   if (error)
@@ -51,7 +83,7 @@ export async function createTemplate(
   if (vErr) return fail(vErr.message);
 
   await logAudit("design.template.create", `Created template "${trimmed}"`, { key });
-  revalidatePath("/design/templates");
+  revalidatePath(scope === "design" ? "/design/templates" : "/projects/templates");
   return ok;
 }
 
@@ -61,7 +93,7 @@ export async function createTemplate(
  * brief may reference them), so all edits happen on a draft.
  */
 export async function startTemplateDraft(templateId: string): Promise<ActionResult> {
-  const denied = await authorize("design.template", "update");
+  const denied = await authorizeAnyTemplate("update");
   if (denied) return denied;
 
   const supabase = await createClient();
@@ -131,7 +163,7 @@ async function cloneVersionStructure(fromId: string, toId: string): Promise<stri
 /** Publish a draft version, retiring any previously published one. Publishing
  * is the approval step, so it needs the template "approve" verb. */
 export async function publishTemplateVersion(versionId: string): Promise<ActionResult> {
-  const denied = await authorize("design.template", "approve");
+  const denied = await authorizeAnyTemplate("approve");
   if (denied) return denied;
 
   const supabase = await createClient();
@@ -162,7 +194,7 @@ export async function publishTemplateVersion(versionId: string): Promise<ActionR
 }
 
 async function templateUpdate(): Promise<ActionResult | null> {
-  return authorize("design.template", "update");
+  return authorizeAnyTemplate("update");
 }
 
 export async function addSection(versionId: string, title: string): Promise<ActionResult> {

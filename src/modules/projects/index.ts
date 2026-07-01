@@ -40,5 +40,12 @@ export const projectsModule: ModuleDefinition = {
       label: "Project · Membership",
       actions: ["read", "manage"],
     },
+    {
+      id: "project.template",
+      label: "Project · Templates",
+      actions: ["read", "create", "update", "approve", "delete"],
+      // The general template library is a shared, department-level capability.
+      departmentLevel: true,
+    },
   ],
 };

@@ -21,9 +21,11 @@ import { ProjectStatusBadge } from "@/modules/design/components/status-badge";
 export function ProjectsList({
   projects,
   canCreate,
+  canTemplates,
 }: {
   projects: DesignProject[];
   canCreate: boolean;
+  canTemplates: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -58,6 +60,11 @@ export function ProjectsList({
           </p>
         </div>
         <div className="flex gap-2">
+          {canTemplates && (
+            <Button asChild size="sm" variant="outline">
+              <Link href="/projects/templates">Templates</Link>
+            </Button>
+          )}
           {canCreate && (
             <Button onClick={() => setOpen((o) => !o)} size="sm">
               <Plus className="size-4" /> New project

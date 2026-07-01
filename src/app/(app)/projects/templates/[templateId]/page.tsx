@@ -4,20 +4,20 @@ import { requirePermission, can } from "@/core/rbac/can";
 import { getEditableTemplate } from "@/modules/design/data";
 import { TemplateEditor } from "@/modules/design/components/template-editor";
 
-export default async function DesignTemplateEditorPage({
+export default async function ProjectTemplateEditorPage({
   params,
 }: {
   params: Promise<{ templateId: string }>;
 }) {
-  await requirePermission("design.template", "read");
+  await requirePermission("project.template", "read");
   const { templateId } = await params;
 
   const tree = await getEditableTemplate(templateId);
   if (!tree) notFound();
 
   const [canEdit, canApprove] = await Promise.all([
-    can("design.template", "update"),
-    can("design.template", "approve"),
+    can("project.template", "update"),
+    can("project.template", "approve"),
   ]);
   return (
     <TemplateEditor
@@ -25,7 +25,7 @@ export default async function DesignTemplateEditorPage({
       tree={tree}
       canEdit={canEdit}
       canApprove={canApprove}
-      backHref="/design/templates"
+      backHref="/projects/templates"
     />
   );
 }

@@ -47,23 +47,26 @@ update public.projects
   where department_id is null;
 
 -- 3. Migrate the permission resource ids --------------------------------------
--- Every place a resource/module id is stored: role grants, per-person team
--- grants, the department<->module map, and the general/back-office flags. The
--- project.* modules stay assigned to the Design department here, so Design's
+-- Every place a resource/module id is stored: the general/back-office flags, the
+-- department<->module map, then role grants and per-person team grants. ORDER
+-- MATTERS: the guard_role_permission trigger validates a role grant against
+-- module_settings + department_modules, so those must be renamed BEFORE the
+-- role_permissions rows, or the guard rejects the not-yet-registered 'project'.
+-- The project.* modules stay assigned to the Design department here, so Design's
 -- project roles keep working; add them to another department's modules when it
 -- starts running projects.
+update public.module_settings         set module_id = 'project'        where module_id = 'design.project';
+update public.module_settings         set module_id = 'project.brief'  where module_id = 'design.brief';
+update public.module_settings         set module_id = 'project.member' where module_id = 'design.member';
+update public.department_modules      set module_id = 'project'        where module_id = 'design.project';
+update public.department_modules      set module_id = 'project.brief'  where module_id = 'design.brief';
+update public.department_modules      set module_id = 'project.member' where module_id = 'design.member';
 update public.role_permissions        set resource  = 'project'        where resource  = 'design.project';
 update public.role_permissions        set resource  = 'project.brief'  where resource  = 'design.brief';
 update public.role_permissions        set resource  = 'project.member' where resource  = 'design.member';
 update public.team_member_permissions set resource  = 'project'        where resource  = 'design.project';
 update public.team_member_permissions set resource  = 'project.brief'  where resource  = 'design.brief';
 update public.team_member_permissions set resource  = 'project.member' where resource  = 'design.member';
-update public.department_modules      set module_id = 'project'        where module_id = 'design.project';
-update public.department_modules      set module_id = 'project.brief'  where module_id = 'design.brief';
-update public.department_modules      set module_id = 'project.member' where module_id = 'design.member';
-update public.module_settings         set module_id = 'project'        where module_id = 'design.project';
-update public.module_settings         set module_id = 'project.brief'  where module_id = 'design.brief';
-update public.module_settings         set module_id = 'project.member' where module_id = 'design.member';
 
 -- 4. Recreate functions that referenced renamed tables / old literals ----------
 

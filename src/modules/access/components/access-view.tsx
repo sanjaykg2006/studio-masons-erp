@@ -102,10 +102,11 @@ export function AccessView({
   const selectedRole =
     rolesInScope.find((r) => r.id === roleId) ?? rolesInScope[0] ?? null;
 
-  // What HR edits here, in BOTH scopes, is back-office (general) modules only:
-  //  * Back Office job titles → back-office modules (their whole world).
-  //  * Department roles → back-office/shared modules only; the department's OWN
-  //    modules are the lead's job on Team Access.
+  // Office Access edits ONLY back-office job titles (department-less roles), and
+  // a job title's whole world is back-office (general) modules. Everything
+  // project/department-specific is owned by the department itself (e.g. Design
+  // settings) and its lead's Team Access — never here. So the matrix shows the
+  // general modules only.
   const matrixResources = resources.filter((r) => generalSet.has(r.id));
 
   // Fast lookups for the global-role matrix.
@@ -451,15 +452,18 @@ export function AccessView({
             </>
           )}
 
+          {/* Office Access ONLY manages back-office job titles (department-less
+              roles). Project/department roles are owned by each department (e.g.
+              Design settings) and are never listed or deleted here — which is
+              what removes the foreign-key crash from deleting an in-use role. */}
+          {isGlobal && (
           <div className="grid gap-6 md:grid-cols-[220px_1fr]">
-            {/* Roles in scope -------------------------------------------- */}
+            {/* Back-office job titles ------------------------------------ */}
             <Card>
               <CardHeader>
-                <CardTitle>{isGlobal ? "Job titles" : "Roles"}</CardTitle>
+                <CardTitle>Job titles</CardTitle>
                 <CardDescription>
-                  {isGlobal
-                    ? "Back office job titles — assign one to each employee."
-                    : "Roles in this department."}
+                  Back office job titles — assign one to each employee.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-1">
@@ -505,7 +509,7 @@ export function AccessView({
                   onSubmit={(e) => {
                     e.preventDefault();
                     if (!newRole.trim()) return;
-                    run(() => createRole(newRole, isGlobal ? null : deptId));
+                    run(() => createRole(newRole, null));
                     setNewRole("");
                   }}
                 >
@@ -531,9 +535,9 @@ export function AccessView({
                     : "Permissions"}
                 </CardTitle>
                 <CardDescription>
-                  {isGlobal
-                    ? "Tick which back-office screens this job title can open. These are independent of every project and department. System-wide (★) access is managed in the database, not here."
-                    : "Back-office/shared access only — tick to grant. This department's own modules are managed by its lead on Team Access."}
+                  Tick which back-office screens this job title can open. These
+                  are independent of every project and department. System-wide
+                  (★) access is managed in the database, not here.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -541,9 +545,8 @@ export function AccessView({
                   <p className="text-muted-foreground text-sm">Select a role.</p>
                 ) : matrixResources.length === 0 ? (
                   <p className="text-muted-foreground text-sm">
-                    {isGlobal
-                      ? "No back-office modules yet. Tick a module under “Back office modules” above to grant it here."
-                      : "No back-office modules yet. Tick a module under “Back office modules” above to grant it to this department's roles here."}
+                    No back-office modules yet. Tick a module under “Back office
+                    modules” above to grant it here.
                   </p>
                 ) : (
                   <PermissionMatrix
@@ -563,6 +566,7 @@ export function AccessView({
               </CardContent>
             </Card>
           </div>
+          )}
         </div>
       </div>
 
@@ -603,11 +607,13 @@ export function AccessView({
               aria-label="Invite role"
             >
               <option value="">— no role —</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {roleLabel(r)}
-                </option>
-              ))}
+              {roles
+                .filter((r) => !r.department_id)
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.label}
+                  </option>
+                ))}
             </select>
             <Button type="submit" size="sm" disabled={pending}>
               <UserPlus className="size-4" /> Invite
@@ -637,11 +643,15 @@ export function AccessView({
                       }
                     >
                       <option value="">— none —</option>
-                      {roles.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {roleLabel(r)}
-                        </option>
-                      ))}
+                      {/* Back-office job titles only; keep any legacy department
+                          role already assigned so it stays visible and editable. */}
+                      {roles
+                        .filter((r) => !r.department_id || r.id === u.role_id)
+                        .map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {roleLabel(r)}
+                          </option>
+                        ))}
                     </select>
                   </td>
                   <td className="py-2 text-right">

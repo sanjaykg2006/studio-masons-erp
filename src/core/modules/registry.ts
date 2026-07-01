@@ -6,6 +6,7 @@ import { accessModule } from "@/modules/access";
 import { auditModule } from "@/modules/audit";
 import { projectsModule } from "@/modules/projects";
 import { designModule } from "@/modules/design";
+import { departmentsModule } from "@/modules/departments";
 import { teamAccessModule } from "@/modules/team-access";
 
 /**
@@ -86,6 +87,7 @@ export const modules: ModuleDefinition[] = [
   dashboardModule,
   projectsModule,
   designModule,
+  departmentsModule,
   teamAccessModule,
   accessModule,
   auditModule,

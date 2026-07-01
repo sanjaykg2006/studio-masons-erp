@@ -17,6 +17,12 @@ import {
   getStageSteps,
   getSubteamsConfig,
 } from "@/modules/design/data";
+import {
+  createProjectRole,
+  deleteProjectRole,
+  moveProjectRole,
+  setProjectRolePermission,
+} from "@/modules/design/actions";
 import { FolderAccessMatrix } from "@/modules/design/components/folder-access-matrix";
 import {
   ProjectRolesEditor,
@@ -81,6 +87,10 @@ export default async function DesignSettingsPage() {
             roles={roleConfig.roles}
             permissions={roleConfig.permissions}
             resources={PROJECT_ROLE_RESOURCES}
+            onCreate={createProjectRole}
+            onDelete={deleteProjectRole}
+            onMove={moveProjectRole}
+            onSetPermission={setProjectRolePermission}
           />
         </CardContent>
       </Card>

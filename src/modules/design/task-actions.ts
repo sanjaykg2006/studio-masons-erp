@@ -120,3 +120,15 @@ export async function setTaskInvite(
   revalidatePath("/design/tasks");
   return ok;
 }
+
+export type TaskInvitee = { user_id: string; full_name: string | null; email: string | null };
+
+/** Load the people a task has been shared with (for the share panel). */
+export async function loadTaskInvites(
+  taskId: string
+): Promise<{ ok: true; invitees: TaskInvitee[] } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("list_task_invites", { p_task: taskId });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, invitees: (data ?? []) as TaskInvitee[] };
+}

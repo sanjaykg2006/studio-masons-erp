@@ -95,6 +95,16 @@ export async function hasDesignTeamAccess(): Promise<boolean> {
 }
 
 /**
+ * Whether the user belongs to any department (team member, lead, or admin).
+ * Drives the "Departments" hub sidebar link. Backed by my_departments().
+ */
+export async function hasAnyDepartment(): Promise<boolean> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("my_departments");
+  return !error && Array.isArray(data) && data.length > 0;
+}
+
+/**
  * Whether the user is the lead of at least one department — drives the "Team
  * Access" sidebar link and gates the /team page. Backed by leads_any_department().
  */

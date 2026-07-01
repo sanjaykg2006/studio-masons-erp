@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { requireUser } from "@/core/auth/get-user";
 import {
   getPermissions,
+  hasAnyDepartment,
   hasDesignAccess,
   hasDesignTeamAccess,
   hasProjectAccess,
@@ -23,11 +24,12 @@ export default async function AppLayout({
   children: ReactNode;
 }) {
   const user = await requireUser();
-  const [perms, projectAccess, designAccess, designTeam, isLead] = await Promise.all([
+  const [perms, projectAccess, designAccess, designTeam, anyDept, isLead] = await Promise.all([
     getPermissions(),
     hasProjectAccess(),
     hasDesignAccess(),
     hasDesignTeamAccess(),
+    hasAnyDepartment(),
     leadsAnyDepartment(),
   ]);
   const permissions = [...perms];
@@ -42,6 +44,11 @@ export default async function AppLayout({
   //    task board), even if they hold no template/folder grant of their own.
   if (designAccess || designTeam) {
     const key = permissionKey("design.template", "read");
+    if (!permissions.includes(key)) permissions.push(key);
+  }
+  //  - anyone on a department's team gets the Departments hub link.
+  if (anyDept) {
+    const key = permissionKey("department.workspace", "read");
     if (!permissions.includes(key)) permissions.push(key);
   }
   //  - department leads need the Team Access link (lead-ness is membership, not a

@@ -9,12 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { ProjectRoleRow } from "@/modules/design/data";
-import {
-  createProjectRole,
-  deleteProjectRole,
-  moveProjectRole,
-  setProjectRolePermission,
-} from "@/modules/design/actions";
+
+type ActionResult = { ok: true } | { ok: false; error: string };
 
 /** A matrix row: a Design resource and the verbs it supports. */
 export type ProjectRoleResource = { id: string; label: string; actions: Action[] };
@@ -23,6 +19,16 @@ type Props = {
   roles: ProjectRoleRow[];
   permissions: { role_id: string; resource: string; action: Action }[];
   resources: ProjectRoleResource[];
+  /** Action handlers — injected so Design and other departments reuse this UI. */
+  onCreate: (label: string) => Promise<ActionResult>;
+  onDelete: (roleId: string) => Promise<ActionResult>;
+  onMove: (roleId: string, up: boolean) => Promise<ActionResult>;
+  onSetPermission: (
+    roleId: string,
+    resource: string,
+    action: Action,
+    grant: boolean
+  ) => Promise<ActionResult>;
 };
 
 const cellKey = (roleId: string, resource: string, action: Action) =>
@@ -34,7 +40,15 @@ const cellKey = (roleId: string, resource: string, action: Action) =>
  * per resource (the same idea as the Access Control matrix). Pure UI — the
  * database (RLS + the 0013 RPCs) is the real boundary.
  */
-export function ProjectRolesEditor({ roles, permissions, resources }: Props) {
+export function ProjectRolesEditor({
+  roles,
+  permissions,
+  resources,
+  onCreate,
+  onDelete,
+  onMove,
+  onSetPermission,
+}: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +101,7 @@ export function ProjectRolesEditor({ roles, permissions, resources }: Props) {
                 <button
                   type="button"
                   disabled={pending || i === 0}
-                  onClick={() => run(() => moveProjectRole(role.id, true))}
+                  onClick={() => run(() => onMove(role.id, true))}
                   className="text-muted-foreground hover:text-foreground disabled:opacity-30"
                   aria-label={`Move ${role.label} up`}
                 >
@@ -96,7 +110,7 @@ export function ProjectRolesEditor({ roles, permissions, resources }: Props) {
                 <button
                   type="button"
                   disabled={pending || i === roles.length - 1}
-                  onClick={() => run(() => moveProjectRole(role.id, false))}
+                  onClick={() => run(() => onMove(role.id, false))}
                   className="text-muted-foreground hover:text-foreground disabled:opacity-30"
                   aria-label={`Move ${role.label} down`}
                 >
@@ -119,7 +133,7 @@ export function ProjectRolesEditor({ roles, permissions, resources }: Props) {
                   disabled={pending}
                   onClick={() => {
                     if (confirm(`Delete role "${role.label}"?`))
-                      run(() => deleteProjectRole(role.id));
+                      run(() => onDelete(role.id));
                   }}
                   className="text-muted-foreground hover:text-destructive"
                   aria-label={`Delete ${role.label}`}
@@ -137,7 +151,7 @@ export function ProjectRolesEditor({ roles, permissions, resources }: Props) {
               if (!newRole.trim()) return;
               const label = newRole;
               setNewRole("");
-              run(() => createProjectRole(label));
+              run(() => onCreate(label));
             }}
           >
             <Input
@@ -197,7 +211,7 @@ export function ProjectRolesEditor({ roles, permissions, resources }: Props) {
                                 disabled={pending}
                                 onChange={(e) =>
                                   run(() =>
-                                    setProjectRolePermission(
+                                    onSetPermission(
                                       selectedRole.id,
                                       res.id,
                                       action,

@@ -18,15 +18,15 @@ export type TasksPageData = {
 };
 
 /**
- * Everything the Design tasks page needs: the tasks the caller may see (privacy
+ * The task board data for ANY department: the tasks the caller may see (privacy
  * enforced in the RPC), the team members (assignee picker), the sub-teams, and
- * the projects a task can be linked to. Returns null if the caller isn't on the
- * Design team (nothing to show).
+ * the projects a task can be linked to. Returns null if the caller isn't on that
+ * department's team (nothing to show).
  */
-export async function getDesignTasksData(): Promise<TasksPageData | null> {
+export async function getDepartmentTasksData(
+  departmentId: string
+): Promise<TasksPageData | null> {
   const supabase = await createClient();
-  const { data: departmentId } = await supabase.rpc("design_department_id");
-  if (!departmentId) return null;
 
   const { data: access } = await supabase.rpc("on_department_team", {
     p_dept: departmentId,
@@ -41,10 +41,18 @@ export async function getDesignTasksData(): Promise<TasksPageData | null> {
   ]);
 
   return {
-    departmentId: departmentId as string,
+    departmentId,
     tasks: (tasksRes.data ?? []) as TaskRow[],
     people: (peopleRes.data ?? []) as TaskPerson[],
     subteams: (subteamsRes.data ?? []) as TaskSubteam[],
     projects: projects.map((p) => ({ id: p.id, name: p.name })),
   };
+}
+
+/** The Design department's tasks (convenience wrapper for /design/tasks). */
+export async function getDesignTasksData(): Promise<TasksPageData | null> {
+  const supabase = await createClient();
+  const { data: departmentId } = await supabase.rpc("design_department_id");
+  if (!departmentId) return null;
+  return getDepartmentTasksData(departmentId as string);
 }

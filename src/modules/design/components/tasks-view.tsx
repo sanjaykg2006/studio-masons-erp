@@ -209,7 +209,13 @@ export function TasksView({
       )}
 
       {view === "board" ? (
-        <TaskBoard tasks={tasks} people={people} onError={setError} />
+        <TaskBoard
+          tasks={tasks}
+          people={people}
+          subteams={subteams}
+          projects={projects}
+          onError={setError}
+        />
       ) : (
         <TaskCalendar tasks={tasks} />
       )}

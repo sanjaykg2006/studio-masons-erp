@@ -16,7 +16,10 @@ import {
 } from "@/components/ui/card";
 import type { DesignProject } from "@/modules/design/types";
 import { createProject } from "@/modules/design/actions";
-import { ProjectStatusBadge } from "@/modules/design/components/status-badge";
+import {
+  ProjectPhaseBadge,
+  ProjectStatusBadge,
+} from "@/modules/design/components/status-badge";
 
 export function ProjectsList({
   projects,
@@ -134,6 +137,7 @@ export function ProjectsList({
                   <th className="py-2 font-medium">Project</th>
                   <th className="py-2 font-medium">Code</th>
                   <th className="py-2 font-medium">Client</th>
+                  <th className="py-2 font-medium">Phase</th>
                   <th className="py-2 font-medium">Status</th>
                 </tr>
               </thead>
@@ -147,6 +151,9 @@ export function ProjectsList({
                     </td>
                     <td className="text-muted-foreground py-2">{p.code ?? "—"}</td>
                     <td className="text-muted-foreground py-2">{p.client ?? "—"}</td>
+                    <td className="py-2">
+                      <ProjectPhaseBadge phase={p.phase} />
+                    </td>
                     <td className="py-2">
                       <ProjectStatusBadge status={p.status} />
                     </td>

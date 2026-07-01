@@ -183,7 +183,7 @@ export async function listProjects(): Promise<DesignProject[]> {
   const { data } = await supabase
     .from("projects")
     .select(
-      "id, code, name, client, location, status, created_by, created_at, finalised_at"
+      "id, code, name, client, location, status, phase, frozen_at, frozen_by, created_by, created_at, finalised_at"
     )
     .order("created_at", { ascending: false });
   return (data ?? []) as DesignProject[];
@@ -215,7 +215,7 @@ export async function getProjectDetail(
   const { data: project } = await supabase
     .from("projects")
     .select(
-      "id, code, name, client, location, status, created_by, created_at, finalised_at"
+      "id, code, name, client, location, status, phase, frozen_at, frozen_by, created_by, created_at, finalised_at"
     )
     .eq("id", projectId)
     .maybeSingle();
@@ -261,6 +261,8 @@ export async function getProjectDetail(
 
 // --- Brief -------------------------------------------------------------------
 
+export type RevisionState = "draft" | "in_review" | null;
+
 export type BriefDetail = {
   brief: DesignBrief;
   project: Pick<DesignProject, "id" | "name" | "status">;
@@ -269,6 +271,15 @@ export type BriefDetail = {
   canEdit: boolean;
   canReview: boolean;
   canApprove: boolean;
+  /** Post-freeze revision cycle (null = no revision in progress). */
+  revisionState: RevisionState;
+  revisionNo: number;
+  /** True once the project is frozen (Execution phase) — the design is locked. */
+  frozen: boolean;
+  /** May start a revision now (frozen, no revision open, holds brief:update). */
+  canProposeRevision: boolean;
+  /** May approve/return a submitted revision (dept lead OR project:approve). */
+  canApproveRevision: boolean;
 };
 
 /** A brief with its questionnaire tree, current answers, and the caller's verbs. */
@@ -279,48 +290,66 @@ export async function getBriefDetail(
   const { data: brief } = await supabase
     .from("project_briefs")
     .select(
-      "id, project_id, template_id, template_version_id, discipline, status, approved_at"
+      "id, project_id, template_id, template_version_id, discipline, status, approved_at, revision_state, revision_no"
     )
     .eq("id", briefId)
     .maybeSingle();
   if (!brief) return null;
 
-  const [{ data: project }, tree, { data: answerRows }, permSet] =
+  const [{ data: project }, tree, { data: answerRows }, permSet, { data: canApproveRev }] =
     await Promise.all([
       supabase
         .from("projects")
-        .select("id, name, status")
+        .select("id, name, status, phase")
         .eq("id", brief.project_id)
         .single(),
       loadVersionTree(brief.template_version_id),
       supabase
         .from("project_brief_answers")
-        .select("question_id, values")
+        .select("question_id, values, draft_values")
         .eq("brief_id", briefId),
       getProjectPermissions(brief.project_id),
+      supabase.rpc("can_approve_brief_revision", { p_project: brief.project_id }),
     ]);
   if (!tree || !project) return null;
 
+  const revisionState = (brief.revision_state ?? null) as RevisionState;
+  const revising = revisionState === "draft";
+
+  // While revising, show the draft copy; otherwise the published answers.
   const answers: Record<string, Record<string, string>> = {};
   for (const row of (answerRows ?? []) as {
     question_id: string;
-    values: Record<string, string>;
+    values: Record<string, string> | null;
+    draft_values: Record<string, string> | null;
   }[]) {
-    answers[row.question_id] = row.values ?? {};
+    answers[row.question_id] =
+      (revisionState ? row.draft_values : row.values) ?? row.values ?? {};
   }
 
   const has = (action: string) =>
     permSet.has(permissionKey("project.brief", action as never)) ||
     permSet.has(permissionKey("*", action as never));
 
+  const frozen = (project as { phase?: string }).phase === "execution";
+  const canApproveRevision = Boolean(canApproveRev);
+
   return {
     brief: brief as DesignBrief,
     project: project as Pick<DesignProject, "id" | "name" | "status">,
     tree,
     answers,
-    canEdit: has("update") && (brief.status as BriefStatus) !== "approved",
+    // Editable pre-freeze as before; once frozen, only while a draft is open.
+    canEdit: revising
+      ? has("update")
+      : has("update") && (brief.status as BriefStatus) !== "approved" && !frozen,
     canReview: has("review"),
     canApprove: has("approve"),
+    revisionState,
+    revisionNo: (brief.revision_no as number) ?? 0,
+    frozen,
+    canProposeRevision: has("update") && frozen && !revisionState,
+    canApproveRevision,
   };
 }
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ArrowLeft, FileText, Trash2, UserPlus } from "lucide-react";
+import { ArrowLeft, FileText, Lock, Snowflake, Trash2, UserPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,10 +31,13 @@ import {
   createBriefs,
   deleteProject,
   finaliseProject,
+  freezeProject,
   removeMember,
+  unfreezeProject,
 } from "@/modules/design/actions";
 import {
   BriefStatusBadge,
+  ProjectPhaseBadge,
   ProjectStatusBadge,
 } from "@/modules/design/components/status-badge";
 import { ProgressTracker } from "@/modules/design/components/progress-tracker";
@@ -56,6 +59,7 @@ type Props = {
   canUpdate: boolean;
   canDelete: boolean;
   canFinalise: boolean;
+  canFreeze: boolean;
   canManageMembers: boolean;
   canCreateBrief: boolean;
 };
@@ -75,6 +79,7 @@ export function ProjectDetail({
   canUpdate,
   canDelete,
   canFinalise,
+  canFreeze,
   canManageMembers,
   canCreateBrief,
 }: Props) {
@@ -118,8 +123,9 @@ export function ProjectDetail({
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
+            <ProjectPhaseBadge phase={project.phase} />
             <ProjectStatusBadge status={project.status} />
           </div>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -127,6 +133,37 @@ export function ProjectDetail({
           </p>
         </div>
         <div className="flex gap-2">
+          {canFreeze && project.phase === "concept" && (
+            <Button
+              size="sm"
+              disabled={pending}
+              onClick={() => {
+                if (
+                  confirm(
+                    "Design Freeze: hand this project to the Execution phase? " +
+                      "It opens up to all assigned teams and the design locks — " +
+                      "further changes must go through change orders."
+                  )
+                )
+                  run(() => freezeProject(project.id));
+              }}
+            >
+              <Snowflake className="size-4" /> Design Freeze
+            </Button>
+          )}
+          {canFreeze && project.phase === "execution" && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={pending}
+              onClick={() => {
+                if (confirm("Revert this project to the Concept phase?"))
+                  run(() => unfreezeProject(project.id));
+              }}
+            >
+              Reopen Concept
+            </Button>
+          )}
           {canFinalise && project.status === "brief_approved" && (
             <Button size="sm" disabled={pending} onClick={() => run(() => finaliseProject(project.id))}>
               Finalise project
@@ -151,6 +188,17 @@ export function ProjectDetail({
       {error && (
         <div className="border-destructive/50 bg-destructive/10 text-destructive rounded-md border px-4 py-2 text-sm">
           {error}
+        </div>
+      )}
+
+      {project.phase === "execution" && (
+        <div className="flex items-start gap-2 rounded-md border border-sky-500/40 bg-sky-500/10 px-4 py-2 text-sm text-sky-800 dark:text-sky-300">
+          <Lock className="mt-0.5 size-4 shrink-0" />
+          <span>
+            <span className="font-medium">Design frozen.</span> This project has
+            passed the Design Freeze and is in the Execution phase — the brief is
+            read-only. Raise a change order for any further changes.
+          </span>
         </div>
       )}
 

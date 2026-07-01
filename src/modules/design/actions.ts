@@ -467,6 +467,63 @@ export async function finaliseProject(projectId: string): Promise<ActionResult> 
   return ok;
 }
 
+// ============================== LIFECYCLE ====================================
+
+/**
+ * Design Freeze — the deliberate handoff that ends the Concept phase.
+ *
+ * Flipping the project to the Execution phase (a) opens it up from "private to
+ * the owning department's team" to every assigned team, and (b) locks the design
+ * (briefs become read-only; further changes go through change orders). Reuses
+ * project:approve — the same senior grant that finalises a project.
+ */
+export async function freezeProject(projectId: string): Promise<ActionResult> {
+  const denied = await authorizeProject(projectId, "project", "approve");
+  if (denied) return denied;
+  const supabase = await createClient();
+  const { data: project } = await supabase
+    .from("projects")
+    .select("phase")
+    .eq("id", projectId)
+    .single();
+  if (project?.phase === "execution")
+    return fail("This project is already frozen (Execution phase).");
+
+  const { error } = await supabase
+    .from("projects")
+    .update({
+      phase: "execution",
+      frozen_at: new Date().toISOString(),
+      frozen_by: (await getUser())?.id ?? null,
+    })
+    .eq("id", projectId);
+  if (error) return fail(error.message);
+  await logAudit("project.freeze", "Design Freeze — project moved to the Execution phase", {
+    projectId,
+  });
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/projects");
+  return ok;
+}
+
+/** Reverse a Freeze back to the Concept phase (mistakes happen). Audited. */
+export async function unfreezeProject(projectId: string): Promise<ActionResult> {
+  const denied = await authorizeProject(projectId, "project", "approve");
+  if (denied) return denied;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("projects")
+    .update({ phase: "concept", frozen_at: null, frozen_by: null })
+    .eq("id", projectId);
+  if (error) return fail(error.message);
+  await logAudit("project.unfreeze", "Reverted a project to the Concept phase", {
+    projectId,
+  });
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/projects");
+  return ok;
+}
+
 // ============================== MEMBERS ======================================
 
 export async function addMember(
@@ -554,20 +611,114 @@ export async function saveBriefAnswer(
   const supabase = await createClient();
   const { data: brief } = await supabase
     .from("project_briefs")
-    .select("project_id, status")
+    .select("project_id, status, revision_state, projects(phase)")
     .eq("id", briefId)
     .single();
   if (!brief) return fail("Brief not found.");
-  if (brief.status === "approved") return fail("This brief is approved and locked for editing.");
 
   const denied = await authorizeProject(brief.project_id, "project.brief", "update");
   if (denied) return denied;
 
-  const { error } = await supabase
-    .from("project_brief_answers")
-    .upsert({ brief_id: briefId, question_id: questionId, values, updated_at: new Date().toISOString() });
+  const revising = brief.revision_state === "draft";
+  const frozen =
+    brief.status === "approved" ||
+    (brief.projects as { phase?: string } | null)?.phase === "execution";
+
+  if (frozen && !revising)
+    return fail("The design is frozen — propose a revision to edit this brief.");
+
+  // During a revision, edits land in the draft copy; the published answers
+  // (`values`) only move when the revision is approved & published.
+  const payload: Record<string, unknown> = {
+    brief_id: briefId,
+    question_id: questionId,
+    updated_at: new Date().toISOString(),
+  };
+  payload[revising ? "draft_values" : "values"] = values;
+
+  const { error } = await supabase.from("project_brief_answers").upsert(payload);
   if (error) return fail(error.message);
   revalidatePath(`/projects/${brief.project_id}/brief/${briefId}`);
+  return ok;
+}
+
+// ============================== BRIEF REVISIONS ==============================
+
+/** Look up a brief's project, for revision-action revalidation + audit. */
+async function briefProject(briefId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("project_briefs")
+    .select("project_id")
+    .eq("id", briefId)
+    .single();
+  return data?.project_id ?? null;
+}
+
+/** Open a revision on a frozen brief (snapshots published answers into a draft). */
+export async function proposeBriefRevision(briefId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("propose_brief_revision", { p_brief: briefId });
+  if (error) return fail(error.message);
+  const projectId = await briefProject(briefId);
+  await logAudit("project.brief.revision.open", "Opened a brief revision", { briefId });
+  if (projectId) revalidatePath(`/projects/${projectId}/brief/${briefId}`);
+  return ok;
+}
+
+/** Submit the draft revision for the department lead's approval. */
+export async function submitBriefRevision(briefId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("submit_brief_revision", { p_brief: briefId });
+  if (error) return fail(error.message);
+  const projectId = await briefProject(briefId);
+  await logAudit("project.brief.revision.submit", "Submitted a brief revision", { briefId });
+  if (projectId) revalidatePath(`/projects/${projectId}/brief/${briefId}`);
+  return ok;
+}
+
+/** Approver returns a submitted revision to the reviser for changes. */
+export async function returnBriefRevision(briefId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("return_brief_revision", { p_brief: briefId });
+  if (error) return fail(error.message);
+  const projectId = await briefProject(briefId);
+  await logAudit("project.brief.revision.return", "Returned a brief revision for changes", { briefId });
+  if (projectId) revalidatePath(`/projects/${projectId}/brief/${briefId}`);
+  return ok;
+}
+
+/** Approve & publish: the draft replaces the published answers. */
+export async function approveBriefRevision(briefId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("approve_brief_revision", { p_brief: briefId });
+  if (error) return fail(error.message);
+  const projectId = await briefProject(briefId);
+
+  // Re-file the updated brief PDF (best-effort — must not undo the publish).
+  if (projectId) {
+    try {
+      await fileApprovedBriefPdf(briefId, projectId, (await getUser())?.id ?? null);
+    } catch (e) {
+      console.error("Failed to re-file revised brief PDF:", e);
+    }
+  }
+  await logAudit("project.brief.revision.publish", "Published a brief revision", { briefId });
+  if (projectId) {
+    revalidatePath(`/projects/${projectId}/brief/${briefId}`);
+    revalidatePath(`/projects/${projectId}/folder/project_brief`);
+  }
+  return ok;
+}
+
+/** Throw the draft away; published answers are left untouched. */
+export async function discardBriefRevision(briefId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("discard_brief_revision", { p_brief: briefId });
+  if (error) return fail(error.message);
+  const projectId = await briefProject(briefId);
+  await logAudit("project.brief.revision.discard", "Discarded a brief revision", { briefId });
+  if (projectId) revalidatePath(`/projects/${projectId}/brief/${briefId}`);
   return ok;
 }
 

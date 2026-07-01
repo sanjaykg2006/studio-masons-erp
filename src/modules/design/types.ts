@@ -173,6 +173,13 @@ export const BRIEF_STATUS_LABEL: Record<BriefStatus, string> = {
 
 export type TemplateStatus = "draft" | "published" | "archived";
 
+export type ProjectPhase = "concept" | "execution";
+
+export const PROJECT_PHASE_LABEL: Record<ProjectPhase, string> = {
+  concept: "Concept phase",
+  execution: "Execution phase",
+};
+
 export type DesignProject = {
   id: string;
   code: string | null;
@@ -180,6 +187,9 @@ export type DesignProject = {
   client: string | null;
   location: string | null;
   status: ProjectStatus;
+  phase: ProjectPhase;
+  frozen_at: string | null;
+  frozen_by: string | null;
   created_by: string | null;
   created_at: string;
   finalised_at: string | null;

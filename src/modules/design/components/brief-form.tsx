@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ArrowLeft, CheckCircle2, Lock, RotateCcw, Send } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Lock, Pencil, RotateCcw, Send, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,13 +13,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { TemplateTree } from "@/modules/design/data";
+import type { RevisionState, TemplateTree } from "@/modules/design/data";
 import type { DesignBrief } from "@/modules/design/types";
 import {
   approveBrief,
+  approveBriefRevision,
+  discardBriefRevision,
+  proposeBriefRevision,
   returnBriefForChanges,
+  returnBriefRevision,
   saveBriefAnswer,
   submitBriefForReview,
+  submitBriefRevision,
 } from "@/modules/design/actions";
 import { BriefStatusBadge } from "@/modules/design/components/status-badge";
 
@@ -32,6 +37,11 @@ type Props = {
   canEdit: boolean;
   canReview: boolean;
   canApprove: boolean;
+  frozen: boolean;
+  revisionState: RevisionState;
+  revisionNo: number;
+  canProposeRevision: boolean;
+  canApproveRevision: boolean;
 };
 
 export function BriefForm({
@@ -43,6 +53,11 @@ export function BriefForm({
   canEdit,
   canReview,
   canApprove,
+  frozen,
+  revisionState,
+  revisionNo,
+  canProposeRevision,
+  canApproveRevision,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -50,7 +65,7 @@ export function BriefForm({
   const [answers, setAnswers] = useState(initial);
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  const locked = brief.status === "approved" || !canEdit;
+  const locked = !canEdit;
 
   const setCell = (questionId: string, colKey: string, value: string) =>
     setAnswers((prev) => ({
@@ -87,39 +102,91 @@ export function BriefForm({
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight">{tree.template.label}</h1>
             <BriefStatusBadge status={brief.status} />
+            {revisionNo > 0 && (
+              <span className="text-muted-foreground text-xs">Rev. {revisionNo}</span>
+            )}
           </div>
           <p className="text-muted-foreground mt-1 text-sm">
             Version {tree.version.version_no} · answers save as you go.
           </p>
         </div>
-        <div className="flex gap-2">
-          {canEdit && brief.status === "in_progress" && (
+        <div className="flex flex-wrap gap-2">
+          {/* Pre-freeze brief cycle. */}
+          {!frozen && canEdit && brief.status === "in_progress" && (
             <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => submitBriefForReview(brief.id))}>
               <Send className="size-4" /> Submit for review
             </Button>
           )}
-          {canReview && brief.status === "in_review" && (
+          {!frozen && canReview && brief.status === "in_review" && (
             <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => returnBriefForChanges(brief.id))}>
               <RotateCcw className="size-4" /> Return for changes
             </Button>
           )}
-          {canApprove && brief.status !== "approved" && (
+          {!frozen && canApprove && brief.status !== "approved" && (
             <Button size="sm" disabled={pending} onClick={() => run(() => approveBrief(brief.id))}>
               <CheckCircle2 className="size-4" /> Approve brief
+            </Button>
+          )}
+
+          {/* Post-freeze revision cycle. */}
+          {canProposeRevision && (
+            <Button size="sm" disabled={pending} onClick={() => run(() => proposeBriefRevision(brief.id))}>
+              <Pencil className="size-4" /> Propose revision
+            </Button>
+          )}
+          {revisionState === "draft" && canEdit && (
+            <Button size="sm" disabled={pending} onClick={() => run(() => submitBriefRevision(brief.id))}>
+              <Send className="size-4" /> Submit revision
+            </Button>
+          )}
+          {revisionState === "in_review" && canApproveRevision && (
+            <>
+              <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => returnBriefRevision(brief.id))}>
+                <RotateCcw className="size-4" /> Return for changes
+              </Button>
+              <Button size="sm" disabled={pending} onClick={() => run(() => approveBriefRevision(brief.id))}>
+                <CheckCircle2 className="size-4" /> Approve &amp; publish
+              </Button>
+            </>
+          )}
+          {revisionState && (canApproveRevision || canEdit) && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={pending}
+              onClick={() => {
+                if (confirm("Discard this revision? The published brief is kept unchanged."))
+                  run(() => discardBriefRevision(brief.id));
+              }}
+            >
+              <X className="size-4" /> Discard
             </Button>
           )}
         </div>
       </div>
 
-      {locked && (
+      {revisionState && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-800 dark:text-amber-300">
+          <Pencil className="mt-0.5 size-4 shrink-0" />
+          <span>
+            {revisionState === "draft"
+              ? "Revision in progress — you're editing a draft copy. The published design stays unchanged until the department lead approves it."
+              : "Revision submitted — awaiting the department lead's approval to publish. Editing is locked until it's decided."}
+          </span>
+        </div>
+      )}
+
+      {locked && !revisionState && (
         <div className="text-muted-foreground bg-muted flex items-center gap-2 rounded-md px-4 py-2 text-sm">
           <Lock className="size-4" />
-          {brief.status === "approved"
-            ? "This brief is approved and locked for editing."
-            : "You have read-only access to this brief."}
+          {frozen
+            ? "The design is frozen. Propose a revision to change the brief; publishing needs the department lead's approval."
+            : brief.status === "approved"
+              ? "This brief is approved and locked for editing."
+              : "You have read-only access to this brief."}
         </div>
       )}
 

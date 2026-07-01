@@ -25,6 +25,11 @@ export default async function BriefPage({
       canEdit={detail.canEdit}
       canReview={detail.canReview}
       canApprove={detail.canApprove}
+      frozen={detail.frozen}
+      revisionState={detail.revisionState}
+      revisionNo={detail.revisionNo}
+      canProposeRevision={detail.canProposeRevision}
+      canApproveRevision={detail.canApproveRevision}
     />
   );
 }

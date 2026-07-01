@@ -49,6 +49,7 @@ export default async function ProjectPage({
       canUpdate={detail.can("project", "update")}
       canDelete={detail.can("project", "delete")}
       canFinalise={detail.can("project", "approve")}
+      canFreeze={detail.can("project", "approve")}
       canManageMembers={canManageMembers}
       canCreateBrief={canCreateBrief}
     />

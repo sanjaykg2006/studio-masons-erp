@@ -26,6 +26,9 @@ update public.roles r
    and r.rank = 0;
 
 -- 2. Settings read now includes rank, ordered by it ---------------------------
+-- Drop first: CREATE OR REPLACE can't change a function's return columns, and
+-- we're adding `rank` to the returned table.
+drop function if exists public.design_settings_roles();
 create or replace function public.design_settings_roles()
 returns table (id uuid, key text, label text, description text, is_system boolean, rank int)
 language sql stable security definer set search_path = public

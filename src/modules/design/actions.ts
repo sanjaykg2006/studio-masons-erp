@@ -303,19 +303,28 @@ export async function createProject(
   client: string,
   location: string
 ): Promise<ActionResult> {
-  const denied = await authorize("design.project", "create");
+  const denied = await authorize("project", "create");
   if (denied) return denied;
   const trimmed = name.trim();
   if (!trimmed) return fail("Enter a project name.");
 
   const supabase = await createClient();
+  // Tag the project with its owning department. Today projects are created from
+  // the Design side, so default to Design; a multi-department create picker
+  // arrives with the other department modules.
+  const { data: dept } = await supabase
+    .from("departments")
+    .select("id")
+    .eq("key", "design")
+    .maybeSingle();
   const { data: project, error } = await supabase
-    .from("design_projects")
+    .from("projects")
     .insert({
       name: trimmed,
       code: code.trim() || null,
       client: client.trim() || null,
       location: location.trim() || null,
+      department_id: dept?.id ?? null,
     })
     .select("id")
     .single();
@@ -333,7 +342,7 @@ export async function createProject(
     .eq("key", "design_project_lead")
     .maybeSingle();
   if (user && lead) {
-    await admin.from("design_project_members").upsert({
+    await admin.from("project_members").upsert({
       project_id: project.id,
       user_id: user.id,
       role_id: lead.id,
@@ -342,7 +351,7 @@ export async function createProject(
   }
 
   await logAudit("design.project.create", `Created project "${trimmed}"`, { projectId: project.id });
-  revalidatePath("/design");
+  revalidatePath("/projects");
   return ok;
 }
 
@@ -350,13 +359,13 @@ export async function updateProject(
   projectId: string,
   fields: { name: string; code: string; client: string; location: string }
 ): Promise<ActionResult> {
-  const denied = await authorizeProject(projectId, "design.project", "update");
+  const denied = await authorizeProject(projectId, "project", "update");
   if (denied) return denied;
   const name = fields.name.trim();
   if (!name) return fail("Enter a project name.");
   const supabase = await createClient();
   const { error } = await supabase
-    .from("design_projects")
+    .from("projects")
     .update({
       name,
       code: fields.code.trim() || null,
@@ -366,28 +375,28 @@ export async function updateProject(
     .eq("id", projectId);
   if (error) return fail(error.message);
   await logAudit("design.project.update", "Updated a project", { projectId });
-  revalidatePath(`/design/${projectId}`);
+  revalidatePath(`/projects/${projectId}`);
   return ok;
 }
 
 export async function deleteProject(projectId: string): Promise<ActionResult> {
-  const denied = await authorizeProject(projectId, "design.project", "delete");
+  const denied = await authorizeProject(projectId, "project", "delete");
   if (denied) return denied;
   const supabase = await createClient();
-  const { error } = await supabase.from("design_projects").delete().eq("id", projectId);
+  const { error } = await supabase.from("projects").delete().eq("id", projectId);
   if (error) return fail(error.message);
   await logAudit("design.project.delete", "Deleted a project", { projectId });
-  revalidatePath("/design");
+  revalidatePath("/projects");
   return ok;
 }
 
 /** Finalise: only once the brief is approved, and only with project:approve. */
 export async function finaliseProject(projectId: string): Promise<ActionResult> {
-  const denied = await authorizeProject(projectId, "design.project", "approve");
+  const denied = await authorizeProject(projectId, "project", "approve");
   if (denied) return denied;
   const supabase = await createClient();
   const { data: project } = await supabase
-    .from("design_projects")
+    .from("projects")
     .select("status")
     .eq("id", projectId)
     .single();
@@ -395,12 +404,12 @@ export async function finaliseProject(projectId: string): Promise<ActionResult> 
     return fail("The brief must be approved before the project can be finalised.");
 
   const { error } = await supabase
-    .from("design_projects")
+    .from("projects")
     .update({ status: "finalised", finalised_at: new Date().toISOString() })
     .eq("id", projectId);
   if (error) return fail(error.message);
   await logAudit("design.project.finalise", "Finalised a project", { projectId });
-  revalidatePath(`/design/${projectId}`);
+  revalidatePath(`/projects/${projectId}`);
   return ok;
 }
 
@@ -411,30 +420,30 @@ export async function addMember(
   userId: string,
   roleId: string
 ): Promise<ActionResult> {
-  const denied = await authorizeProject(projectId, "design.member", "manage");
+  const denied = await authorizeProject(projectId, "project.member", "manage");
   if (denied) return denied;
   if (!userId || !roleId) return fail("Pick a person and a role.");
   const supabase = await createClient();
   const { error } = await supabase
-    .from("design_project_members")
+    .from("project_members")
     .upsert({ project_id: projectId, user_id: userId, role_id: roleId });
   if (error) return fail(error.message);
   await logAudit("design.member.add", "Added a project member", { projectId, userId, roleId });
-  revalidatePath(`/design/${projectId}`);
+  revalidatePath(`/projects/${projectId}`);
   return ok;
 }
 
 export async function removeMember(projectId: string, userId: string): Promise<ActionResult> {
-  const denied = await authorizeProject(projectId, "design.member", "manage");
+  const denied = await authorizeProject(projectId, "project.member", "manage");
   if (denied) return denied;
   const supabase = await createClient();
   const { error } = await supabase
-    .from("design_project_members")
+    .from("project_members")
     .delete()
     .match({ project_id: projectId, user_id: userId });
   if (error) return fail(error.message);
   await logAudit("design.member.remove", "Removed a project member", { projectId, userId });
-  revalidatePath(`/design/${projectId}`);
+  revalidatePath(`/projects/${projectId}`);
   return ok;
 }
 
@@ -445,7 +454,7 @@ export async function createBriefs(
   projectId: string,
   templateIds: string[]
 ): Promise<ActionResult> {
-  const denied = await authorizeProject(projectId, "design.brief", "create");
+  const denied = await authorizeProject(projectId, "project.brief", "create");
   if (denied) return denied;
   if (!templateIds.length) return fail("Pick at least one questionnaire.");
 
@@ -462,7 +471,7 @@ export async function createBriefs(
     if (!version) continue;
     const discipline = (version as unknown as { design_templates: { discipline: Discipline } })
       .design_templates.discipline;
-    const { error } = await supabase.from("design_briefs").insert({
+    const { error } = await supabase.from("project_briefs").insert({
       project_id: projectId,
       template_id: templateId,
       template_version_id: version.id,
@@ -473,13 +482,13 @@ export async function createBriefs(
 
   // Move the project out of draft on its first brief.
   await supabase
-    .from("design_projects")
+    .from("projects")
     .update({ status: "brief_in_progress" })
     .eq("id", projectId)
     .eq("status", "draft");
 
   await logAudit("design.brief.create", "Started project brief(s)", { projectId, templateIds });
-  revalidatePath(`/design/${projectId}`);
+  revalidatePath(`/projects/${projectId}`);
   return ok;
 }
 
@@ -490,43 +499,43 @@ export async function saveBriefAnswer(
 ): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: brief } = await supabase
-    .from("design_briefs")
+    .from("project_briefs")
     .select("project_id, status")
     .eq("id", briefId)
     .single();
   if (!brief) return fail("Brief not found.");
   if (brief.status === "approved") return fail("This brief is approved and locked for editing.");
 
-  const denied = await authorizeProject(brief.project_id, "design.brief", "update");
+  const denied = await authorizeProject(brief.project_id, "project.brief", "update");
   if (denied) return denied;
 
   const { error } = await supabase
-    .from("design_brief_answers")
+    .from("project_brief_answers")
     .upsert({ brief_id: briefId, question_id: questionId, values, updated_at: new Date().toISOString() });
   if (error) return fail(error.message);
-  revalidatePath(`/design/${brief.project_id}/brief/${briefId}`);
+  revalidatePath(`/projects/${brief.project_id}/brief/${briefId}`);
   return ok;
 }
 
 export async function submitBriefForReview(briefId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: brief } = await supabase
-    .from("design_briefs")
+    .from("project_briefs")
     .select("project_id, status")
     .eq("id", briefId)
     .single();
   if (!brief) return fail("Brief not found.");
-  const denied = await authorizeProject(brief.project_id, "design.brief", "update");
+  const denied = await authorizeProject(brief.project_id, "project.brief", "update");
   if (denied) return denied;
   if (brief.status !== "in_progress") return fail("Only an in-progress brief can be submitted.");
 
   const { error } = await supabase
-    .from("design_briefs")
+    .from("project_briefs")
     .update({ status: "in_review" })
     .eq("id", briefId);
   if (error) return fail(error.message);
   await logAudit("design.brief.submit", "Submitted a brief for review", { briefId });
-  revalidatePath(`/design/${brief.project_id}/brief/${briefId}`);
+  revalidatePath(`/projects/${brief.project_id}/brief/${briefId}`);
   return ok;
 }
 
@@ -534,22 +543,22 @@ export async function submitBriefForReview(briefId: string): Promise<ActionResul
 export async function returnBriefForChanges(briefId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: brief } = await supabase
-    .from("design_briefs")
+    .from("project_briefs")
     .select("project_id, status")
     .eq("id", briefId)
     .single();
   if (!brief) return fail("Brief not found.");
-  const denied = await authorizeProject(brief.project_id, "design.brief", "review");
+  const denied = await authorizeProject(brief.project_id, "project.brief", "review");
   if (denied) return denied;
   if (brief.status !== "in_review") return fail("Only a brief in review can be returned.");
 
   const { error } = await supabase
-    .from("design_briefs")
+    .from("project_briefs")
     .update({ status: "in_progress" })
     .eq("id", briefId);
   if (error) return fail(error.message);
   await logAudit("design.brief.return", "Returned a brief for changes", { briefId });
-  revalidatePath(`/design/${brief.project_id}/brief/${briefId}`);
+  revalidatePath(`/projects/${brief.project_id}/brief/${briefId}`);
   return ok;
 }
 
@@ -569,7 +578,7 @@ async function fileApprovedBriefPdf(
   const admin = createAdminClient();
   // Supersede any prior auto-filed version of the same brief document.
   const { data: prior } = await admin
-    .from("design_files")
+    .from("project_files")
     .select("id, version_no")
     .eq("project_id", projectId)
     .eq("folder_key", "project_brief")
@@ -587,13 +596,13 @@ async function fileApprovedBriefPdf(
 
   if (prior?.length) {
     await admin
-      .from("design_files")
+      .from("project_files")
       .update({ is_current: false })
       .eq("project_id", projectId)
       .eq("folder_key", "project_brief")
       .eq("name", name);
   }
-  await admin.from("design_files").insert({
+  await admin.from("project_files").insert({
     id,
     project_id: projectId,
     folder_key: "project_brief",
@@ -610,31 +619,31 @@ async function fileApprovedBriefPdf(
 export async function approveBrief(briefId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: brief } = await supabase
-    .from("design_briefs")
+    .from("project_briefs")
     .select("project_id, status")
     .eq("id", briefId)
     .single();
   if (!brief) return fail("Brief not found.");
-  const denied = await authorizeProject(brief.project_id, "design.brief", "approve");
+  const denied = await authorizeProject(brief.project_id, "project.brief", "approve");
   if (denied) return denied;
   if (brief.status === "approved") return fail("This brief is already approved.");
 
   const user = await getUser();
   const { error } = await supabase
-    .from("design_briefs")
+    .from("project_briefs")
     .update({ status: "approved", approved_by: user?.id ?? null, approved_at: new Date().toISOString() })
     .eq("id", briefId);
   if (error) return fail(error.message);
 
   // When every brief on the project is approved, advance the project.
   const { data: remaining } = await supabase
-    .from("design_briefs")
+    .from("project_briefs")
     .select("id")
     .eq("project_id", brief.project_id)
     .neq("status", "approved");
   if ((remaining?.length ?? 0) === 0) {
     await supabase
-      .from("design_projects")
+      .from("projects")
       .update({ status: "brief_approved" })
       .eq("id", brief.project_id);
   }
@@ -648,9 +657,9 @@ export async function approveBrief(briefId: string): Promise<ActionResult> {
   }
 
   await logAudit("design.brief.approve", "Approved a brief", { briefId });
-  revalidatePath(`/design/${brief.project_id}/brief/${briefId}`);
-  revalidatePath(`/design/${brief.project_id}`);
-  revalidatePath(`/design/${brief.project_id}/folder/project_brief`);
+  revalidatePath(`/projects/${brief.project_id}/brief/${briefId}`);
+  revalidatePath(`/projects/${brief.project_id}`);
+  revalidatePath(`/projects/${brief.project_id}/folder/project_brief`);
   return ok;
 }
 
@@ -662,12 +671,12 @@ export async function toggleProjectStep(
   stepId: string,
   done: boolean
 ): Promise<ActionResult> {
-  const denied = await authorizeProject(projectId, "design.project", "update");
+  const denied = await authorizeProject(projectId, "project", "update");
   if (denied) return denied;
 
   const supabase = await createClient();
   const user = await getUser();
-  const { error } = await supabase.from("design_project_steps").upsert({
+  const { error } = await supabase.from("project_steps").upsert({
     project_id: projectId,
     step_id: stepId,
     done,
@@ -675,7 +684,7 @@ export async function toggleProjectStep(
     done_at: done ? new Date().toISOString() : null,
   });
   if (error) return fail(error.message);
-  revalidatePath(`/design/${projectId}`);
+  revalidatePath(`/projects/${projectId}`);
   return ok;
 }
 
@@ -880,7 +889,7 @@ export async function uploadFile(
 
   const supabase = await createClient();
   const user = await getUser();
-  const { error } = await supabase.from("design_files").insert({
+  const { error } = await supabase.from("project_files").insert({
     id,
     project_id: projectId,
     folder_key: folderKey,
@@ -896,7 +905,7 @@ export async function uploadFile(
     return fail(error.message);
   }
   await logAudit("design.folder.upload", "Uploaded a file", { projectId, folderKey, name: file.name });
-  revalidatePath(`/design/${projectId}/folder/${folderKey}`);
+  revalidatePath(`/projects/${projectId}/folder/${folderKey}`);
   return ok;
 }
 
@@ -907,7 +916,7 @@ export async function getFileDownloadUrl(
   const supabase = await createClient();
   // RLS ensures the caller can only read files in folders they can view.
   const { data: file } = await supabase
-    .from("design_files")
+    .from("project_files")
     .select("storage_path, name")
     .eq("id", fileId)
     .maybeSingle();
@@ -925,7 +934,7 @@ export async function getFileDownloadUrl(
 export async function deleteFile(fileId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: file } = await supabase
-    .from("design_files")
+    .from("project_files")
     .select("project_id, folder_key, storage_path, name")
     .eq("id", fileId)
     .maybeSingle();
@@ -933,7 +942,7 @@ export async function deleteFile(fileId: string): Promise<ActionResult> {
   if (!(await canWriteFolder(file.project_id, file.folder_key)))
     return fail("This folder is read-only for you, or it's locked at this stage.");
 
-  const { error } = await supabase.from("design_files").delete().eq("id", fileId);
+  const { error } = await supabase.from("project_files").delete().eq("id", fileId);
   if (error) return fail(error.message);
   createAdminClient().storage.from(BUCKET).remove([file.storage_path]);
   await logAudit("design.folder.delete-file", "Deleted a file", {
@@ -941,7 +950,7 @@ export async function deleteFile(fileId: string): Promise<ActionResult> {
     folderKey: file.folder_key,
     name: file.name,
   });
-  revalidatePath(`/design/${file.project_id}/folder/${file.folder_key}`);
+  revalidatePath(`/projects/${file.project_id}/folder/${file.folder_key}`);
   return ok;
 }
 
@@ -964,7 +973,7 @@ export async function issueFiles(
   const user = await getUser();
   for (const fileId of fileIds) {
     const { data: src } = await supabase
-      .from("design_files")
+      .from("project_files")
       .select("name, storage_path, mime_type, size_bytes")
       .eq("id", fileId)
       .maybeSingle();
@@ -972,7 +981,7 @@ export async function issueFiles(
 
     // Latest issued version of this name, so we can bump it.
     const { data: prior } = await supabase
-      .from("design_files")
+      .from("project_files")
       .select("id, version_no")
       .eq("project_id", projectId)
       .eq("folder_key", "gfc_issued")
@@ -991,13 +1000,13 @@ export async function issueFiles(
     // Supersede previous current issues of this name.
     if (prior?.length) {
       await supabase
-        .from("design_files")
+        .from("project_files")
         .update({ is_current: false })
         .eq("project_id", projectId)
         .eq("folder_key", "gfc_issued")
         .eq("name", src.name);
     }
-    const { error } = await supabase.from("design_files").insert({
+    const { error } = await supabase.from("project_files").insert({
       id: newId,
       project_id: projectId,
       folder_key: "gfc_issued",
@@ -1016,8 +1025,8 @@ export async function issueFiles(
     }
   }
   await logAudit("design.folder.issue", "Issued GFC files", { projectId, count: fileIds.length });
-  revalidatePath(`/design/${projectId}/folder/gfc_issued`);
-  revalidatePath(`/design/${projectId}`);
+  revalidatePath(`/projects/${projectId}/folder/gfc_issued`);
+  revalidatePath(`/projects/${projectId}`);
   return ok;
 }
 
@@ -1029,13 +1038,13 @@ export async function raiseChangeRequest(
   reason: string,
   folderKey: string | null
 ): Promise<ActionResult> {
-  const denied = await authorizeProject(projectId, "design.project", "read");
+  const denied = await authorizeProject(projectId, "project", "read");
   if (denied) return denied;
   const t = title.trim();
   if (!t) return fail("Enter what needs to change.");
   const supabase = await createClient();
   const user = await getUser();
-  const { error } = await supabase.from("design_change_requests").insert({
+  const { error } = await supabase.from("project_change_requests").insert({
     project_id: projectId,
     title: t,
     reason: reason.trim() || null,
@@ -1044,7 +1053,7 @@ export async function raiseChangeRequest(
   });
   if (error) return fail(error.message);
   await logAudit("design.change.raise", "Raised a change request", { projectId, title: t });
-  revalidatePath(`/design/${projectId}`);
+  revalidatePath(`/projects/${projectId}`);
   return ok;
 }
 
@@ -1055,18 +1064,18 @@ export async function decideChangeRequest(
 ): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: cr } = await supabase
-    .from("design_change_requests")
+    .from("project_change_requests")
     .select("project_id, status")
     .eq("id", requestId)
     .maybeSingle();
   if (!cr) return fail("Change request not found.");
-  const denied = await authorizeProject(cr.project_id, "design.project", "approve");
+  const denied = await authorizeProject(cr.project_id, "project", "approve");
   if (denied) return denied;
   if (cr.status !== "open") return fail("This request has already been decided.");
 
   const user = await getUser();
   const { error } = await supabase
-    .from("design_change_requests")
+    .from("project_change_requests")
     .update({
       status: decision,
       decided_by: user?.id ?? null,
@@ -1076,6 +1085,6 @@ export async function decideChangeRequest(
     .eq("id", requestId);
   if (error) return fail(error.message);
   await logAudit("design.change.decide", `Change request ${decision}`, { requestId });
-  revalidatePath(`/design/${cr.project_id}`);
+  revalidatePath(`/projects/${cr.project_id}`);
   return ok;
 }

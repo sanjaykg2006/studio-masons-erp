@@ -110,7 +110,7 @@ export function ProjectDetail({
   return (
     <div className="space-y-6">
       <Link
-        href="/design"
+        href="/projects"
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
       >
         <ArrowLeft className="size-4" /> All projects
@@ -190,7 +190,7 @@ export function ProjectDetail({
                   className="flex items-center justify-between rounded-md border px-3 py-2"
                 >
                   <Link
-                    href={`/design/${project.id}/brief/${b.id}`}
+                    href={`/projects/${project.id}/brief/${b.id}`}
                     className="flex items-center gap-2 text-sm font-medium hover:underline"
                   >
                     <FileText className="text-muted-foreground size-4" />

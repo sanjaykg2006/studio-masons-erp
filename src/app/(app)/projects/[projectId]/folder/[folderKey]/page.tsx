@@ -11,7 +11,7 @@ export default async function FolderPage({
   params: Promise<{ projectId: string; folderKey: string }>;
 }) {
   const { projectId, folderKey } = await params;
-  await requireProjectPermission(projectId, "design.project", "read");
+  await requireProjectPermission(projectId, "project", "read");
 
   const folders = await getProjectFolders(projectId);
   const folder = folders.find((f) => f.folder_key === folderKey);
@@ -21,7 +21,7 @@ export default async function FolderPage({
   const [files, project] = await Promise.all([
     getFolderFiles(projectId, folderKey),
     createClient().then((s) =>
-      s.from("design_projects").select("name").eq("id", projectId).maybeSingle()
+      s.from("projects").select("name").eq("id", projectId).maybeSingle()
     ),
   ]);
 

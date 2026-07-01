@@ -4,6 +4,7 @@ import { requireUser } from "@/core/auth/get-user";
 import {
   getPermissions,
   hasDesignAccess,
+  hasProjectAccess,
   leadsAnyDepartment,
 } from "@/core/rbac/permissions";
 import { permissionKey } from "@/core/rbac/types";
@@ -21,17 +22,23 @@ export default async function AppLayout({
   children: ReactNode;
 }) {
   const user = await requireUser();
-  const [perms, designAccess, isLead] = await Promise.all([
+  const [perms, projectAccess, designAccess, isLead] = await Promise.all([
     getPermissions(),
+    hasProjectAccess(),
     hasDesignAccess(),
     leadsAnyDepartment(),
   ]);
   const permissions = [...perms];
   // Nav hints (cosmetic): some links aren't tied to a real permission grant.
   // RLS remains the real boundary in every case.
-  //  - project-only members have no global design grant but need the Design link.
+  //  - project-only members have no global grant but need the Projects link.
+  if (projectAccess) {
+    const key = permissionKey("project", "read");
+    if (!permissions.includes(key)) permissions.push(key);
+  }
+  //  - design-team members reach the Design department's own screens.
   if (designAccess) {
-    const key = permissionKey("design.project", "read");
+    const key = permissionKey("design.template", "read");
     if (!permissions.includes(key)) permissions.push(key);
   }
   //  - department leads need the Team Access link (lead-ness is membership, not a

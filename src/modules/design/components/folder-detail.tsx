@@ -89,7 +89,7 @@ export function FolderDetail({
   return (
     <div className="space-y-6">
       <Link
-        href={`/design/${projectId}`}
+        href={`/projects/${projectId}`}
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
       >
         <ArrowLeft className="size-4" /> {projectName}

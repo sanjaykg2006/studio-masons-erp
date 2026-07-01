@@ -7,12 +7,14 @@ describe("moduleResources", () => {
   const byId = new Map(resources.map((r) => [r.id, r]));
 
   it("flattens multi-resource modules into one row per sub-resource", () => {
-    // The Design module declares four sub-resources; each must appear.
+    // Projects (project/brief/member) and Design (template/folder) each declare
+    // several sub-resources; every one must appear as its own row.
     for (const id of [
-      "design.project",
-      "design.brief",
+      "project",
+      "project.brief",
+      "project.member",
       "design.template",
-      "design.member",
+      "design.folder",
     ]) {
       expect(byId.has(id)).toBe(true);
     }
@@ -24,7 +26,7 @@ describe("moduleResources", () => {
   });
 
   it("exposes the governance verbs on the brief resource", () => {
-    const brief = byId.get("design.brief");
+    const brief = byId.get("project.brief");
     expect(brief?.actions).toContain("review");
     expect(brief?.actions).toContain("approve");
     expect(brief?.actions).toContain("issue");

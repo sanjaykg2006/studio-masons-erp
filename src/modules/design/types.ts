@@ -1,15 +1,15 @@
 /**
- * Design Department domain types. These mirror the tables in
- * supabase/migrations/0006_design_department.sql. Permissions for this module
- * use the four sub-resources: design.project / design.brief / design.template /
- * design.member (see DESIGN_RESOURCES).
+ * Design + Projects domain types (the implementation still lives here; the
+ * project-world tables moved to projects / project_* in 0018). Permission
+ * resources: the company-wide Projects module owns project / project.brief /
+ * project.member; the Design department keeps design.template / design.folder.
  */
 
 export const DESIGN_RESOURCES = {
-  project: "design.project",
-  brief: "design.brief",
+  project: "project",
+  brief: "project.brief",
   template: "design.template",
-  member: "design.member",
+  member: "project.member",
   folder: "design.folder",
 } as const;
 

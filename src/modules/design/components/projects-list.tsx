@@ -148,7 +148,7 @@ export function ProjectsList({
                 {projects.map((p) => (
                   <tr key={p.id} className="border-b last:border-0">
                     <td className="py-2 font-medium">
-                      <Link href={`/design/${p.id}`} className="hover:underline">
+                      <Link href={`/projects/${p.id}`} className="hover:underline">
                         {p.name}
                       </Link>
                     </td>

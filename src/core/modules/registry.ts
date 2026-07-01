@@ -4,6 +4,7 @@ import type { Action } from "@/core/rbac/types";
 import { dashboardModule } from "@/modules/dashboard";
 import { accessModule } from "@/modules/access";
 import { auditModule } from "@/modules/audit";
+import { projectsModule } from "@/modules/projects";
 import { designModule } from "@/modules/design";
 import { teamAccessModule } from "@/modules/team-access";
 
@@ -83,6 +84,7 @@ export function moduleResources(): ModuleResource[] {
  */
 export const modules: ModuleDefinition[] = [
   dashboardModule,
+  projectsModule,
   designModule,
   teamAccessModule,
   accessModule,

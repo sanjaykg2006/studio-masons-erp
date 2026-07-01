@@ -17,13 +17,13 @@ export default async function ProjectPage({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = await params;
-  await requireProjectPermission(projectId, "design.project", "read");
+  await requireProjectPermission(projectId, "project", "read");
 
   const detail = await getProjectDetail(projectId);
   if (!detail) notFound();
 
-  const canManageMembers = detail.can("design.member", "manage");
-  const canCreateBrief = detail.can("design.brief", "create");
+  const canManageMembers = detail.can("project.member", "manage");
+  const canCreateBrief = detail.can("project.brief", "create");
 
   const [pickers, templates, progress, folders, changeRequests] = await Promise.all([
     canManageMembers ? getMembershipPickers() : Promise.resolve({ users: [], roles: [] }),
@@ -39,16 +39,16 @@ export default async function ProjectPage({
       progress={progress}
       folders={folders}
       changeRequests={changeRequests}
-      canDecideChanges={detail.can("design.project", "approve")}
+      canDecideChanges={detail.can("project", "approve")}
       members={detail.members}
       briefs={detail.briefs}
       roleLabels={Object.fromEntries(pickers.roles.map((r) => [r.id, r.label]))}
       users={pickers.users}
       roles={pickers.roles}
       templates={templates}
-      canUpdate={detail.can("design.project", "update")}
-      canDelete={detail.can("design.project", "delete")}
-      canFinalise={detail.can("design.project", "approve")}
+      canUpdate={detail.can("project", "update")}
+      canDelete={detail.can("project", "delete")}
+      canFinalise={detail.can("project", "approve")}
       canManageMembers={canManageMembers}
       canCreateBrief={canCreateBrief}
     />

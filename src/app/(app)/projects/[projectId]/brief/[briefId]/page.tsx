@@ -10,7 +10,7 @@ export default async function BriefPage({
   params: Promise<{ projectId: string; briefId: string }>;
 }) {
   const { projectId, briefId } = await params;
-  await requireProjectPermission(projectId, "design.brief", "read");
+  await requireProjectPermission(projectId, "project.brief", "read");
 
   const detail = await getBriefDetail(briefId);
   if (!detail || detail.brief.project_id !== projectId) notFound();

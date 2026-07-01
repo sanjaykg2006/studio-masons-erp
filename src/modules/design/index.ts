@@ -3,11 +3,12 @@ import { PencilRuler } from "lucide-react";
 import type { ModuleDefinition } from "@/core/modules/registry";
 
 /**
- * Design Department — the first business module. Owns projects (draft →
- * finalised), their briefs (built from versioned questionnaire templates),
- * per-project membership, and the template library. Permissions use four
- * sub-resources (design.project / design.brief / design.template / design.member);
- * the sidebar link shows for anyone who can read projects.
+ * Design Department — a department module. Since Step 2 of the architecture
+ * plan, projects/briefs/folders live in the company-wide Projects module; Design
+ * keeps its department-internal work: the versioned questionnaire template
+ * library (used to build project briefs) and the folder catalogue / stage
+ * checklist / project-role SETTINGS. Permission sub-resources: design.template /
+ * design.folder. The sidebar link shows for anyone who can read the templates.
  */
 export const designModule: ModuleDefinition = {
   id: "design",
@@ -15,31 +16,14 @@ export const designModule: ModuleDefinition = {
   href: "/design",
   icon: PencilRuler,
   nav: true,
-  requires: { resource: "design.project", action: "read" },
+  requires: { resource: "design.template", action: "read" },
   resources: [
-    {
-      id: "design.project",
-      label: "Design · Projects",
-      actions: ["read", "create", "update", "approve", "delete"],
-      // Creating projects is a department-level capability (Team Access).
-      departmentLevel: true,
-    },
-    {
-      id: "design.brief",
-      label: "Design · Briefs",
-      actions: ["read", "create", "update", "review", "approve", "issue", "delete"],
-    },
     {
       id: "design.template",
       label: "Design · Templates",
       actions: ["read", "create", "update", "delete"],
       // The template library is shared across the department.
       departmentLevel: true,
-    },
-    {
-      id: "design.member",
-      label: "Design · Membership",
-      actions: ["read", "manage"],
     },
     {
       id: "design.folder",

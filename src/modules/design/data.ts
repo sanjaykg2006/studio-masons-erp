@@ -161,7 +161,7 @@ export async function getEditableTemplate(
 export async function listProjects(): Promise<DesignProject[]> {
   const supabase = await createClient();
   const { data } = await supabase
-    .from("design_projects")
+    .from("projects")
     .select(
       "id, code, name, client, location, status, created_by, created_at, finalised_at"
     )
@@ -193,7 +193,7 @@ export async function getProjectDetail(
 ): Promise<ProjectDetail | null> {
   const supabase = await createClient();
   const { data: project } = await supabase
-    .from("design_projects")
+    .from("projects")
     .select(
       "id, code, name, client, location, status, created_by, created_at, finalised_at"
     )
@@ -204,7 +204,7 @@ export async function getProjectDetail(
   const [membersRes, briefsRes, permSet] = await Promise.all([
     supabase.rpc("design_project_members_view", { p_project: projectId }),
     supabase
-      .from("design_briefs")
+      .from("project_briefs")
       .select(
         "id, project_id, template_id, template_version_id, discipline, status, approved_at, design_templates(label)"
       )
@@ -257,7 +257,7 @@ export async function getBriefDetail(
 ): Promise<BriefDetail | null> {
   const supabase = await createClient();
   const { data: brief } = await supabase
-    .from("design_briefs")
+    .from("project_briefs")
     .select(
       "id, project_id, template_id, template_version_id, discipline, status, approved_at"
     )
@@ -268,13 +268,13 @@ export async function getBriefDetail(
   const [{ data: project }, tree, { data: answerRows }, permSet] =
     await Promise.all([
       supabase
-        .from("design_projects")
+        .from("projects")
         .select("id, name, status")
         .eq("id", brief.project_id)
         .single(),
       loadVersionTree(brief.template_version_id),
       supabase
-        .from("design_brief_answers")
+        .from("project_brief_answers")
         .select("question_id, values")
         .eq("brief_id", briefId),
       getProjectPermissions(brief.project_id),
@@ -290,7 +290,7 @@ export async function getBriefDetail(
   }
 
   const has = (action: string) =>
-    permSet.has(permissionKey("design.brief", action as never)) ||
+    permSet.has(permissionKey("project.brief", action as never)) ||
     permSet.has(permissionKey("*", action as never));
 
   return {
@@ -310,16 +310,16 @@ export async function getBriefForPdf(
 ): Promise<BriefPdfData | null> {
   const supabase = await createClient();
   const { data: brief } = await supabase
-    .from("design_briefs")
+    .from("project_briefs")
     .select("project_id, template_id, template_version_id, discipline, approved_at")
     .eq("id", briefId)
     .maybeSingle();
   if (!brief) return null;
 
   const [{ data: project }, tree, { data: answerRows }] = await Promise.all([
-    supabase.from("design_projects").select("name").eq("id", brief.project_id).single(),
+    supabase.from("projects").select("name").eq("id", brief.project_id).single(),
     loadVersionTree(brief.template_version_id),
-    supabase.from("design_brief_answers").select("question_id, values").eq("brief_id", briefId),
+    supabase.from("project_brief_answers").select("question_id, values").eq("brief_id", briefId),
   ]);
   if (!tree || !project) return null;
 
@@ -416,7 +416,7 @@ export async function getProjectProgress(
   const supabase = await createClient();
   const [{ data: steps }, { data: done }] = await Promise.all([
     supabase.from("design_stage_steps").select("id, stage, sort, label").order("sort"),
-    supabase.from("design_project_steps").select("step_id, done").eq("project_id", projectId),
+    supabase.from("project_steps").select("step_id, done").eq("project_id", projectId),
   ]);
 
   const doneSet = new Set(
@@ -548,7 +548,7 @@ export async function getFolderFiles(
 ): Promise<DesignFile[]> {
   const supabase = await createClient();
   const { data } = await supabase
-    .from("design_files")
+    .from("project_files")
     .select(
       "id, project_id, folder_key, name, storage_path, mime_type, size_bytes, version_no, is_current, source_file_id, created_at"
     )
@@ -564,7 +564,7 @@ export async function getProjectChangeRequests(
 ): Promise<DesignChangeRequest[]> {
   const supabase = await createClient();
   const { data } = await supabase
-    .from("design_change_requests")
+    .from("project_change_requests")
     .select(
       "id, project_id, folder_key, title, reason, status, raised_at, decided_at, decision_note"
     )

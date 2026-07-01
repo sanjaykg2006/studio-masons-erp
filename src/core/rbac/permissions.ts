@@ -59,10 +59,20 @@ export async function getProjectPermissions(
 }
 
 /**
- * Whether the user belongs to the Design module — department-wide OR a member of
- * at least one project. Used for the sidebar link and the /design landing page,
- * since project-only members have no global design grant. Backed by the
- * has_design_access() DB function.
+ * Whether the user can reach the company-wide Projects module — a project:read
+ * grant (role OR team) OR membership on at least one project. Used for the
+ * sidebar link and the /projects landing, since project-only members have no
+ * global grant. Backed by the has_project_access() DB function.
+ */
+export async function hasProjectAccess(): Promise<boolean> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("has_project_access");
+  return !error && data === true;
+}
+
+/**
+ * Whether the user can reach the Design department's own screens (template
+ * library + folder/stage/role settings). Backed by has_design_access().
  */
 export async function hasDesignAccess(): Promise<boolean> {
   const supabase = await createClient();

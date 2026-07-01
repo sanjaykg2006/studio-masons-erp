@@ -41,7 +41,7 @@ export function FoldersCard({
             {visible.map((f) => (
               <li key={f.folder_key}>
                 <Link
-                  href={`/design/${projectId}/folder/${f.folder_key}`}
+                  href={`/projects/${projectId}/folder/${f.folder_key}`}
                   className="hover:bg-muted/50 flex items-center justify-between gap-2 rounded-md border px-3 py-2 transition-colors"
                 >
                   <span className="flex items-center gap-2 text-sm font-medium">

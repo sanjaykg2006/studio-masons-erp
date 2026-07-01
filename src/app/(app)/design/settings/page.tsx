@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { designModule } from "@/modules/design";
+import { projectsModule } from "@/modules/projects";
 import {
   getFolderAccessConfig,
   getProjectRolesConfig,
@@ -23,15 +24,17 @@ import {
 import { StageStepsEditor } from "@/modules/design/components/stage-steps-editor";
 
 /**
- * The matrix rows: every Design resource the module declares, with a friendly
- * label (the "Design · " prefix dropped). Driven by the registry, so any new
- * Design sub-resource shows up here automatically — no code change needed.
+ * The matrix rows for a Design project role: what it can do on a project (the
+ * Projects module's resources) plus Design's own controlled-folder settings.
+ * Driven by the registry, so new sub-resources show up here automatically. The
+ * leading "Word · " label prefix is dropped for a cleaner column.
  */
-const PROJECT_ROLE_RESOURCES: ProjectRoleResource[] = (
-  designModule.resources ?? []
-).map((r) => ({
+const PROJECT_ROLE_RESOURCES: ProjectRoleResource[] = [
+  ...(projectsModule.resources ?? []),
+  ...(designModule.resources ?? []).filter((r) => r.id === "design.folder"),
+].map((r) => ({
   id: r.id,
-  label: r.label.replace(/^Design ·\s*/, ""),
+  label: r.label.replace(/^\w+ ·\s*/, ""),
   actions: r.actions,
 }));
 

@@ -26,12 +26,21 @@ export type ModuleResource = {
   /** Verbs this resource supports (which checkboxes render). */
   actions: Action[];
   /**
-   * Department-level capability (e.g. manage the template library, create
-   * projects, edit settings) — granted per-person on the Team Access page.
-   * Resources without this are project-level: access comes from project roles,
-   * not Team Access. Default false.
+   * Department-wide capability (e.g. manage the template library, create
+   * projects, edit settings) — granted PER PERSON on the People & Access page.
+   * Default false.
    */
   departmentLevel?: boolean;
+  /**
+   * Per-project capability — granted PER ROLE on a department's "Project roles"
+   * matrix (what a role can do ON a project: view/edit the project, briefs,
+   * membership, budget, orders…). A resource may be both `departmentLevel` and
+   * `projectRole` (e.g. `project`: create is department-wide, view/edit is
+   * per-role). Company-wide modules and pure libraries set neither, so they stay
+   * out of the department matrices entirely. This is where a module declares
+   * whether it's department-only, project-only, or both.
+   */
+  projectRole?: boolean;
   /**
    * If this resource has its own page inside a project, its link details. The
    * project screen renders a button for it — gated by `<id>:read` — so allotting

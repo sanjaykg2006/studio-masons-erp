@@ -37,6 +37,7 @@ export const procurementModule: ModuleDefinition = {
       label: "Procurement · Budget BOQ",
       // approve = re-version a released budget (Director sign-off).
       actions: ["read", "create", "update", "approve", "delete"],
+      projectRole: true,
       projectLink: { segment: "budget", icon: ShoppingCart },
     },
     {
@@ -44,6 +45,7 @@ export const procurementModule: ModuleDefinition = {
       label: "Procurement · Purchase intents",
       // approve = the Director's sign-off on a raised intent.
       actions: ["read", "create", "approve"],
+      projectRole: true,
       projectLink: { segment: "intents", icon: FileText },
     },
     {
@@ -51,6 +53,7 @@ export const procurementModule: ModuleDefinition = {
       label: "Procurement · Comparisons",
       // approve = award the comparison (Director sign-off).
       actions: ["read", "create", "approve"],
+      projectRole: true,
       projectLink: { segment: "comparisons", icon: FileText },
     },
     {
@@ -58,12 +61,14 @@ export const procurementModule: ModuleDefinition = {
       label: "Procurement · Purchase orders",
       // issue = record/release a PO; review = Finance; approve = Director.
       actions: ["read", "update", "review", "approve", "issue"],
+      projectRole: true,
       projectLink: { segment: "orders", icon: ShoppingCart },
     },
     {
       id: "procurement.receipt",
       label: "Procurement · Receipts",
       actions: ["read", "create", "update"],
+      projectRole: true,
     },
   ],
 };

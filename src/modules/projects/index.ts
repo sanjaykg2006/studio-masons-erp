@@ -27,13 +27,16 @@ export const projectsModule: ModuleDefinition = {
       id: "project",
       label: "Projects",
       actions: ["read", "create", "update", "approve", "delete"],
-      // Creating projects is a department-level capability (Team Access).
+      // Creating projects is a department-wide capability (People & Access);
+      // viewing/editing a project is a per-project-role ability.
       departmentLevel: true,
+      projectRole: true,
     },
     {
       id: "project.brief",
       label: "Project · Briefs",
       actions: ["read", "create", "update", "review", "approve", "delete"],
+      projectRole: true,
     },
     {
       id: "project.member",
@@ -41,6 +44,7 @@ export const projectsModule: ModuleDefinition = {
       // Reading the member list is gated by project:read; membership changes need
       // this "manage" verb. (No separate member:read verb — it was never checked.)
       actions: ["manage"],
+      projectRole: true,
     },
     {
       id: "project.template",

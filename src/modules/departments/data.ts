@@ -59,18 +59,22 @@ export async function getDepartmentModuleIds(deptId: string): Promise<Set<string
 export type MatrixResource = { id: string; label: string; actions: Action[] };
 
 /**
- * The rows for a department's role matrix: every resource of every module allotted
- * to it, straight from the registry. Allot a module → its rows appear; remove it →
- * they disappear. Nothing is hardcoded per department. The leading "Word · " label
- * prefix is dropped for a cleaner column header.
+ * The rows for a department's "Project roles" matrix: the PER-PROJECT abilities
+ * (`projectRole`) of the modules allotted to it — what a role can do on a project.
+ * Company-wide modules and department libraries are excluded (they aren't
+ * projectRole), so only project work shows here. Data-driven: allot a project
+ * module → its rows appear; nothing is hardcoded per department. The leading
+ * "Word · " label prefix is dropped for a cleaner column header.
  */
 export async function getDepartmentRoleResources(deptId: string): Promise<MatrixResource[]> {
   const ids = await getDepartmentModuleIds(deptId);
-  return resourcesForModules(ids).map((r) => ({
-    id: r.id,
-    label: r.label.replace(/^\w+ ·\s*/, ""),
-    actions: r.actions,
-  }));
+  return resourcesForModules(ids)
+    .filter((r) => r.projectRole)
+    .map((r) => ({
+      id: r.id,
+      label: r.label.replace(/^\w+ ·\s*/, ""),
+      actions: r.actions,
+    }));
 }
 
 export type DepartmentRolesConfig = {

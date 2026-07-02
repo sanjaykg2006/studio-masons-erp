@@ -61,6 +61,43 @@ describe("resourcesForModules", () => {
     expect(resourcesForModules([])).toEqual([]);
   });
 
+  it("splits department-wide vs per-project abilities so matrices don't mix", () => {
+    // Mirrors Design's department_modules (see the access screens): its own
+    // project + design modules, an allotted Procurement order, and the always-on
+    // general modules. Each matrix must pull only what belongs to it.
+    const designAllotted = [
+      "project",
+      "project.brief",
+      "project.member",
+      "project.template",
+      "design.template",
+      "design.folder",
+      "procurement.order",
+      // general/company modules are always available:
+      "dashboard",
+      "access",
+      "audit",
+    ];
+    const scoped = resourcesForModules(designAllotted);
+
+    // "Project roles" matrix = per-project work only.
+    const roleRows = scoped.filter((r) => r.projectRole).map((r) => r.id);
+    expect(new Set(roleRows)).toEqual(
+      new Set(["project", "project.brief", "project.member", "procurement.order"])
+    );
+    // The bug report's offenders must be gone from the role matrix:
+    for (const gone of ["access", "audit", "dashboard", "project.template", "design.template"]) {
+      expect(roleRows).not.toContain(gone);
+    }
+
+    // "People & Access" matrix = department-wide abilities only.
+    const deptRows = scoped.filter((r) => r.departmentLevel).map((r) => r.id);
+    expect(deptRows).toContain("project.template");
+    expect(deptRows).toContain("design.template");
+    expect(deptRows).not.toContain("access");
+    expect(deptRows).not.toContain("procurement.order");
+  });
+
   it("only surfaces resources that opt in via projectLink, with a segment + icon", () => {
     // The project page renders these; declaring projectLink is all it takes for a
     // new module's page to appear there — nothing is listed in the page itself.

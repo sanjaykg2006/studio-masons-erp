@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CheckSquare, FileText, Settings } from "lucide-react";
+import { CheckSquare, FileText, Settings, Users } from "lucide-react";
 
 import { can } from "@/core/rbac/can";
 import { hasDesignAccess, hasDesignTeamAccess } from "@/core/rbac/permissions";
+import { getMyDepartments } from "@/modules/departments/data";
 import {
   Card,
   CardDescription,
@@ -17,14 +18,18 @@ import {
  * template library and the folder/stage/role settings.
  */
 export default async function DesignPage() {
-  const [canTemplates, canSettings, canTasks] = await Promise.all([
+  const [canTemplates, canSettings, canTasks, myDepts] = await Promise.all([
     can("design.template", "read"),
     can("design.folder", "manage"),
     hasDesignTeamAccess(),
+    getMyDepartments(),
   ]);
   if (!canTemplates && !canSettings && !canTasks && !(await hasDesignAccess())) {
     redirect("/forbidden?resource=design.template&action=read");
   }
+
+  const designDept = myDepts.find((d) => d.key === "design");
+  const canPeople = designDept?.can_manage ?? false;
 
   return (
     <div className="space-y-6">
@@ -52,6 +57,21 @@ export default async function DesignPage() {
                 <CardDescription>
                   The team to-do board and calendar. Concept and Technical tasks
                   stay private to their own team.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        )}
+        {canPeople && designDept && (
+          <Link href={`/departments/${designDept.id}/people`}>
+            <Card className="hover:bg-accent/50 transition-colors">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Users className="size-4" /> People &amp; Access
+                </CardTitle>
+                <CardDescription>
+                  Add teammates and set each person&apos;s role, sub-team and
+                  abilities.
                 </CardDescription>
               </CardHeader>
             </Card>

@@ -7,7 +7,6 @@ import {
   hasDesignAccess,
   hasDesignTeamAccess,
   hasProjectAccess,
-  leadsAnyDepartment,
 } from "@/core/rbac/permissions";
 import { permissionKey } from "@/core/rbac/types";
 import { AppShell } from "@/components/layout/app-shell";
@@ -24,13 +23,12 @@ export default async function AppLayout({
   children: ReactNode;
 }) {
   const user = await requireUser();
-  const [perms, projectAccess, designAccess, designTeam, anyDept, isLead] = await Promise.all([
+  const [perms, projectAccess, designAccess, designTeam, anyDept] = await Promise.all([
     getPermissions(),
     hasProjectAccess(),
     hasDesignAccess(),
     hasDesignTeamAccess(),
     hasAnyDepartment(),
-    leadsAnyDepartment(),
   ]);
   const permissions = [...perms];
   // Nav hints (cosmetic): some links aren't tied to a real permission grant.
@@ -46,15 +44,11 @@ export default async function AppLayout({
     const key = permissionKey("design.template", "read");
     if (!permissions.includes(key)) permissions.push(key);
   }
-  //  - anyone on a department's team gets the Departments hub link.
+  //  - anyone on a department's team gets the Departments hub link. Managing a
+  //    department's people happens inside that hub (People & Access), so there's
+  //    no separate Team Access link any more.
   if (anyDept) {
     const key = permissionKey("department.workspace", "read");
-    if (!permissions.includes(key)) permissions.push(key);
-  }
-  //  - department leads need the Team Access link (lead-ness is membership, not a
-  //    matrix grant), so inject the gate key the module's `requires` checks for.
-  if (isLead) {
-    const key = permissionKey("team.access", "read");
     if (!permissions.includes(key)) permissions.push(key);
   }
   return (

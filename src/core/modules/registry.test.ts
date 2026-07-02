@@ -25,10 +25,11 @@ describe("moduleResources", () => {
     expect(access?.actions).toEqual(["create", "read", "update", "delete"]);
   });
 
-  it("exposes the governance verbs on the brief resource", () => {
+  it("exposes the enforced governance verbs on the brief resource", () => {
     const brief = byId.get("project.brief");
     expect(brief?.actions).toContain("review");
     expect(brief?.actions).toContain("approve");
-    expect(brief?.actions).toContain("issue");
+    // "issue" was removed — it was declared but never checked anywhere.
+    expect(brief?.actions).not.toContain("issue");
   });
 });

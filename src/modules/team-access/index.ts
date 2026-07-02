@@ -17,6 +17,8 @@ export const teamAccessModule: ModuleDefinition = {
   label: "Team Access",
   href: "/team",
   icon: ShieldCheck,
-  nav: true,
+  // Folded into each department's "People & Access" screen — no longer a separate
+  // sidebar door. /team now redirects there. Kept in the registry for the route.
+  nav: false,
   requires: { resource: "team.access", action: "read" },
 };

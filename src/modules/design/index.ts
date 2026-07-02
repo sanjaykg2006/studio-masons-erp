@@ -28,7 +28,9 @@ export const designModule: ModuleDefinition = {
     {
       id: "design.folder",
       label: "Design · Folders & Settings",
-      actions: ["read", "issue", "manage"],
+      // Issuing the GFC package is gated by folder "approve" capability, not a
+      // design.folder:issue verb — so only read + manage are real here.
+      actions: ["read", "manage"],
       // Folder catalogue, stage checklist + project-role settings are dept-level.
       departmentLevel: true,
     },

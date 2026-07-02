@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckSquare, Settings } from "lucide-react";
+import { ArrowLeft, CheckSquare, Settings, Users } from "lucide-react";
 
 import { getDepartment } from "@/modules/departments/data";
 import {
@@ -46,6 +46,20 @@ export default async function DepartmentHome({
           </Card>
         </Link>
         {dept.can_manage && (
+          <Link href={`/departments/${deptId}/people`}>
+            <Card className="hover:bg-accent/50 transition-colors">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Users className="size-4" /> People &amp; Access
+                </CardTitle>
+                <CardDescription>
+                  Add teammates and set each person&apos;s role and abilities.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        )}
+        {dept.can_manage && (
           <Link href={`/departments/${deptId}/settings`}>
             <Card className="hover:bg-accent/50 transition-colors">
               <CardHeader>
@@ -53,7 +67,7 @@ export default async function DepartmentHome({
                   <Settings className="size-4" /> Settings
                 </CardTitle>
                 <CardDescription>
-                  This department&apos;s project roles and their seniority order.
+                  The list of roles this department offers and what each can do.
                 </CardDescription>
               </CardHeader>
             </Card>

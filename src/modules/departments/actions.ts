@@ -61,3 +61,22 @@ export async function setDeptRolePermission(
   refresh(deptId);
   return ok;
 }
+
+/** Put a person into (or out of) one of a department's sub-teams, e.g. Design's
+ *  Concept / Technical. The RPC re-checks the caller manages the team. */
+export async function setSubteamMember(
+  deptId: string,
+  subteamId: string,
+  userId: string,
+  grant: boolean
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_subteam_member", {
+    p_subteam: subteamId,
+    p_user: userId,
+    p_grant: grant,
+  });
+  if (error) return fail(error.message);
+  revalidatePath(`/departments/${deptId}/people`);
+  return ok;
+}

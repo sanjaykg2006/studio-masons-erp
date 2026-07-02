@@ -33,12 +33,14 @@ export const projectsModule: ModuleDefinition = {
     {
       id: "project.brief",
       label: "Project · Briefs",
-      actions: ["read", "create", "update", "review", "approve", "issue", "delete"],
+      actions: ["read", "create", "update", "review", "approve", "delete"],
     },
     {
       id: "project.member",
       label: "Project · Membership",
-      actions: ["read", "manage"],
+      // Reading the member list is gated by project:read; membership changes need
+      // this "manage" verb. (No separate member:read verb — it was never checked.)
+      actions: ["manage"],
     },
     {
       id: "project.template",

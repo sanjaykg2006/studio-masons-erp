@@ -1,4 +1,4 @@
-# Procurement Module — Plan (v1)
+# Procurement Module — Plan (v2)
 
 Planning artifact for the Procurement module. Captures the agreed scope, roles,
 data model, workflow, and enforcement. **Nothing is built from this yet.** Companion
@@ -7,6 +7,38 @@ specs: [budget-boq-format.docx](./budget-boq-format.docx),
 [architecture-decisions.md](./architecture-decisions.md).
 
 Design goals you set: **simple, modular, RBAC-gated end to end, separate logs.**
+
+**What changed in v2 (2026-07-02).** The Projects world Procurement was waiting on
+now exists in the live database, so the old blocker is gone. Locked decisions:
+- **Sequencing (§11): RESOLVED — build now** as its own department module on the
+  existing Projects spine. No rework; the constructs it needs are already live.
+- **Split award → PO (§12): one PO per vendor.**
+- **Cross-project powers: company-wide roles** (Director / Finance / Senior hold
+  grants that reach every project's procurement).
+
+---
+
+## 0. What's already live — Procurement's link points
+
+Everything below **exists today** and is what Procurement bolts onto. This is the
+"quickly link it" answer: we're not building a foundation, we're plugging in.
+
+| Procurement needs… | Already live | Where |
+|---|---|---|
+| A company-wide project to buy for | `projects` table (each tagged `department_id`) + `project_members`, `project_briefs`, `project_files` | [0018_projects_module.sql](../supabase/migrations/0018_projects_module.sql) |
+| The project-aware permission gate | `has_project_permission(project, resource, action)` — company-wide grant **or** per-project role **or** all-projects senior | [0031_rbac_hardening.sql:126](../supabase/migrations/0031_rbac_hardening.sql#L126) |
+| The global gate (vendor library) | `has_permission(resource, action)` | [0002_rbac.sql](../supabase/migrations/0002_rbac.sql) |
+| A "Project Manager" who raises intents | PM department + `pm_project_manager` role, seeded | [0026_project_management_dept.sql](../supabase/migrations/0026_project_management_dept.sql) |
+| Department + module registration | `departments`, `department_modules`, `module_settings` + the `role_permissions` guard trigger | 0006 / 0031 |
+| Ranked roles (who is senior) | `roles.rank` + reorder UI on department Settings | [0024_role_seniority.sql](../supabase/migrations/0024_role_seniority.sql) |
+| File uploads (BOQ workbooks, POs, letters) | private Storage bucket + metadata row + short-lived signed links | pattern in [0030_task_times_and_docs.sql](../supabase/migrations/0030_task_times_and_docs.sql) / `0034_rfi_attachments.sql` |
+| Central activity log | audit store, tag `module = procurement` | `src/modules/audit/` |
+
+> **Not-yet-carved (doesn't block us):** the Projects *code* still lives largely
+> under `src/modules/design/` — only `src/modules/projects/{index,types}.ts` are
+> split out so far. The **database** spine (tables + `has_project_permission`) is
+> fully in place, and that's all Procurement links to. Procurement gets its own
+> `src/modules/procurement/` regardless.
 
 ---
 
@@ -20,12 +52,13 @@ is gated globally (`has_permission`) — the same two-tier split the Design modu
 uses for briefs vs templates.
 
 It has **two touchpoints** with the Global Projects world:
-- The **Project Manager** (a per-project role in Projects) raises purchase intents.
+- The **Project Manager** (a per-project role in Projects — the seeded
+  `pm_project_manager`) raises purchase intents.
 - The Global Projects view shows each project's **approved vendor list**.
 
-> ⚠️ **Key dependency — see §11.** The Global Projects module and project roles from
-> the architecture re-org don't exist yet (today only `design_projects` exists).
-> Procurement leans on them. The sequencing decision is in §11.
+> ✅ **Dependency resolved (was §11).** The Global Projects world Procurement leans
+> on is live: the `projects` table (tagged by department), per-project roles, and
+> `has_project_permission`. See §0 for the exact link points. We build now.
 
 ---
 
@@ -33,10 +66,10 @@ It has **two touchpoints** with the Global Projects world:
 
 | Role | Kind (RBAC) | In procurement they… |
 |---|---|---|
-| **Topmost senior** (above Director) | Global, wildcard (`*`) | Approve **over-budget PO amendments** (the amendment-stage bypass). Inherits all. |
-| **Project Director** | Global, **department-wide** (`is_department_wide`) — reaches every project | Approve intents; clear the **intent-stage** qty bypass; **award vendors**; approve Budget BOQ re-versions; approve amendments (with Finance). |
-| **Finance** | Global role | Verify vendor **legitimacy** (global approval); verify the **chosen vendor** per purchase; co-approve amendments. (Full Finance *module* is later.) |
-| **Project Manager** | **Per-project** role (Projects world) | Raise purchase intents on their project. |
+| **Topmost senior** (MD) | Global, wildcard (`*`) grant | Approve **over-budget PO amendments** (the amendment-stage bypass). Inherits all. |
+| **Project Director** | **Company-wide** grant (held globally, resolved by `has_permission` inside `has_project_permission`) — reaches every project's procurement | Approve intents; clear the **intent-stage** qty bypass; **award vendors**; approve Budget BOQ re-versions; approve amendments (with Finance). |
+| **Finance** | Company-wide grant | Verify vendor **legitimacy** (global approval); verify the **chosen vendor** per purchase; co-approve amendments. (Full Finance *module* is later.) |
+| **Project Manager** | **Per-project** role (the seeded `pm_project_manager`, or any dept's PM-equivalent) | Raise purchase intents on their project. |
 | **Procurement Manager** | Procurement dept **lead** role | Prepare/import comparison BOQ; record & release POs; record receipts. |
 | **Procurement team member** | Procurement dept role | Prep work: import Budget BOQ, data entry, uploads. |
 
@@ -59,6 +92,54 @@ vocabulary (`read/create/update/review/approve/issue/delete/manage`).
 > the status only advances when all required gates are green. The over-budget
 > amendment escalation routes to whoever holds the **senior bypass** grant (the
 > topmost role), distinct from the Director's normal `approve`.
+
+### 2a. Full verb-to-role grant matrix
+
+The exact `role_permissions` grants per role. `✓` = granted. **MD** holds wildcard
+`*` (every verb on every resource) so isn't listed per-cell. Verbs come from the
+8-verb vocabulary. **How each role is held:** MD / Director / Finance = **company-wide**
+(a global role, or a Team Access grant on the Procurement dept); Project Manager =
+**per-project** role; Procurement Manager / team member = held on the **Procurement
+department** (global role or Team Access), since the whole module is department work.
+
+| Resource · verb | Director | Finance | Proj Manager | Proc Manager | Proc team |
+|---|:--:|:--:|:--:|:--:|:--:|
+| `procurement.vendor` · read | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `procurement.vendor` · create | | | | ✓ | ✓ |
+| `procurement.vendor` · update | | | | ✓ | ✓ |
+| `procurement.vendor` · **approve** (mark legitimate) | | ✓ | | | |
+| `procurement.vendor` · delete | | | | ✓ | |
+| `procurement.budget` · read | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `procurement.budget` · create (import) | | | | ✓ | ✓ |
+| `procurement.budget` · update (edit lines) | | | | ✓ | ✓ |
+| `procurement.budget` · **approve** (re-version) | ✓ | | | | |
+| `procurement.budget` · delete | | | | ✓ | |
+| `procurement.intent` · read | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `procurement.intent` · **create** (raise) | | | ✓ | | |
+| `procurement.intent` · **approve** (+ qty bypass) | ✓ | | | | |
+| `procurement.intent` · delete | ✓ | | ✓ (own, draft) | | |
+| `procurement.comparison` · read | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `procurement.comparison` · create (prepare/import) | | | | ✓ | ✓ |
+| `procurement.comparison` · **approve** (award vendor) | ✓ | | | | |
+| `procurement.order` · read | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `procurement.order` · **issue** (release PO) | | | | ✓ | |
+| `procurement.order` · update (raise amendment) | | | | ✓ | |
+| `procurement.order` · **review** (Finance sign-off) | | ✓ | | | |
+| `procurement.order` · **approve** (Director sign-off) | ✓ | | | | |
+| `procurement.receipt` · read | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `procurement.receipt` · create / update (record) | | | | ✓ | ✓ |
+
+> **Over-budget bypass** isn't a separate verb — it's the **MD's** wildcard clearing
+> the over-budget gate on an intent/amendment. Director's `approve` handles the
+> normal (within-budget) path; the record just carries an extra `senior_bypass_by`
+> gate that only the MD can set.
+>
+> **Where the grant lives vs. where it applies.** A grant on a per-project resource
+> (`budget/intent/comparison/order/receipt`) only reaches a project when the holder
+> has it **company-wide** (Director/Finance/MD) **or** through a **project role**
+> (Project Manager) **or** a **Team Access** tick on the Procurement department. The
+> global `procurement.vendor` library is reached purely through `has_permission`
+> (company-wide role or Team Access) — never through project membership.
 
 ---
 
@@ -98,7 +179,9 @@ vocabulary (`read/create/update/review/approve/issue/delete/manage`).
 - `procurement_orders` — id, project_id, vendor_id, comparison_id, status
   (draft / released / accepted-live / amended / closed), po_file,
   acceptance_letter_file, released_by, released_at, accepted_at,
-  finance_verified_by, finance_verified_at.
+  finance_verified_by, finance_verified_at. *(One row per vendor — a split award
+  on one comparison yields several orders sharing `comparison_id`, each with its
+  own `vendor_id`.)*
 - `procurement_order_lines` — id, order_id, budget_line_id, description, unit, qty,
   rate, amount.
 - `procurement_order_amendments` — id, order_id, version_no, changes, status,
@@ -137,6 +220,8 @@ COMPARISON                          (Procurement Manager)
 
 PURCHASE ORDER                      (Procurement Manager)
   Director award + Finance verify both green →
+  ONE PO PER AWARDED VENDOR (a split award across N vendors → N separate POs,
+    each with its own lines, file, acceptance letter, amendments and receipts)
   record PO v1 (upload PO file) → RELEASED
   vendor acceptance letter uploaded → ACCEPTED / LIVE
   amendments → versioned v1 → v2 → … (see §4b)
@@ -216,9 +301,12 @@ terms/rate changes not driven by an intent (vendor and qty unchanged).
   (the sub-resources are department-specific, not general).
 - **RLS on every table.** Global library (vendors) → `has_permission('procurement.vendor', …)`.
   Project-scoped tables → `has_project_permission(project_id, 'procurement.<x>', …)`.
-- Project Director reaches all projects via the **department-wide** branch of
-  `has_project_permission`; Project Manager reaches only their projects via
-  membership; Procurement roles act department-wide within their verbs.
+- Project Director / Finance / Senior reach every project via the **company-wide**
+  branch of `has_project_permission` (their grant is held globally, so the first
+  `has_permission` check passes for any project); Project Manager reaches only
+  their own projects via **membership**; Procurement Manager/team act across
+  procurement within their verbs. (The per-department "all projects" switch stays
+  available if you ever want to scope an approver to one department.)
 - Pages: `requirePermission` / `requireProjectPermission`. Server actions:
   `authorize` / `authorizeProject`. UI: `<Can>` / `usePermissions`.
 
@@ -258,36 +346,42 @@ diffing beyond that.
 
 ## 10. Build footprint
 
-- Migrations (modular, sequenced): department + vendor directory → budget → intents
-  → comparison → orders/amendments/receipts → files. RLS in each.
+- Migrations (modular, sequenced), RLS in each:
+  1. **department + global vendor directory** ← *first slice; drafted as `0036`.*
+     Registers the Procurement department, the `procurement.vendor` resource, the
+     `procurement_vendors` table + RLS, and the two seed roles (Procurement Manager,
+     team member). Purely global — no project dependency, lowest risk.
+  2. budget (per-project) — also adds `procurement_vendor_project_approvals` (needs
+     the project permission layer, so it rides with the first project-scoped slice).
+  3. intents → 4. comparison → 5. orders/amendments/receipts → 6. files.
 - `src/modules/procurement/` — `index.ts`, `types.ts`, `data.ts`, `actions.ts`,
   `parsers/`, `components/`. Route `app/(app)/procurement/`. One registry line.
 - Reuse Design patterns: versioning, lock-on-finalise (issued PO read-only),
   SECURITY DEFINER read-helpers for names without global `access:read`.
 
-## 11. The one big sequencing decision (needs your call)
+## 11. Sequencing — RESOLVED (build now)
 
-Procurement depends on **Projects-world constructs that don't exist yet**: a Global
-Projects module, per-project **Project Manager** roles, and a **department-wide
-Project Director** global role. Today the only project construct is
-`design_projects` inside the Design module. Options:
+The old blocker was that Procurement needed Projects-world constructs that didn't
+exist. **They exist now** (see §0): the company-wide `projects` table, per-project
+roles including the seeded **Project Manager**, and `has_project_permission` (whose
+company-wide branch gives the **Project Director** every-project reach). The old
+Option A ("do the re-arch first") is effectively **done** at the database level.
 
-- **A. Do the Projects re-architecture first** (steps 1–2 of the architecture doc),
-  then build Procurement cleanly on top. Slower start, no rework.
-- **B. Build Procurement now against `design_projects`** and migrate it onto the
-  Projects module when that lands. Faster start, some rework.
-- **C. Build a minimal Projects spine** (projects + PM role + Director role) just
-  enough for Procurement, deferring the rest of the re-org.
+**Decision: build Procurement now as its own department module on that spine.** No
+rework — it links to real tables, not `design_projects`. Register the Procurement
+department + its sub-resources, then build the migrations in the §10 order. The
+Projects *code* carve-out (`src/modules/projects/`) can continue independently and
+does not gate this.
 
 ## 12. Still open
 
-- **Split award → PO structure.** When different lines of one comparison go to
-  different vendors, does each vendor get its **own PO** (one PO per vendor), or is
-  it a single multi-vendor PO? (The prototype used one PO for simplicity; the real
-  build needs this decided — leaning one PO per vendor.)
-- Exact verb-to-role grants per resource (matrix), once you confirm §2.
-- Whether the topmost-senior role has any other procurement duties beyond the
-  amendment bypass.
+- **~~Split award → PO structure~~ — DECIDED: one PO per vendor** (§4, §3
+  `procurement_orders`). A split award on one comparison creates several POs
+  sharing `comparison_id`, each with its own vendor, file, acceptance letter,
+  amendments and receipts.
+- Exact verb-to-role grants per resource (the full matrix), building on §2.
+- Whether the topmost-senior (MD) role has any procurement duties beyond the
+  over-budget amendment bypass.
 - Currency / rounding / number formatting conventions (assume INR, ex-GST lines).
 
 ## 13. Prototype (throwaway)
@@ -296,5 +390,6 @@ A client-only prototype validating the workflow, RBAC gating, and the §4b amend
 model runs at `/procurement-demo` (`src/app/procurement-demo/`). **Not part of the
 ERP** — no registry entry, no auth, no DB; delete the folder when done. It is a
 clickable spec of the rules, not the implementation: the real build re-implements
-these on the server/DB (RLS, persistence, real Excel imports, file uploads, a real
-projects spine). See it for the exact intent→amendment→version behaviour.
+these on the server/DB (RLS, persistence, real Excel imports, file uploads) against
+the **now-live** projects spine (§0). See it for the exact
+intent→amendment→version behaviour.

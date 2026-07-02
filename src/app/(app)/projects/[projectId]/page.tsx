@@ -26,16 +26,25 @@ export default async function ProjectPage({
   const canManageMembers = detail.can("project.member", "manage");
   const canCreateBrief = detail.can("project.brief", "create");
 
-  const [pickers, templates, progress, folders, changeRequests, rfis, canViewBudget] =
-    await Promise.all([
-      canManageMembers ? getMembershipPickers() : Promise.resolve({ users: [], roles: [] }),
-      canCreateBrief ? getPublishableTemplates() : Promise.resolve([]),
-      getProjectProgress(projectId),
-      getProjectFolders(projectId),
-      getProjectChangeRequests(projectId),
-      getProjectRfis(projectId),
-      canOnProject(projectId, "procurement.budget", "read"),
-    ]);
+  const [
+    pickers,
+    templates,
+    progress,
+    folders,
+    changeRequests,
+    rfis,
+    canViewBudget,
+    canViewIntents,
+  ] = await Promise.all([
+    canManageMembers ? getMembershipPickers() : Promise.resolve({ users: [], roles: [] }),
+    canCreateBrief ? getPublishableTemplates() : Promise.resolve([]),
+    getProjectProgress(projectId),
+    getProjectFolders(projectId),
+    getProjectChangeRequests(projectId),
+    getProjectRfis(projectId),
+    canOnProject(projectId, "procurement.budget", "read"),
+    canOnProject(projectId, "procurement.intent", "read"),
+  ]);
 
   return (
     <ProjectDetail
@@ -47,6 +56,7 @@ export default async function ProjectPage({
       rfiDepartments={rfis.departments}
       rfiRolesByDept={rfis.rolesByDept}
       canViewBudget={canViewBudget}
+      canViewIntents={canViewIntents}
       canDecideChanges={detail.can("project", "approve")}
       members={detail.members}
       briefs={detail.briefs}

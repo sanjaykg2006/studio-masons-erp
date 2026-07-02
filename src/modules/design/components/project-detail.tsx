@@ -55,6 +55,7 @@ type Props = {
   rfiDepartments: DepartmentRef[];
   rfiRolesByDept: Record<string, RoleRef[]>;
   canViewBudget: boolean;
+  canViewIntents: boolean;
   canDecideChanges: boolean;
   members: ProjectMemberView[];
   briefs: ProjectBriefRow[];
@@ -79,6 +80,7 @@ export function ProjectDetail({
   rfiDepartments,
   rfiRolesByDept,
   canViewBudget,
+  canViewIntents,
   canDecideChanges,
   members,
   briefs,
@@ -233,21 +235,32 @@ export function ProjectDetail({
       <RfiCard projectId={project.id} rfis={rfis} departments={rfiDepartments} rolesByDept={rfiRolesByDept} />
 
       {/* Procurement -------------------------------------------------------- */}
-      {canViewBudget && (
+      {(canViewBudget || canViewIntents) && (
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle>Procurement</CardTitle>
               <CardDescription>
-                The project&apos;s Budget BOQ — budgeted quantities and rates that
-                cap what may be ordered.
+                The project&apos;s Budget BOQ and the purchase intents raised
+                against it.
               </CardDescription>
             </div>
-            <Button asChild size="sm" variant="outline">
-              <Link href={`/projects/${project.id}/budget`}>
-                <ShoppingCart className="size-4" /> Budget BOQ
-              </Link>
-            </Button>
+            <div className="flex shrink-0 gap-2">
+              {canViewBudget && (
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/projects/${project.id}/budget`}>
+                    <ShoppingCart className="size-4" /> Budget BOQ
+                  </Link>
+                </Button>
+              )}
+              {canViewIntents && (
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/projects/${project.id}/intents`}>
+                    <FileText className="size-4" /> Purchase intents
+                  </Link>
+                </Button>
+              )}
+            </div>
           </CardHeader>
         </Card>
       )}

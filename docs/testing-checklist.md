@@ -19,9 +19,10 @@ Nothing below works until these are applied to your live database. Run each with
 | `0035_rfi_target_role.sql` | Raise an RFI straight to a chosen role | ⬜ |
 | `0036_procurement_department.sql` | Procurement department + vendor directory | ⬜ |
 | `0037_procurement_budget.sql` | Per-project Budget BOQ (versioned) | ⬜ |
+| `0038_procurement_intents.sql` | Per-project purchase intents | ⬜ |
 
 **How to confirm they're on:** run `npx supabase migration list` — the Local and Remote
-columns should both show `0034`, `0035`, `0036`, `0037`.
+columns should both show `0034` … `0038`.
 
 ---
 
@@ -143,11 +144,44 @@ for testing: an **admin** account. To confirm the whole chain, add someone to th
 - ⬜ Someone **without** `procurement.budget` on the project: no Procurement card, and
   `/projects/<id>/budget` bounces to Forbidden.
 
+## 7. Procurement — purchase intents (module slice 3)
+
+**What it is:** a **Project Manager** raises a **purchase intent** — a request to buy against
+the released Budget BOQ. Each line picks a budget line + a quantity. If the requested
+quantity would push the cumulative approved quantity past the budgeted quantity, the line is
+flagged **Over budget**. The **Director approves** (or rejects) the intent; approving an
+over-budget line records the bypass. The raiser can withdraw their own pending intent.
+
+**Switch it on (permissions):**
+- **Raising** needs `procurement.intent:create` — seeded onto the **Project Manager** role
+  (`pm_project_manager`). So test raising as a user who is a **member of the project with the
+  Project Manager role**.
+- **Approving** needs `procurement.intent:approve` — a **Director**-level company-wide grant;
+  assign it via **Access** (or use an admin).
+- Procurement team members get read-only visibility.
+
+**Where:** project → **Procurement** card → **Purchase intents** (or `/projects/<id>/intents`).
+
+- ⬜ **Pre-req:** the project must have a **released** budget (slice 2) with some lines.
+- ⬜ As the **Project Manager**, click **Raise intent** → set *Needed by*, pick a budget line,
+  enter a quantity within budget → **Add line** for a second one → **Raise intent**. It
+  appears as **Pending**.
+- ⬜ Raise another intent with a quantity **larger than what's left** on a line → the form
+  shows **Over budget**, and after raising, the intent carries an **Over budget** flag.
+- ⬜ Expand an intent (click it) → see its lines with budgeted vs requested quantities.
+- ⬜ As the **Director/admin**, **Approve** a within-budget intent → turns **Approved**.
+- ⬜ **Approve** the over-budget one → it still approves, and its over-budget line shows
+  **"cleared by <name>"**.
+- ⬜ **Reject** a pending intent → turns **Rejected**.
+- ⬜ As the raiser, **withdraw** (trash icon) a pending intent → it disappears.
+- ⬜ After approving intents, raise a new one on the same line — the **"left"** quantity in the
+  picker has gone down by the approved amounts.
+
 ---
 
 ## What's NOT built yet (so you don't go looking)
 
-Still planned, not implemented: **purchase intents, comparison, purchase orders/amendments,
-goods receipts**, the **per-project approved-vendor list**, and **Excel import** of a Budget
-BOQ workbook (slice 2 is manual entry for now). See
+Still planned, not implemented: **comparison, purchase orders/amendments, goods receipts**,
+the **per-project approved-vendor list**, and **Excel import** of the Budget BOQ / comparison
+workbooks (entry is manual for now). See
 [procurement-module-plan.md](procurement-module-plan.md) for the full plan.

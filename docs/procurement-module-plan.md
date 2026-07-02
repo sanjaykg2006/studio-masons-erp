@@ -355,9 +355,13 @@ diffing beyond that.
      `procurement_budgets` / `_packages` / `_lines`, project-scoped RLS, a released-version
      lock, and the start/release/re-version lifecycle. Manual entry; **Excel import is a
      follow-up.**
-  3. intents → 4. comparison (also adds `procurement_vendor_project_approvals` — the
-     per-project approved-vendor list is mostly populated by comparison winners, so it
-     rides here) → 5. orders/amendments/receipts → 6. files.
+  3. **purchase intents (per-project)** ✅ *BUILT (`0038` + `/projects/[id]/intents`).*
+     `procurement_intents` / `_lines`, resource registered to Procurement + PM depts,
+     RFI-style RPCs (raise/approve/reject/withdraw), over-budget flagging vs cumulative
+     approved qty, Director approval clears the intent-stage bypass.
+  4. comparison (also adds `procurement_vendor_project_approvals` — the per-project
+     approved-vendor list is mostly populated by comparison winners, so it rides here)
+     → 5. orders/amendments/receipts → 6. files.
 - `src/modules/procurement/` — `index.ts`, `types.ts`, `data.ts`, `actions.ts`,
   `parsers/`, `components/`. Route `app/(app)/procurement/`. One registry line.
 - Reuse Design patterns: versioning, lock-on-finalise (issued PO read-only),

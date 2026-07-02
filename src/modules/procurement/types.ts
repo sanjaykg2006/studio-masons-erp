@@ -96,3 +96,61 @@ export type BudgetLineInput = {
   qty: number;
   rate: number;
 };
+
+// ── Purchase intents ─────────────────────────────────────────────────────────
+
+export type IntentStatus = "pending" | "approved" | "rejected";
+
+export const INTENT_STATUS_LABEL: Record<IntentStatus, string> = {
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
+};
+
+/** A row from list_project_intents. */
+export type Intent = {
+  id: string;
+  status: IntentStatus;
+  needed_by: string | null;
+  notes: string | null;
+  raised_by: string;
+  raiser_name: string | null;
+  created_at: string;
+  approved_by: string | null;
+  approver_name: string | null;
+  approved_at: string | null;
+  line_count: number;
+  total_qty: number;
+  over_budget_any: boolean;
+  can_approve: boolean;
+  can_withdraw: boolean;
+};
+
+/** A line within an intent (from get_intent_lines). */
+export type IntentLine = {
+  id: string;
+  budget_line_id: string;
+  package_name: string;
+  ref: string | null;
+  description: string;
+  unit: string | null;
+  budgeted_qty: number;
+  qty_requested: number;
+  over_budget: boolean;
+  bypass_approved_by: string | null;
+  bypass_by_name: string | null;
+};
+
+/** A released budget line offered in the "raise intent" picker. */
+export type ReleasedBudgetLine = {
+  budget_line_id: string;
+  package_name: string;
+  ref: string | null;
+  description: string;
+  unit: string | null;
+  budgeted_qty: number;
+  committed_qty: number;
+};
+
+/** One line the user is adding to a new intent. */
+export type IntentLineDraft = { budget_line_id: string; qty: number };

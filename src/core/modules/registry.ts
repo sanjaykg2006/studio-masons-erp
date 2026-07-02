@@ -76,6 +76,17 @@ export function moduleResources(): ModuleResource[] {
 }
 
 /**
+ * The resources belonging to a given set of module ids (a department's allotted
+ * `department_modules`, say). Pure registry lookup, so any matrix that renders a
+ * department's grantable abilities stays data-driven: allot a module and its rows
+ * appear here with zero code changes — nothing is hardcoded per department.
+ */
+export function resourcesForModules(moduleIds: Iterable<string>): ModuleResource[] {
+  const allowed = new Set(moduleIds);
+  return moduleResources().filter((r) => allowed.has(r.id));
+}
+
+/**
  * THE REGISTRY — register every feature module here.
  *
  * To add a feature later:

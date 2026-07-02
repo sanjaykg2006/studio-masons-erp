@@ -9,25 +9,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { projectsModule } from "@/modules/projects";
-import { getDepartment, getDepartmentRolesConfig } from "@/modules/departments/data";
+import {
+  getDepartment,
+  getDepartmentRoleResources,
+  getDepartmentRolesConfig,
+} from "@/modules/departments/data";
 import {
   createDeptRole,
   deleteDeptRole,
   moveDeptRole,
   setDeptRolePermission,
 } from "@/modules/departments/actions";
-import {
-  ProjectRolesEditor,
-  type ProjectRoleResource,
-} from "@/modules/design/components/project-roles-editor";
-
-/** Matrix rows = the Projects module's resources (what a role can do on a project). */
-const ROLE_RESOURCES: ProjectRoleResource[] = (projectsModule.resources ?? []).map((r) => ({
-  id: r.id,
-  label: r.label.replace(/^\w+ ·\s*/, ""),
-  actions: r.actions,
-}));
+import { ProjectRolesEditor } from "@/modules/design/components/project-roles-editor";
 
 /** A department's roles + seniority order (generic; e.g. Project Management). */
 export default async function DepartmentSettingsPage({
@@ -39,7 +32,11 @@ export default async function DepartmentSettingsPage({
   const dept = await getDepartment(deptId);
   if (!dept || !dept.can_manage) notFound();
 
-  const roleConfig = await getDepartmentRolesConfig(deptId);
+  // Rows are whatever modules are allotted to this department — not a fixed list.
+  const [roleConfig, roleResources] = await Promise.all([
+    getDepartmentRolesConfig(deptId),
+    getDepartmentRoleResources(deptId),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -70,7 +67,7 @@ export default async function DepartmentSettingsPage({
           <ProjectRolesEditor
             roles={roleConfig.roles}
             permissions={roleConfig.permissions}
-            resources={ROLE_RESOURCES}
+            resources={roleResources}
             onCreate={createDeptRole.bind(null, deptId)}
             onDelete={deleteDeptRole.bind(null, deptId)}
             onMove={moveDeptRole.bind(null, deptId)}

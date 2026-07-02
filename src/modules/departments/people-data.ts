@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/core/supabase/server";
-import { moduleResources } from "@/core/modules/registry";
+import { resourcesForModules } from "@/core/modules/registry";
 import type { AccessUser } from "@/modules/access/data";
 import type { AccessResource } from "@/modules/access/components/permission-matrix";
 import type { TeamGrant, TeamMember, TeamRole } from "@/modules/team-access/data";
@@ -21,12 +21,6 @@ export type DepartmentPeopleData = {
   subteams: SubteamRef[];
   subteamMembers: SubteamMembership[];
 };
-
-/** Only the department-level capabilities are ticked per person here; project
- *  work comes from the person's role, not from these. */
-const DEPARTMENT_RESOURCES: AccessResource[] = moduleResources().filter(
-  (r) => r.departmentLevel
-);
 
 /**
  * Everything the unified "People & Access" screen needs for ONE department:
@@ -77,7 +71,9 @@ export async function getDepartmentPeopleData(
 
   // Only this department's own modules (plus any marked general) belong on its
   // matrix — otherwise every department would list every other one's abilities
-  // (e.g. Procurement · Vendors showing under Design).
+  // (e.g. Procurement · Vendors showing under Design). Of those, the "Extra
+  // abilities" grid shows only the department-level ones; project-level modules
+  // are granted per role on the settings page, not per person here.
   const deptModuleIds = new Set<string>([
     ...((deptModsRes.data ?? []) as { module_id: string }[]).map((m) => m.module_id),
     ...((settingsRes.data ?? []) as { module_id: string; is_general: boolean }[])
@@ -91,7 +87,7 @@ export async function getDepartmentPeopleData(
     grants: (grantsRes.data ?? []) as TeamGrant[],
     people: (peopleRes.data ?? []) as AccessUser[],
     roles: (rolesRes.data ?? []) as TeamRole[],
-    resources: DEPARTMENT_RESOURCES.filter((r) => deptModuleIds.has(r.id)),
+    resources: resourcesForModules(deptModuleIds).filter((r) => r.departmentLevel),
     subteams: (subteamsRes.data ?? []) as SubteamRef[],
     subteamMembers: (subMembersRes.data ?? []) as SubteamMembership[],
   };

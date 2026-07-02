@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/core/supabase/server";
+import { resourcesForModules } from "@/core/modules/registry";
 import type { Action } from "@/core/rbac/types";
 import type { ProjectRoleRow } from "@/modules/design/data";
 
@@ -23,6 +24,53 @@ export async function getMyDepartments(): Promise<MyDepartment[]> {
 export async function getDepartment(deptId: string): Promise<MyDepartment | null> {
   const mine = await getMyDepartments();
   return mine.find((d) => d.id === deptId) ?? null;
+}
+
+/** Resolve a department's id from its stable key (e.g. "design"). RLS lets a
+ *  department lead read their own row and an admin read any. */
+export async function getDepartmentIdByKey(key: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("departments")
+    .select("id")
+    .eq("key", key)
+    .maybeSingle();
+  return (data as { id: string } | null)?.id ?? null;
+}
+
+/** The module ids allotted to a department: its own `department_modules` plus any
+ *  module flagged general. The single source of truth for what a department can
+ *  grant — no hardcoded lists. */
+export async function getDepartmentModuleIds(deptId: string): Promise<Set<string>> {
+  const supabase = await createClient();
+  const [modsRes, settingsRes] = await Promise.all([
+    supabase.from("department_modules").select("module_id").eq("department_id", deptId),
+    supabase.from("module_settings").select("module_id, is_general"),
+  ]);
+  return new Set<string>([
+    ...((modsRes.data ?? []) as { module_id: string }[]).map((m) => m.module_id),
+    ...((settingsRes.data ?? []) as { module_id: string; is_general: boolean }[])
+      .filter((s) => s.is_general)
+      .map((s) => s.module_id),
+  ]);
+}
+
+/** A matrix row: a resource id, a clean label and the verbs it supports. */
+export type MatrixResource = { id: string; label: string; actions: Action[] };
+
+/**
+ * The rows for a department's role matrix: every resource of every module allotted
+ * to it, straight from the registry. Allot a module → its rows appear; remove it →
+ * they disappear. Nothing is hardcoded per department. The leading "Word · " label
+ * prefix is dropped for a cleaner column header.
+ */
+export async function getDepartmentRoleResources(deptId: string): Promise<MatrixResource[]> {
+  const ids = await getDepartmentModuleIds(deptId);
+  return resourcesForModules(ids).map((r) => ({
+    id: r.id,
+    label: r.label.replace(/^\w+ ·\s*/, ""),
+    actions: r.actions,
+  }));
 }
 
 export type DepartmentRolesConfig = {

@@ -9,8 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { designModule } from "@/modules/design";
-import { projectsModule } from "@/modules/projects";
 import {
   getFolderAccessConfig,
   getProjectRolesConfig,
@@ -18,43 +16,36 @@ import {
   getSubteamsConfig,
 } from "@/modules/design/data";
 import {
+  getDepartmentIdByKey,
+  getDepartmentRoleResources,
+  type MatrixResource,
+} from "@/modules/departments/data";
+import {
   createProjectRole,
   deleteProjectRole,
   moveProjectRole,
   setProjectRolePermission,
 } from "@/modules/design/actions";
 import { FolderAccessMatrix } from "@/modules/design/components/folder-access-matrix";
-import {
-  ProjectRolesEditor,
-  type ProjectRoleResource,
-} from "@/modules/design/components/project-roles-editor";
+import { ProjectRolesEditor } from "@/modules/design/components/project-roles-editor";
 import { StageStepsEditor } from "@/modules/design/components/stage-steps-editor";
 import { SubteamsEditor } from "@/modules/design/components/subteams-editor";
-
-/**
- * The matrix rows for a Design project role: what it can do on a project (the
- * Projects module's resources) plus Design's own controlled-folder settings.
- * Driven by the registry, so new sub-resources show up here automatically. The
- * leading "Word · " label prefix is dropped for a cleaner column.
- */
-const PROJECT_ROLE_RESOURCES: ProjectRoleResource[] = [
-  ...(projectsModule.resources ?? []),
-  ...(designModule.resources ?? []).filter((r) => r.id === "design.folder"),
-].map((r) => ({
-  id: r.id,
-  label: r.label.replace(/^\w+ ·\s*/, ""),
-  actions: r.actions,
-}));
 
 /** Design configuration: project roles + folder access + the stage checklist. */
 export default async function DesignSettingsPage() {
   await requirePermission("design.folder", "manage");
 
-  const [roleConfig, config, steps, subteams] = await Promise.all([
+  // The role-matrix rows are whatever modules are allotted to Design — driven by
+  // department_modules, so allotting a new module surfaces it here automatically.
+  const designId = await getDepartmentIdByKey("design");
+  const [roleConfig, config, steps, subteams, roleResources] = await Promise.all([
     getProjectRolesConfig(),
     getFolderAccessConfig(),
     getStageSteps(),
     getSubteamsConfig(),
+    designId
+      ? getDepartmentRoleResources(designId)
+      : Promise.resolve([] as MatrixResource[]),
   ]);
 
   return (
@@ -94,7 +85,7 @@ export default async function DesignSettingsPage() {
           <ProjectRolesEditor
             roles={roleConfig.roles}
             permissions={roleConfig.permissions}
-            resources={PROJECT_ROLE_RESOURCES}
+            resources={roleResources}
             onCreate={createProjectRole}
             onDelete={deleteProjectRole}
             onMove={moveProjectRole}

@@ -1,8 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState, useTransition } from "react";
-import { ArrowUpCircle, CheckCircle2, MessageSquare, Plus, X } from "lucide-react";
+import { type FormEvent, useRef, useState, useTransition } from "react";
+import {
+  ArrowUpCircle,
+  CheckCircle2,
+  Download,
+  MessageSquare,
+  Paperclip,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,13 +26,16 @@ import {
 import {
   RFI_STATUS_LABEL,
   type DepartmentRef,
+  type RfiAttachment,
   type RfiMessage,
   type RfiRow,
   type RfiStatus,
 } from "@/modules/design/rfi-types";
 import {
   closeRfi,
+  deleteRfiAttachment,
   escalateRfi,
+  getRfiAttachmentUrl,
   loadRfiThread,
   postRfiMessage,
   raiseRfi,
@@ -36,6 +48,8 @@ const STATUS_TONE: Record<RfiStatus, string> = {
 };
 
 const field = "border-input bg-background h-9 rounded-md border px-2 text-sm";
+
+type Thread = { messages: RfiMessage[]; attachments: RfiAttachment[] };
 
 export function RfiCard({
   projectId,
@@ -53,10 +67,12 @@ export function RfiCard({
   const [toDept, setToDept] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const newFilesRef = useRef<HTMLInputElement>(null);
 
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [threads, setThreads] = useState<Record<string, RfiMessage[]>>({});
+  const [threads, setThreads] = useState<Record<string, Thread>>({});
   const [reply, setReply] = useState("");
+  const replyFilesRef = useRef<HTMLInputElement>(null);
 
   const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) =>
     startTransition(async () => {
@@ -69,15 +85,23 @@ export function RfiCard({
       }
     });
 
+  const filesFrom = (ref: React.RefObject<HTMLInputElement | null>) => {
+    const fd = new FormData();
+    for (const f of Array.from(ref.current?.files ?? [])) fd.append("files", f);
+    return fd;
+  };
+
   const submitNew = (e: FormEvent) => {
     e.preventDefault();
     if (!subject.trim() || !toDept) return;
+    const fd = filesFrom(newFilesRef);
     run(
-      () => raiseRfi(projectId, toDept, subject, body),
+      () => raiseRfi(projectId, toDept, subject, body, fd),
       () => {
         setSubject("");
         setBody("");
         setToDept("");
+        if (newFilesRef.current) newFilesRef.current.value = "";
         setOpen(false);
       }
     );
@@ -90,26 +114,34 @@ export function RfiCard({
     }
     setExpanded(rfiId);
     setReply("");
-    if (!threads[rfiId]) {
-      const res = await loadRfiThread(rfiId);
-      if (res.ok) setThreads((t) => ({ ...t, [rfiId]: res.messages }));
-      else setError(res.error);
-    }
+    if (!threads[rfiId]) await reloadThread(rfiId);
+  };
+
+  const reloadThread = async (rfiId: string) => {
+    const res = await loadRfiThread(rfiId);
+    if (res.ok) {
+      setThreads((t) => ({ ...t, [rfiId]: { messages: res.messages, attachments: res.attachments } }));
+    } else setError(res.error);
   };
 
   const sendReply = (rfi: RfiRow, asAnswer: boolean) => {
     if (!reply.trim()) return;
+    const fd = filesFrom(replyFilesRef);
     run(
-      () => postRfiMessage(projectId, rfi.id, reply, asAnswer),
+      () => postRfiMessage(projectId, rfi.id, reply, asAnswer, fd),
       () => {
         setReply("");
-        setThreads((t) => {
-          const copy = { ...t };
-          delete copy[rfi.id]; // force reload on next expand
-          return copy;
-        });
+        if (replyFilesRef.current) replyFilesRef.current.value = "";
+        void reloadThread(rfi.id);
       }
     );
+  };
+
+  const download = async (attachmentId: string) => {
+    setError(null);
+    const res = await getRfiAttachmentUrl(attachmentId);
+    if (res.ok) window.open(res.url, "_blank", "noopener");
+    else setError(res.error);
   };
 
   return (
@@ -118,8 +150,9 @@ export function RfiCard({
         <div>
           <CardTitle>Questions (RFIs)</CardTitle>
           <CardDescription>
-            Ask another department a question on this project. Unanswered
-            questions can be escalated up that department&apos;s seniority ladder.
+            Ask another department a question on this project. A question starts
+            with that department&apos;s most junior role and can be escalated up
+            its seniority ladder if it isn&apos;t answered.
           </CardDescription>
         </div>
         <Button size="sm" onClick={() => setOpen((o) => !o)}>
@@ -165,6 +198,11 @@ export function RfiCard({
               className="border-input bg-background w-full rounded-md border px-2 py-1 text-sm"
               aria-label="Question"
             />
+            <label className="text-muted-foreground flex items-center gap-2 text-xs">
+              <Paperclip className="size-3.5" />
+              <span>Attach documents (optional)</span>
+              <input ref={newFilesRef} type="file" multiple className="text-xs" aria-label="Attach documents" />
+            </label>
             <Button type="submit" size="sm" disabled={pending}>
               Send question
             </Button>
@@ -192,7 +230,13 @@ export function RfiCard({
                     <div className="text-muted-foreground text-xs">
                       {r.from_label ? `${r.from_label} → ` : ""}
                       {r.to_label}
-                      {r.current_role_label && ` · with ${r.current_role_label}`}
+                      {r.current_role_label && (
+                        <>
+                          {" · with "}
+                          <span className="font-medium">{r.current_role_label}</span>
+                          {!r.can_escalate && " (most senior)"}
+                        </>
+                      )}
                       {r.escalation_level > 0 && ` · escalated ×${r.escalation_level}`}
                     </div>
                   </div>
@@ -204,26 +248,61 @@ export function RfiCard({
                 {expanded === r.id && (
                   <div className="space-y-3 border-t px-3 py-3">
                     <div className="space-y-2">
-                      {(threads[r.id] ?? []).length === 0 ? (
+                      {(threads[r.id]?.messages ?? []).length === 0 ? (
                         <p className="text-muted-foreground text-xs">No messages yet.</p>
                       ) : (
-                        (threads[r.id] ?? []).map((m) => (
-                          <div
-                            key={m.id}
-                            className={cn(
-                              "rounded-md px-3 py-2 text-sm",
-                              m.is_answer
-                                ? "bg-blue-500/10 border-blue-500/30 border"
-                                : "bg-muted"
-                            )}
-                          >
-                            <div className="text-muted-foreground mb-0.5 flex items-center gap-2 text-[10px]">
-                              <span className="font-medium">{m.author_name ?? "Someone"}</span>
-                              {m.is_answer && <span className="text-blue-600">Answer</span>}
+                        (threads[r.id]?.messages ?? []).map((m) => {
+                          const files = (threads[r.id]?.attachments ?? []).filter(
+                            (a) => a.message_id === m.id
+                          );
+                          return (
+                            <div
+                              key={m.id}
+                              className={cn(
+                                "rounded-md px-3 py-2 text-sm",
+                                m.is_answer
+                                  ? "bg-blue-500/10 border-blue-500/30 border"
+                                  : "bg-muted"
+                              )}
+                            >
+                              <div className="text-muted-foreground mb-0.5 flex items-center gap-2 text-[10px]">
+                                <span className="font-medium">{m.author_name ?? "Someone"}</span>
+                                {m.is_answer && <span className="text-blue-600">Answer</span>}
+                              </div>
+                              <p className="whitespace-pre-wrap">{m.body}</p>
+                              {files.length > 0 && (
+                                <ul className="mt-2 space-y-1">
+                                  {files.map((a) => (
+                                    <li key={a.id} className="flex items-center gap-2 text-xs">
+                                      <Paperclip className="text-muted-foreground size-3" />
+                                      <button
+                                        type="button"
+                                        onClick={() => download(a.id)}
+                                        className="inline-flex items-center gap-1 underline underline-offset-2"
+                                      >
+                                        {a.name}
+                                        <Download className="size-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={pending}
+                                        onClick={() =>
+                                          run(() => deleteRfiAttachment(projectId, a.id), () =>
+                                            void reloadThread(r.id)
+                                          )
+                                        }
+                                        className="text-muted-foreground hover:text-destructive"
+                                        aria-label={`Remove ${a.name}`}
+                                      >
+                                        <Trash2 className="size-3" />
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
                             </div>
-                            <p className="whitespace-pre-wrap">{m.body}</p>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
 
@@ -237,6 +316,11 @@ export function RfiCard({
                           className="border-input bg-background w-full rounded-md border px-2 py-1 text-sm"
                           aria-label="Reply"
                         />
+                        <label className="text-muted-foreground flex items-center gap-2 text-xs">
+                          <Paperclip className="size-3.5" />
+                          <span>Attach documents (optional)</span>
+                          <input ref={replyFilesRef} type="file" multiple className="text-xs" aria-label="Attach documents to reply" />
+                        </label>
                         <div className="flex flex-wrap gap-2">
                           <Button size="sm" variant="outline" disabled={pending} onClick={() => sendReply(r, false)}>
                             Reply
@@ -246,7 +330,13 @@ export function RfiCard({
                               <CheckCircle2 className="size-4" /> Post as answer
                             </Button>
                           )}
-                          <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => escalateRfi(projectId, r.id))}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={pending || !r.can_escalate}
+                            title={r.can_escalate ? undefined : "Already with the most senior role"}
+                            onClick={() => run(() => escalateRfi(projectId, r.id))}
+                          >
                             <ArrowUpCircle className="size-4" /> Escalate
                           </Button>
                           {r.can_manage && (

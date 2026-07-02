@@ -18,6 +18,8 @@ export type RfiRow = {
   status: RfiStatus;
   current_role_id: string | null;
   current_role_label: string | null;
+  current_role_rank: number | null;
+  can_escalate: boolean;
   escalation_level: number;
   raised_by: string;
   raiser_name: string | null;
@@ -35,6 +37,17 @@ export type RfiMessage = {
   author_name: string | null;
   body: string;
   is_answer: boolean;
+  created_at: string;
+};
+
+export type RfiAttachment = {
+  id: string;
+  message_id: string;
+  name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  uploaded_by: string | null;
+  uploaded_by_name: string | null;
   created_at: string;
 };
 

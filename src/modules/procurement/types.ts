@@ -260,6 +260,8 @@ export type OrderDetail = {
   vendor_name: string;
   status: OrderStatus;
   notes: string | null;
+  po_file: string | null;
+  acceptance_file: string | null;
   finance_reviewed_by: string | null;
   finance_reviewed_name: string | null;
   director_approved_by: string | null;

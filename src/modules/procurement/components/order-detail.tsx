@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { ArrowLeft, Check } from "lucide-react";
+import { type ChangeEvent, useRef, useState, useTransition } from "react";
+import { ArrowLeft, Check, Download, Upload } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -23,9 +23,11 @@ import {
 } from "@/modules/procurement/types";
 import {
   approveOrder,
+  getOrderDocumentUrl,
   recordReceipt,
   releaseOrder,
   reviewOrder,
+  uploadOrderDocument,
 } from "@/modules/procurement/order-actions";
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -71,6 +73,19 @@ export function OrderDetailView({
 
   const isDraft = order.status === "draft";
   const signedOff = !!order.finance_reviewed_by && !!order.director_approved_by;
+
+  const download = async (kind: "po" | "acceptance") => {
+    setError(null);
+    const res = await getOrderDocumentUrl(order.id, kind);
+    if (res.ok) window.open(res.url, "_blank", "noopener");
+    else setError(res.error);
+  };
+
+  const upload = (kind: "po" | "acceptance", file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    run(() => uploadOrderDocument(projectId, order.id, kind, fd));
+  };
 
   const submitReceipt = () => {
     const drafts = Object.entries(qtys)
@@ -148,6 +163,32 @@ export function OrderDetailView({
               Release PO
             </Button>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Documents ---------------------------------------------------------- */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Documents</CardTitle>
+          <CardDescription>The issued PO and the vendor&apos;s acceptance letter.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <DocSlot
+            label="Purchase order"
+            hasFile={!!order.po_file}
+            canUpload={order.can_issue}
+            pending={pending}
+            onDownload={() => download("po")}
+            onPick={(f) => upload("po", f)}
+          />
+          <DocSlot
+            label="Acceptance letter"
+            hasFile={!!order.acceptance_file}
+            canUpload={order.can_issue}
+            pending={pending}
+            onDownload={() => download("acceptance")}
+            onPick={(f) => upload("acceptance", f)}
+          />
         </CardContent>
       </Card>
 
@@ -284,6 +325,55 @@ function SignRow({
           Sign off
         </Button>
       )}
+    </div>
+  );
+}
+
+function DocSlot({
+  label,
+  hasFile,
+  canUpload,
+  pending,
+  onDownload,
+  onPick,
+}: {
+  label: string;
+  hasFile: boolean;
+  canUpload: boolean;
+  pending: boolean;
+  onDownload: () => void;
+  onPick: (file: File) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const onChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onPick(file);
+    if (inputRef.current) inputRef.current.value = "";
+  };
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className="font-medium">{label}</span>
+      <div className="flex items-center gap-2">
+        {hasFile ? (
+          <button
+            type="button"
+            onClick={onDownload}
+            className="inline-flex items-center gap-1 underline underline-offset-2"
+          >
+            Download <Download className="size-3.5" />
+          </button>
+        ) : (
+          <span className="text-muted-foreground text-xs">Not uploaded</span>
+        )}
+        {canUpload && (
+          <>
+            <input ref={inputRef} type="file" className="hidden" onChange={onChange} aria-label={`Upload ${label}`} />
+            <Button size="sm" variant="outline" disabled={pending} onClick={() => inputRef.current?.click()}>
+              <Upload className="size-4" /> {hasFile ? "Replace" : "Upload"}
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

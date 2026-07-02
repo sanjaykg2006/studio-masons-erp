@@ -3,8 +3,13 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/core/supabase/server";
+import { createAdminClient } from "@/core/supabase/admin";
 import { logAudit } from "@/modules/audit/log";
 import type { ReceiptLineDraft } from "@/modules/procurement/types";
+
+const DOCS_BUCKET = "procurement-docs";
+const MAX_DOC_BYTES = 25 * 1024 * 1024; // 25 MB
+type OrderDocKind = "po" | "acceptance";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 const ok: ActionResult = { ok: true };
@@ -55,6 +60,62 @@ export async function releaseOrder(projectId: string, orderId: string): Promise<
   await logAudit("procurement.order.release", "Released a PO", { projectId, orderId });
   refreshOne(projectId, orderId);
   return ok;
+}
+
+/** Upload the PO document or the vendor's acceptance letter. */
+export async function uploadOrderDocument(
+  projectId: string,
+  orderId: string,
+  kind: OrderDocKind,
+  formData: FormData
+): Promise<ActionResult> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return fail("Choose a file.");
+  if (file.size > MAX_DOC_BYTES) return fail("File is larger than 25 MB.");
+
+  const safeName = file.name.replace(/[^\w.\- ]+/g, "_");
+  const path = `${orderId}/${kind}-${crypto.randomUUID()}-${safeName}`;
+
+  const admin = createAdminClient();
+  const { error: upErr } = await admin.storage
+    .from(DOCS_BUCKET)
+    .upload(path, file, { contentType: file.type || undefined, upsert: false });
+  if (upErr) return fail(upErr.message);
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_order_document", {
+    p_order: orderId,
+    p_kind: kind,
+    p_path: path,
+  });
+  if (error) {
+    await admin.storage.from(DOCS_BUCKET).remove([path]);
+    return fail(error.message);
+  }
+  await logAudit("procurement.order.document", `Attached the ${kind} document`, { projectId, orderId, kind });
+  refreshOne(projectId, orderId);
+  return ok;
+}
+
+/** A short-lived signed link to download a PO's document. */
+export async function getOrderDocumentUrl(
+  orderId: string,
+  kind: OrderDocKind
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  // RLS ensures the caller can only read orders they can see.
+  const { data: order } = await supabase
+    .from("procurement_orders")
+    .select("po_file, acceptance_file")
+    .eq("id", orderId)
+    .maybeSingle();
+  const path = kind === "po" ? order?.po_file : order?.acceptance_file;
+  if (!path) return { ok: false, error: "No file uploaded." };
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.storage.from(DOCS_BUCKET).createSignedUrl(path, 60);
+  if (error || !data) return { ok: false, error: error?.message ?? "Could not create a link." };
+  return { ok: true, url: data.signedUrl };
 }
 
 /** Record a (partial) goods receipt against a released PO. */

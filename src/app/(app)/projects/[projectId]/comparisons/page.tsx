@@ -9,6 +9,7 @@ import {
   listReleasedPackages,
 } from "@/modules/procurement/comparison-data";
 import { ComparisonsList } from "@/modules/procurement/components/comparisons-list";
+import { ComparisonImport } from "@/modules/procurement/components/comparison-import";
 
 /** A project's comparisons + approved-vendor list (Procurement slice 4). */
 export default async function ProjectComparisonsPage({
@@ -38,15 +39,20 @@ export default async function ProjectComparisonsPage({
     ]);
 
   return (
-    <ComparisonsList
-      projectId={projectId}
-      projectName={project.name as string}
-      comparisons={comparisons}
-      packages={packages}
-      projectVendors={projectVendors}
-      approvedVendors={approvedVendors}
-      canCreate={canCreate}
-      canAward={canAward}
-    />
+    <div className="space-y-6">
+      <ComparisonsList
+        projectId={projectId}
+        projectName={project.name as string}
+        comparisons={comparisons}
+        packages={packages}
+        projectVendors={projectVendors}
+        approvedVendors={approvedVendors}
+        canCreate={canCreate}
+        canAward={canAward}
+      />
+      {canCreate && packages.length > 0 && (
+        <ComparisonImport projectId={projectId} packages={packages} />
+      )}
+    </div>
   );
 }

@@ -286,3 +286,43 @@ export type OrderLine = {
 
 /** One line the user is receiving now. */
 export type ReceiptLineDraft = { order_line_id: string; qty: number };
+
+// ── Spreadsheet import ───────────────────────────────────────────────────────
+
+export type BudgetImportLine = {
+  ref: string | null;
+  description: string;
+  unit: string | null;
+  qty: number;
+  rate: number;
+};
+export type BudgetImportPackage = {
+  name: string;
+  lines: BudgetImportLine[];
+  total: number;
+};
+export type BudgetImportPreview = {
+  packages: BudgetImportPackage[];
+  warnings: string[];
+};
+
+export type ComparisonImportQuote = { vendor: string; rate: number; make: string | null };
+export type ComparisonImportLine = {
+  ref: string | null;
+  description: string;
+  unit: string | null;
+  qty: number;
+  quotes: ComparisonImportQuote[];
+};
+export type ComparisonImportPackage = {
+  name: string;
+  vendors: string[];
+  lines: ComparisonImportLine[];
+};
+/** A parsed vendor name matched (or not) to a directory vendor. */
+export type VendorMatch = { name: string; vendor_id: string | null };
+export type ComparisonImportPreview = {
+  packages: ComparisonImportPackage[];
+  vendorMatches: VendorMatch[];
+  warnings: string[];
+};

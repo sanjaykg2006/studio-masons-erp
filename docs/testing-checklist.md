@@ -22,9 +22,11 @@ Nothing below works until these are applied to your live database. Run each with
 | `0038_procurement_intents.sql` | Per-project purchase intents | ⬜ |
 | `0039_procurement_comparison.sql` | Comparison + per-project vendor list | ⬜ |
 | `0040_procurement_orders.sql` | Purchase orders + goods receipts | ⬜ |
+| `0041_procurement_order_docs.sql` | PO + acceptance-letter uploads | ⬜ |
+| `0042_procurement_import.sql` | Budget + comparison Excel import | ⬜ |
 
 **How to confirm they're on:** run `npx supabase migration list` — the Local and Remote
-columns should both show `0034` … `0040`.
+columns should both show `0034` … `0042`.
 
 ---
 
@@ -145,6 +147,10 @@ for testing: an **admin** account. To confirm the whole chain, add someone to th
   Edit it; the version dropdown lets you switch back to v1 (read-only).
 - ⬜ Someone **without** `procurement.budget` on the project: no Procurement card, and
   `/projects/<id>/budget` bounces to Forbidden.
+- ⬜ **Import from Excel** (the card at the bottom, shown when there's no draft): choose an
+  `.xlsx` with one sheet per package (`BOQ Ref · Description · Unit · Qty · Rate`). A review
+  lists packages, line counts, totals and any warnings → **Import** creates a new draft to
+  edit before releasing. Summary sheets, title rows and spec paragraphs are skipped.
 
 ## 7. Procurement — purchase intents (module slice 3)
 
@@ -212,6 +218,11 @@ list** (which you can also edit by hand).
 - ⬜ As an approver, **add** another approved vendor to that list by hand, and **remove** one
   (trash icon).
 - ⬜ Re-open an **awarded** comparison → it's read-only and shows each line's winner + amount.
+- ⬜ **Import from Excel** (card at the bottom of the comparisons page): choose an `.xlsx` with
+  one sheet per package, a `BUDGET` block then a `Rate`/`Amount` block per vendor. The review
+  shows each vendor matched (green ✓) or unmatched (amber — those are skipped), and each sheet's
+  target budget package (auto-matched by name). Click **Import** on a row to create that
+  comparison with its quotes; blank vendor rates come in as "no quote".
 
 ---
 
@@ -241,12 +252,14 @@ line's balance hits zero, which auto-closes the PO.
   **Save receipt**. The line's **Received** goes up and **Balance** goes down.
 - ⬜ Record another receipt clearing the remaining balances → the PO auto-turns **Closed**.
 - ⬜ Try to receive **more than the balance** → it's refused with a clear message.
+- ⬜ In the PO's **Documents** card (Procurement Manager), **Upload** a PO file and an acceptance
+  letter → anyone who can see the PO gets a **Download** link.
 
 ---
 
 ## What's NOT built yet (so you don't go looking)
 
-Still planned: **versioned PO amendments** (vendor-fixed changes to qty/rate/terms with the
-Director + Finance re-sign-off and the MD over-budget escalation), **PO / acceptance-letter file
-uploads**, and **Excel import** of the Budget BOQ / comparison workbooks (entry is manual for
-now). See [procurement-module-plan.md](procurement-module-plan.md) for the full plan.
+Still planned: **versioned PO amendments** — vendor-fixed changes to qty/rate/terms with the
+Director + Finance re-sign-off and the MD over-budget escalation. (The Excel importers cover the
+canonical template; unusual workbook layouts may need review-step tweaks.) See
+[procurement-module-plan.md](procurement-module-plan.md) for the full plan.

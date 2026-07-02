@@ -4,6 +4,7 @@ import { createClient } from "@/core/supabase/server";
 import { requireProjectPermission, canOnProject } from "@/core/rbac/can";
 import { getProjectBudget } from "@/modules/procurement/budget-data";
 import { BudgetBoq } from "@/modules/procurement/components/budget-boq";
+import { BudgetImport } from "@/modules/procurement/components/budget-import";
 
 /** A project's Budget BOQ (Procurement slice 2). */
 export default async function ProjectBudgetPage({
@@ -32,14 +33,19 @@ export default async function ProjectBudgetPage({
     canOnProject(projectId, "procurement.budget", "approve"),
   ]);
 
+  const showImport = canCreate && (!budget.current || budget.current.status === "released");
+
   return (
-    <BudgetBoq
-      projectId={projectId}
-      projectName={project.name as string}
-      budget={budget}
-      canCreate={canCreate}
-      canEdit={canEdit}
-      canApprove={canApprove}
-    />
+    <div className="space-y-6">
+      <BudgetBoq
+        projectId={projectId}
+        projectName={project.name as string}
+        budget={budget}
+        canCreate={canCreate}
+        canEdit={canEdit}
+        canApprove={canApprove}
+      />
+      {showImport && <BudgetImport projectId={projectId} />}
+    </div>
   );
 }

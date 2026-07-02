@@ -367,9 +367,14 @@ diffing beyond that.
   5. **purchase orders + goods receipts** ✅ *BUILT (`0040` + `/projects/[id]/orders`).*
      `procurement_orders` / `_order_lines` / `_receipts` / `_receipt_lines`; one PO per awarded
      vendor from a comparison, Finance `review` + Director `approve` sign-offs gating the Proc
-     Mgr `issue` release, partial receipts that auto-close the PO. **Follow-ups:** versioned
-     amendments + MD over-budget escalation, and PO / acceptance-letter file uploads.
-  6. files + Excel import (Budget BOQ + comparison workbook parsers).
+     Mgr `issue` release, partial receipts that auto-close the PO.
+  6. **PO + acceptance-letter uploads** ✅ *BUILT (`0041`).* Private `procurement-docs` bucket,
+     `set_order_document`, Documents card on the PO.
+  7. **Excel import** ✅ *BUILT (`0042` + `import/parse.ts`, exceljs).* Budget BOQ + comparison
+     parsers (shared sheet-walking core, two-row headers, spec/summary skipping, blank-rate =
+     no quote) with a review step; commit RPCs `import_budget` / `import_comparison`. Covers the
+     canonical template; unusual layouts may need review-step tweaks.
+  8. **Remaining:** versioned PO amendments + MD over-budget escalation.
 - `src/modules/procurement/` — `index.ts`, `types.ts`, `data.ts`, `actions.ts`,
   `parsers/`, `components/`. Route `app/(app)/procurement/`. One registry line.
 - Reuse Design patterns: versioning, lock-on-finalise (issued PO read-only),

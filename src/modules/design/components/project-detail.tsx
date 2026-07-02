@@ -57,6 +57,7 @@ type Props = {
   canViewBudget: boolean;
   canViewIntents: boolean;
   canViewComparisons: boolean;
+  canViewOrders: boolean;
   canDecideChanges: boolean;
   members: ProjectMemberView[];
   briefs: ProjectBriefRow[];
@@ -83,6 +84,7 @@ export function ProjectDetail({
   canViewBudget,
   canViewIntents,
   canViewComparisons,
+  canViewOrders,
   canDecideChanges,
   members,
   briefs,
@@ -237,14 +239,14 @@ export function ProjectDetail({
       <RfiCard projectId={project.id} rfis={rfis} departments={rfiDepartments} rolesByDept={rfiRolesByDept} />
 
       {/* Procurement -------------------------------------------------------- */}
-      {(canViewBudget || canViewIntents || canViewComparisons) && (
+      {(canViewBudget || canViewIntents || canViewComparisons || canViewOrders) && (
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle>Procurement</CardTitle>
               <CardDescription>
-                The project&apos;s Budget BOQ, the purchase intents raised against
-                it, and vendor comparisons.
+                The project&apos;s Budget BOQ, purchase intents, vendor comparisons
+                and purchase orders.
               </CardDescription>
             </div>
             <div className="flex shrink-0 flex-wrap justify-end gap-2">
@@ -266,6 +268,13 @@ export function ProjectDetail({
                 <Button asChild size="sm" variant="outline">
                   <Link href={`/projects/${project.id}/comparisons`}>
                     <FileText className="size-4" /> Comparisons
+                  </Link>
+                </Button>
+              )}
+              {canViewOrders && (
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/projects/${project.id}/orders`}>
+                    <ShoppingCart className="size-4" /> Purchase orders
                   </Link>
                 </Button>
               )}

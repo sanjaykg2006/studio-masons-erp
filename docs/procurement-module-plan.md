@@ -364,7 +364,12 @@ diffing beyond that.
      `_quotes` / `_awards` + `procurement_vendor_project_approvals`; RPCs to prepare from a
      package, quote, award (whole-package or split per line), and manage the approved list.
      Winners auto-join the project's approved vendors.
-  5. orders/amendments/receipts → 6. files.
+  5. **purchase orders + goods receipts** ✅ *BUILT (`0040` + `/projects/[id]/orders`).*
+     `procurement_orders` / `_order_lines` / `_receipts` / `_receipt_lines`; one PO per awarded
+     vendor from a comparison, Finance `review` + Director `approve` sign-offs gating the Proc
+     Mgr `issue` release, partial receipts that auto-close the PO. **Follow-ups:** versioned
+     amendments + MD over-budget escalation, and PO / acceptance-letter file uploads.
+  6. files + Excel import (Budget BOQ + comparison workbook parsers).
 - `src/modules/procurement/` — `index.ts`, `types.ts`, `data.ts`, `actions.ts`,
   `parsers/`, `components/`. Route `app/(app)/procurement/`. One registry line.
 - Reuse Design patterns: versioning, lock-on-finalise (issued PO read-only),

@@ -36,6 +36,7 @@ export default async function ProjectPage({
     canViewBudget,
     canViewIntents,
     canViewComparisons,
+    canViewOrders,
   ] = await Promise.all([
     canManageMembers ? getMembershipPickers() : Promise.resolve({ users: [], roles: [] }),
     canCreateBrief ? getPublishableTemplates() : Promise.resolve([]),
@@ -46,6 +47,7 @@ export default async function ProjectPage({
     canOnProject(projectId, "procurement.budget", "read"),
     canOnProject(projectId, "procurement.intent", "read"),
     canOnProject(projectId, "procurement.comparison", "read"),
+    canOnProject(projectId, "procurement.order", "read"),
   ]);
 
   return (
@@ -60,6 +62,7 @@ export default async function ProjectPage({
       canViewBudget={canViewBudget}
       canViewIntents={canViewIntents}
       canViewComparisons={canViewComparisons}
+      canViewOrders={canViewOrders}
       canDecideChanges={detail.can("project", "approve")}
       members={detail.members}
       briefs={detail.briefs}

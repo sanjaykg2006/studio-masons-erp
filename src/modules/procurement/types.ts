@@ -224,3 +224,63 @@ export type ComparisonDetail = {
   canEdit: boolean;
   canAward: boolean;
 };
+
+// ── Purchase orders + receipts ───────────────────────────────────────────────
+
+export type OrderStatus = "draft" | "issued" | "closed";
+
+export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
+  draft: "Draft",
+  issued: "Issued",
+  closed: "Closed",
+};
+
+/** A row from list_project_orders. */
+export type OrderSummary = {
+  id: string;
+  po_number: string | null;
+  vendor_id: string;
+  vendor_name: string;
+  status: OrderStatus;
+  finance_reviewed_by: string | null;
+  director_approved_by: string | null;
+  issued_at: string | null;
+  line_count: number;
+  total: number;
+  can_review: boolean;
+  can_approve: boolean;
+  can_issue: boolean;
+  can_receive: boolean;
+};
+
+/** A PO header from get_order. */
+export type OrderDetail = {
+  id: string;
+  po_number: string | null;
+  vendor_name: string;
+  status: OrderStatus;
+  notes: string | null;
+  finance_reviewed_by: string | null;
+  finance_reviewed_name: string | null;
+  director_approved_by: string | null;
+  director_approved_name: string | null;
+  issued_at: string | null;
+  can_review: boolean;
+  can_approve: boolean;
+  can_issue: boolean;
+  can_receive: boolean;
+};
+
+/** A PO line from get_order_lines, with received-so-far. */
+export type OrderLine = {
+  id: string;
+  description: string;
+  unit: string | null;
+  qty_ordered: number;
+  rate: number;
+  amount: number;
+  qty_received: number;
+};
+
+/** One line the user is receiving now. */
+export type ReceiptLineDraft = { order_line_id: string; qty: number };

@@ -21,9 +21,10 @@ Nothing below works until these are applied to your live database. Run each with
 | `0037_procurement_budget.sql` | Per-project Budget BOQ (versioned) | ⬜ |
 | `0038_procurement_intents.sql` | Per-project purchase intents | ⬜ |
 | `0039_procurement_comparison.sql` | Comparison + per-project vendor list | ⬜ |
+| `0040_procurement_orders.sql` | Purchase orders + goods receipts | ⬜ |
 
 **How to confirm they're on:** run `npx supabase migration list` — the Local and Remote
-columns should both show `0034` … `0039`.
+columns should both show `0034` … `0040`.
 
 ---
 
@@ -214,8 +215,38 @@ list** (which you can also edit by hand).
 
 ---
 
+## 9. Procurement — purchase orders + goods receipts (module slice 5)
+
+**What it is:** from an **awarded** comparison, one **purchase order** is created **per winning
+vendor** (each carrying that vendor's awarded lines). **Finance** signs off (review) and the
+**Director** signs off (approve); once both are in, the **Procurement Manager releases** the PO
+(issue). Against a released PO, goods are received in one or more **partial receipts** until every
+line's balance hits zero, which auto-closes the PO.
+
+**Switch it on (permissions):**
+- **Creating / releasing** POs and **recording receipts** — the **Procurement Manager** role.
+- **Finance review** = `procurement.order:review`; **Director approval** = `procurement.order:approve`
+  — company-wide grants assigned via **Access** (or use an admin, who can do all of it).
+
+**Where:** project → **Procurement** card → **Purchase orders** (or `/projects/<id>/orders`).
+
+- ⬜ **Pre-req:** an **awarded** comparison (section 8).
+- ⬜ As the **Procurement Manager**, under **Awarded comparisons** click **Create POs** → one PO
+  per winning vendor appears in the list as **Draft**.
+- ⬜ Open a PO. As **Finance/admin**, **Sign off** the *Finance review*; as **Director/admin**,
+  **Sign off** the *Director approval*.
+- ⬜ **Release PO** (Procurement Manager) — it's disabled until both sign-offs are in, then the PO
+  turns **Issued**.
+- ⬜ Click **Record receipt**, enter a quantity for one line (less than the balance) + a date →
+  **Save receipt**. The line's **Received** goes up and **Balance** goes down.
+- ⬜ Record another receipt clearing the remaining balances → the PO auto-turns **Closed**.
+- ⬜ Try to receive **more than the balance** → it's refused with a clear message.
+
+---
+
 ## What's NOT built yet (so you don't go looking)
 
-Still planned, not implemented: **purchase orders / amendments and goods receipts** (one PO per
-awarded vendor), and **Excel import** of the Budget BOQ / comparison workbooks (entry is manual
-for now). See [procurement-module-plan.md](procurement-module-plan.md) for the full plan.
+Still planned: **versioned PO amendments** (vendor-fixed changes to qty/rate/terms with the
+Director + Finance re-sign-off and the MD over-budget escalation), **PO / acceptance-letter file
+uploads**, and **Excel import** of the Budget BOQ / comparison workbooks (entry is manual for
+now). See [procurement-module-plan.md](procurement-module-plan.md) for the full plan.

@@ -59,12 +59,15 @@ async function attachFiles(messageId: string, formData: FormData): Promise<strin
 }
 
 /** Raise a question from the caller's department to another, on a project.
- * Any files on `formData` attach to the question's opening message. */
+ * `toRoleId` optionally aims it at a specific rung of the target department's
+ * ladder (empty = start at the most junior role). Any files on `formData`
+ * attach to the question's opening message. */
 export async function raiseRfi(
   projectId: string,
   toDepartmentId: string,
   subject: string,
   body: string,
+  toRoleId?: string,
   formData?: FormData
 ): Promise<ActionResult> {
   if (!subject.trim()) return fail("Enter a subject.");
@@ -78,6 +81,7 @@ export async function raiseRfi(
     p_to_dept: toDepartmentId,
     p_subject: subject,
     p_body: body,
+    p_to_role: toRoleId || null,
   });
   if (error) return fail(error.message);
 

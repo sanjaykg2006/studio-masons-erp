@@ -43,6 +43,7 @@ export default async function ProjectPage({
       changeRequests={changeRequests}
       rfis={rfis.rfis}
       rfiDepartments={rfis.departments}
+      rfiRolesByDept={rfis.rolesByDept}
       canDecideChanges={detail.can("project", "approve")}
       members={detail.members}
       briefs={detail.briefs}

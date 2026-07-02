@@ -30,6 +30,7 @@ import {
   type RfiMessage,
   type RfiRow,
   type RfiStatus,
+  type RoleRef,
 } from "@/modules/design/rfi-types";
 import {
   closeRfi,
@@ -55,16 +56,19 @@ export function RfiCard({
   projectId,
   rfis,
   departments,
+  rolesByDept,
 }: {
   projectId: string;
   rfis: RfiRow[];
   departments: DepartmentRef[];
+  rolesByDept: Record<string, RoleRef[]>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [toDept, setToDept] = useState("");
+  const [toRole, setToRole] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const newFilesRef = useRef<HTMLInputElement>(null);
@@ -96,11 +100,12 @@ export function RfiCard({
     if (!subject.trim() || !toDept) return;
     const fd = filesFrom(newFilesRef);
     run(
-      () => raiseRfi(projectId, toDept, subject, body, fd),
+      () => raiseRfi(projectId, toDept, subject, body, toRole, fd),
       () => {
         setSubject("");
         setBody("");
         setToDept("");
+        setToRole("");
         if (newFilesRef.current) newFilesRef.current.value = "";
         setOpen(false);
       }
@@ -150,9 +155,10 @@ export function RfiCard({
         <div>
           <CardTitle>Questions (RFIs)</CardTitle>
           <CardDescription>
-            Ask another department a question on this project. A question starts
-            with that department&apos;s most junior role and can be escalated up
-            its seniority ladder if it isn&apos;t answered.
+            Ask another department a question on this project. By default it
+            starts with that department&apos;s most junior role, but you can aim
+            it at a specific role — either way it escalates up the seniority
+            ladder from there if it isn&apos;t answered.
           </CardDescription>
         </div>
         <Button size="sm" onClick={() => setOpen((o) => !o)}>
@@ -172,7 +178,10 @@ export function RfiCard({
               <select
                 className={cn(field, "sm:w-56")}
                 value={toDept}
-                onChange={(e) => setToDept(e.target.value)}
+                onChange={(e) => {
+                  setToDept(e.target.value);
+                  setToRole(""); // roles differ per department
+                }}
                 aria-label="Ask which department"
               >
                 <option value="">— ask which department —</option>
@@ -190,6 +199,22 @@ export function RfiCard({
                 aria-label="Subject"
               />
             </div>
+            {toDept && (rolesByDept[toDept]?.length ?? 0) > 0 && (
+              <select
+                className={cn(field, "w-full sm:w-72")}
+                value={toRole}
+                onChange={(e) => setToRole(e.target.value)}
+                aria-label="Send to which role"
+              >
+                <option value="">Send to: most junior role (default)</option>
+                {rolesByDept[toDept].map((role, i) => (
+                  <option key={role.id} value={role.id}>
+                    Send to: {role.label}
+                    {i === 0 ? " (most senior)" : ""}
+                  </option>
+                ))}
+              </select>
+            )}
             <textarea
               placeholder="Your question…"
               value={body}

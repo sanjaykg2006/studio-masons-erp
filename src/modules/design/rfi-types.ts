@@ -52,3 +52,6 @@ export type RfiAttachment = {
 };
 
 export type DepartmentRef = { id: string; key: string; label: string };
+
+/** A role on a department's seniority ladder (rank 1 = most senior). */
+export type RoleRef = { id: string; label: string; rank: number };

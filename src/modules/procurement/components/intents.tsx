@@ -101,7 +101,8 @@ export function Intents({
           <h1 className="text-2xl font-semibold tracking-tight">Purchase intents</h1>
           <p className="text-muted-foreground">
             A request to buy against the released Budget BOQ. Over-budget quantities
-            are flagged and need the Director&apos;s approval to clear.
+            are flagged and need the Director&apos;s approval to clear. Approving a line
+            that already has a purchase order folds into that PO as an amendment.
           </p>
         </div>
         {canCreate && (

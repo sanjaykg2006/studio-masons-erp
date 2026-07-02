@@ -378,8 +378,12 @@ diffing beyond that.
      row with a rising `version_no` + amendment history; amend an issued PO (vendor fixed), edit
      lines, re-sign-off (Finance + Director), and release the next version. Received qty carries
      forward (line rows persist). Over-budget release needs the MD's `senior_bypass`
-     (`has_permission('*', …)` identifies the wildcard holder). **Minor follow-up:** auto-route a
-     new intent on an already-ordered line straight into an amendment.
+     (`has_permission('*', …)` identifies the wildcard holder).
+  9. **approved intent → auto PO amendment (Path A)** ✅ *BUILT (`0045`).* `approve_intent`
+     folds any intent line that already has a live PO into that PO as an amendment (qty += intent,
+     vendor fixed, version bumps, Director sign-off carried from the approval, Finance still
+     reviews, MD bypass if over budget). Lines with no PO follow the normal comparison path.
+     **Procurement module feature-complete.**
 - `src/modules/procurement/` — `index.ts`, `types.ts`, `data.ts`, `actions.ts`,
   `parsers/`, `components/`. Route `app/(app)/procurement/`. One registry line.
 - Reuse Design patterns: versioning, lock-on-finalise (issued PO read-only),

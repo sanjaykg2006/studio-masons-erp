@@ -26,9 +26,10 @@ Nothing below works until these are applied to your live database. Run each with
 | `0042_procurement_import.sql` | Budget + comparison Excel import | ⬜ |
 | `0043_procurement_amendment_status.sql` | Adds the `amending` PO status | ⬜ |
 | `0044_procurement_amendments.sql` | Versioned PO amendments + MD bypass | ⬜ |
+| `0045_intent_auto_amend.sql` | Approved intent → auto PO amendment | ⬜ |
 
 **How to confirm they're on:** run `npx supabase migration list` — the Local and Remote
-columns should both show `0034` … `0044`.
+columns should both show `0034` … `0045`.
 
 ---
 
@@ -280,11 +281,25 @@ bypass** is only available to a **wildcard/MD (admin)** account.
 - ⬜ **Release amendment** — blocked until both sign-offs (and the MD bypass, if over budget) are
   in. The PO returns to **Issued** at the new version, with received quantities intact.
 
+## 11. Procurement — approved intent auto-routes into a PO amendment
+
+**What it is:** if you raise and approve an intent for a budget line that **already has a live
+PO**, approving it (the Director) automatically folds the quantity into that PO as an amendment
+— no need to open the amendment by hand.
+
+- ⬜ **Pre-req:** an **Issued** PO for some budget line (sections 8–9).
+- ⬜ Raise a new **intent** on that same budget line for an extra quantity (section 7).
+- ⬜ As the **Director/admin**, **Approve** it.
+- ⬜ Open that budget line's **PO** → it's now **Amending** at the next version, its line quantity
+  has grown by the intent amount, and the **Director sign-off is already ticked** (from the
+  intent approval). Finance still needs to review; if the new total is over budget, the MD bypass
+  is required. Release it as usual.
+- ⬜ An intent line with **no** PO yet is unaffected — it just becomes an approved intent and
+  follows the normal comparison → award → PO path.
+
 ---
 
 ## What's NOT built yet (so you don't go looking)
 
-The core module is complete. Minor follow-ups only: auto-routing a *new intent on an
-already-ordered line* straight into an amendment (today you open the amendment on the PO
-directly), and importer tweaks for workbook layouts beyond the canonical template. See
-[procurement-module-plan.md](procurement-module-plan.md) for the full plan.
+The module is complete. The only open refinement is importer tweaks for workbook layouts beyond
+the canonical template. See [procurement-module-plan.md](procurement-module-plan.md) for the plan.

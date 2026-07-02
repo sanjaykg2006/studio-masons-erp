@@ -87,7 +87,11 @@ export async function getDepartmentPeopleData(
     grants: (grantsRes.data ?? []) as TeamGrant[],
     people: (peopleRes.data ?? []) as AccessUser[],
     roles: (rolesRes.data ?? []) as TeamRole[],
-    resources: resourcesForModules(deptModuleIds).filter((r) => r.departmentLevel),
+    // Plain {id,label,actions} — the registry rows also carry a projectLink icon
+    // (a component) that can't cross into the client PeopleAccessView.
+    resources: resourcesForModules(deptModuleIds)
+      .filter((r) => r.departmentLevel)
+      .map((r) => ({ id: r.id, label: r.label, actions: r.actions })),
     subteams: (subteamsRes.data ?? []) as SubteamRef[],
     subteamMembers: (subMembersRes.data ?? []) as SubteamMembership[],
   };

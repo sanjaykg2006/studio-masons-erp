@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { requireProjectPermission } from "@/core/rbac/can";
+import { requireProjectPermission, canOnProject } from "@/core/rbac/can";
 import {
   getProjectDetail,
   getMembershipPickers,
@@ -26,14 +26,16 @@ export default async function ProjectPage({
   const canManageMembers = detail.can("project.member", "manage");
   const canCreateBrief = detail.can("project.brief", "create");
 
-  const [pickers, templates, progress, folders, changeRequests, rfis] = await Promise.all([
-    canManageMembers ? getMembershipPickers() : Promise.resolve({ users: [], roles: [] }),
-    canCreateBrief ? getPublishableTemplates() : Promise.resolve([]),
-    getProjectProgress(projectId),
-    getProjectFolders(projectId),
-    getProjectChangeRequests(projectId),
-    getProjectRfis(projectId),
-  ]);
+  const [pickers, templates, progress, folders, changeRequests, rfis, canViewBudget] =
+    await Promise.all([
+      canManageMembers ? getMembershipPickers() : Promise.resolve({ users: [], roles: [] }),
+      canCreateBrief ? getPublishableTemplates() : Promise.resolve([]),
+      getProjectProgress(projectId),
+      getProjectFolders(projectId),
+      getProjectChangeRequests(projectId),
+      getProjectRfis(projectId),
+      canOnProject(projectId, "procurement.budget", "read"),
+    ]);
 
   return (
     <ProjectDetail
@@ -44,6 +46,7 @@ export default async function ProjectPage({
       rfis={rfis.rfis}
       rfiDepartments={rfis.departments}
       rfiRolesByDept={rfis.rolesByDept}
+      canViewBudget={canViewBudget}
       canDecideChanges={detail.can("project", "approve")}
       members={detail.members}
       briefs={detail.briefs}

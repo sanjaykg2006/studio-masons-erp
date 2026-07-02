@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ArrowLeft, FileText, Lock, Snowflake, Trash2, UserPlus } from "lucide-react";
+import { ArrowLeft, FileText, Lock, ShoppingCart, Snowflake, Trash2, UserPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -54,6 +54,7 @@ type Props = {
   rfis: RfiRow[];
   rfiDepartments: DepartmentRef[];
   rfiRolesByDept: Record<string, RoleRef[]>;
+  canViewBudget: boolean;
   canDecideChanges: boolean;
   members: ProjectMemberView[];
   briefs: ProjectBriefRow[];
@@ -77,6 +78,7 @@ export function ProjectDetail({
   rfis,
   rfiDepartments,
   rfiRolesByDept,
+  canViewBudget,
   canDecideChanges,
   members,
   briefs,
@@ -229,6 +231,26 @@ export function ProjectDetail({
 
       {/* Questions (RFIs) --------------------------------------------------- */}
       <RfiCard projectId={project.id} rfis={rfis} departments={rfiDepartments} rolesByDept={rfiRolesByDept} />
+
+      {/* Procurement -------------------------------------------------------- */}
+      {canViewBudget && (
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div>
+              <CardTitle>Procurement</CardTitle>
+              <CardDescription>
+                The project&apos;s Budget BOQ — budgeted quantities and rates that
+                cap what may be ordered.
+              </CardDescription>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/projects/${project.id}/budget`}>
+                <ShoppingCart className="size-4" /> Budget BOQ
+              </Link>
+            </Button>
+          </CardHeader>
+        </Card>
+      )}
 
       {/* Brief(s) ------------------------------------------------------------ */}
       <Card>

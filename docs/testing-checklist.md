@@ -18,9 +18,10 @@ Nothing below works until these are applied to your live database. Run each with
 | `0034_rfi_attachments.sql` | Documents on RFI questions/replies + clearer role display | ⬜ |
 | `0035_rfi_target_role.sql` | Raise an RFI straight to a chosen role | ⬜ |
 | `0036_procurement_department.sql` | Procurement department + vendor directory | ⬜ |
+| `0037_procurement_budget.sql` | Per-project Budget BOQ (versioned) | ⬜ |
 
 **How to confirm they're on:** run `npx supabase migration list` — the Local and Remote
-columns should both show `0034`, `0035`, `0036`.
+columns should both show `0034`, `0035`, `0036`, `0037`.
 
 ---
 
@@ -112,9 +113,41 @@ read vendors. To grant it:
 
 ---
 
+## 6. Procurement — per-project Budget BOQ (module slice 2)
+
+**What it is:** each project now has a **Budget BOQ** — the budgeted quantities and rates,
+grouped into packages, that will later cap what can be ordered. It's versioned: you edit a
+**draft**, then **release** it (which locks it); revising a released budget opens a fresh
+version and needs Director approval.
+
+**Switch it on (permissions):** the budget is per-project and uses `procurement.budget`.
+Procurement roles already carry it (Manager: read/create/update/delete; team member:
+read/create/update); the Director's re-version **approve** is granted via /access. Easiest
+for testing: an **admin** account. To confirm the whole chain, add someone to the
+**Procurement** team (Team Access) with the budget verbs and test as them.
+
+**Where:** open a project → **Procurement** card → **Budget BOQ** (or go straight to
+`/projects/<id>/budget`).
+
+- ⬜ On a project with no budget, the card links through and you see **"no budget yet"** +
+  **Start budget** (needs create). Click it → a **Draft v1** appears.
+- ⬜ **Add package** (e.g. "Civil works"). It appears as a section.
+- ⬜ In a package, use the bottom row to **add a line** (ref, description, unit, qty, rate)
+  → **+**. The **Amount** column and the package/grand totals compute automatically.
+- ⬜ **Edit a line** (pencil) → change qty/rate → save (tick). **Delete** a line (trash).
+- ⬜ **Rename** a package (pencil by its name); **delete** a package (trash) — confirms first.
+- ⬜ Click **Release** → the version badge turns **Released** and the whole thing becomes
+  read-only (the add/edit controls disappear).
+- ⬜ As an approver, click **New version** → a fresh **Draft v2** opens, **copied** from v1.
+  Edit it; the version dropdown lets you switch back to v1 (read-only).
+- ⬜ Someone **without** `procurement.budget` on the project: no Procurement card, and
+  `/projects/<id>/budget` bounces to Forbidden.
+
+---
+
 ## What's NOT built yet (so you don't go looking)
 
-The rest of Procurement is planned but not implemented: **budget BOQ, purchase intents,
-comparison, purchase orders/amendments, and goods receipts**, plus the **per-project
-approved-vendor list**. These are the next slices. See
+Still planned, not implemented: **purchase intents, comparison, purchase orders/amendments,
+goods receipts**, the **per-project approved-vendor list**, and **Excel import** of a Budget
+BOQ workbook (slice 2 is manual entry for now). See
 [procurement-module-plan.md](procurement-module-plan.md) for the full plan.

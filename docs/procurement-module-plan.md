@@ -347,13 +347,17 @@ diffing beyond that.
 ## 10. Build footprint
 
 - Migrations (modular, sequenced), RLS in each:
-  1. **department + global vendor directory** ← *first slice; drafted as `0036`.*
+  1. **department + global vendor directory** ✅ *BUILT (`0036` + `src/modules/procurement/`).*
      Registers the Procurement department, the `procurement.vendor` resource, the
      `procurement_vendors` table + RLS, and the two seed roles (Procurement Manager,
      team member). Purely global — no project dependency, lowest risk.
-  2. budget (per-project) — also adds `procurement_vendor_project_approvals` (needs
-     the project permission layer, so it rides with the first project-scoped slice).
-  3. intents → 4. comparison → 5. orders/amendments/receipts → 6. files.
+  2. **budget BOQ (per-project, versioned)** ✅ *BUILT (`0037` + `/projects/[id]/budget`).*
+     `procurement_budgets` / `_packages` / `_lines`, project-scoped RLS, a released-version
+     lock, and the start/release/re-version lifecycle. Manual entry; **Excel import is a
+     follow-up.**
+  3. intents → 4. comparison (also adds `procurement_vendor_project_approvals` — the
+     per-project approved-vendor list is mostly populated by comparison winners, so it
+     rides here) → 5. orders/amendments/receipts → 6. files.
 - `src/modules/procurement/` — `index.ts`, `types.ts`, `data.ts`, `actions.ts`,
   `parsers/`, `components/`. Route `app/(app)/procurement/`. One registry line.
 - Reuse Design patterns: versioning, lock-on-finalise (issued PO read-only),

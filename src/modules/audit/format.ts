@@ -3,9 +3,10 @@
  * they can be unit-tested without rendering.
  */
 
-/** Who performed an action — falls back to "System" for unattributed entries. */
-export function actorLabel(email: string | null): string {
-  return email?.trim() || "System";
+/** Who performed an action — the person's name, falling back to their email (for
+ *  older entries with no name snapshot), then "System" for unattributed ones. */
+export function actorLabel(name: string | null, email: string | null): string {
+  return name?.trim() || email?.trim() || "System";
 }
 
 /**

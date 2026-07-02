@@ -3,13 +3,18 @@ import { describe, expect, it } from "vitest";
 import { actionLabel, actorLabel } from "@/modules/audit/format";
 
 describe("actorLabel", () => {
-  it("shows the email when present", () => {
-    expect(actorLabel("jane@studio-masons.com")).toBe("jane@studio-masons.com");
+  it("shows the name when present", () => {
+    expect(actorLabel("Jane Doe", "jane@studio-masons.com")).toBe("Jane Doe");
+  });
+
+  it("falls back to the email when there's no name", () => {
+    expect(actorLabel(null, "jane@studio-masons.com")).toBe("jane@studio-masons.com");
+    expect(actorLabel("  ", "jane@studio-masons.com")).toBe("jane@studio-masons.com");
   });
 
   it("falls back to System for missing/blank actors", () => {
-    expect(actorLabel(null)).toBe("System");
-    expect(actorLabel("   ")).toBe("System");
+    expect(actorLabel(null, null)).toBe("System");
+    expect(actorLabel("   ", "  ")).toBe("System");
   });
 });
 

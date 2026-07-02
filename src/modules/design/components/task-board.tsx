@@ -213,6 +213,9 @@ function TaskCard({ task: t, people, subteams, projects, onError }: { task: Task
         </select>
         <select className={field} value={form.assigneeId} onChange={(e) => setForm({ ...form, assigneeId: e.target.value })} aria-label="Assignee">
           <option value="">Unassigned</option>
+          {form.assigneeId && !people.some((p) => p.user_id === form.assigneeId) && (
+            <option value={form.assigneeId}>{t.assignee_name ?? "Assigned"}</option>
+          )}
           {people.map((p) => (
             <option key={p.user_id} value={p.user_id}>{p.full_name ?? p.email}</option>
           ))}
@@ -420,6 +423,11 @@ function TaskCard({ task: t, people, subteams, projects, onError }: { task: Task
         </select>
         <select className={sel} value={t.assignee_id ?? ""} disabled={pending} onChange={(e) => run(() => updateTask(t.id, { assigneeId: e.target.value || null }))} aria-label="Assignee">
           <option value="">Unassigned</option>
+          {/* Always show the current assignee's name, even for viewers who can't
+              see the full team roster (people is manager-scoped). */}
+          {t.assignee_id && !people.some((p) => p.user_id === t.assignee_id) && (
+            <option value={t.assignee_id}>{t.assignee_name ?? "Assigned"}</option>
+          )}
           {people.map((p) => (
             <option key={p.user_id} value={p.user_id}>{p.full_name ?? p.email}</option>
           ))}

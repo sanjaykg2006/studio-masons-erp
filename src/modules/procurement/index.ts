@@ -18,7 +18,8 @@ export const procurementModule: ModuleDefinition = {
   label: "Procurement",
   href: "/procurement",
   icon: ShoppingCart,
-  nav: true,
+  // Reached through the Departments hub, not a top-level sidebar item.
+  nav: false,
   requires: { resource: "procurement.vendor", action: "read" },
   resources: [
     {

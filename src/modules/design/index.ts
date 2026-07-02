@@ -8,14 +8,15 @@ import type { ModuleDefinition } from "@/core/modules/registry";
  * keeps its department-internal work: the versioned questionnaire template
  * library (used to build project briefs) and the folder catalogue / stage
  * checklist / project-role SETTINGS. Permission sub-resources: design.template /
- * design.folder. The sidebar link shows for anyone who can read the templates.
+ * design.folder. Reached through the Departments hub (not a top-level sidebar
+ * item), like every other department.
  */
 export const designModule: ModuleDefinition = {
   id: "design",
   label: "Design Department",
   href: "/design",
   icon: PencilRuler,
-  nav: true,
+  nav: false,
   requires: { resource: "design.template", action: "read" },
   resources: [
     {

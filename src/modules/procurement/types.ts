@@ -227,12 +227,13 @@ export type ComparisonDetail = {
 
 // ── Purchase orders + receipts ───────────────────────────────────────────────
 
-export type OrderStatus = "draft" | "issued" | "closed";
+export type OrderStatus = "draft" | "issued" | "closed" | "amending";
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   draft: "Draft",
   issued: "Issued",
   closed: "Closed",
+  amending: "Amending",
 };
 
 /** A row from list_project_orders. */
@@ -260,17 +261,23 @@ export type OrderDetail = {
   vendor_name: string;
   status: OrderStatus;
   notes: string | null;
+  version_no: number;
+  over_budget: boolean;
   po_file: string | null;
   acceptance_file: string | null;
   finance_reviewed_by: string | null;
   finance_reviewed_name: string | null;
   director_approved_by: string | null;
   director_approved_name: string | null;
+  senior_bypass_by: string | null;
+  senior_bypass_name: string | null;
   issued_at: string | null;
   can_review: boolean;
   can_approve: boolean;
   can_issue: boolean;
   can_receive: boolean;
+  can_amend: boolean;
+  can_bypass: boolean;
 };
 
 /** A PO line from get_order_lines, with received-so-far. */

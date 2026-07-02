@@ -374,7 +374,12 @@ diffing beyond that.
      parsers (shared sheet-walking core, two-row headers, spec/summary skipping, blank-rate =
      no quote) with a review step; commit RPCs `import_budget` / `import_comparison`. Covers the
      canonical template; unusual layouts may need review-step tweaks.
-  8. **Remaining:** versioned PO amendments + MD over-budget escalation.
+  8. **versioned PO amendments + MD over-budget bypass** ✅ *BUILT (`0043`/`0044`).* One order
+     row with a rising `version_no` + amendment history; amend an issued PO (vendor fixed), edit
+     lines, re-sign-off (Finance + Director), and release the next version. Received qty carries
+     forward (line rows persist). Over-budget release needs the MD's `senior_bypass`
+     (`has_permission('*', …)` identifies the wildcard holder). **Minor follow-up:** auto-route a
+     new intent on an already-ordered line straight into an amendment.
 - `src/modules/procurement/` — `index.ts`, `types.ts`, `data.ts`, `actions.ts`,
   `parsers/`, `components/`. Route `app/(app)/procurement/`. One registry line.
 - Reuse Design patterns: versioning, lock-on-finalise (issued PO read-only),

@@ -24,9 +24,11 @@ Nothing below works until these are applied to your live database. Run each with
 | `0040_procurement_orders.sql` | Purchase orders + goods receipts | ⬜ |
 | `0041_procurement_order_docs.sql` | PO + acceptance-letter uploads | ⬜ |
 | `0042_procurement_import.sql` | Budget + comparison Excel import | ⬜ |
+| `0043_procurement_amendment_status.sql` | Adds the `amending` PO status | ⬜ |
+| `0044_procurement_amendments.sql` | Versioned PO amendments + MD bypass | ⬜ |
 
 **How to confirm they're on:** run `npx supabase migration list` — the Local and Remote
-columns should both show `0034` … `0042`.
+columns should both show `0034` … `0044`.
 
 ---
 
@@ -255,11 +257,34 @@ line's balance hits zero, which auto-closes the PO.
 - ⬜ In the PO's **Documents** card (Procurement Manager), **Upload** a PO file and an acceptance
   letter → anyone who can see the PO gets a **Download** link.
 
+## 10. Procurement — PO amendments (module slice, versioned)
+
+**What it is:** a live (issued) PO can be **amended** — the vendor stays fixed, but the
+Procurement Manager edits line quantities/rates. The PO goes **back through Finance + Director
+sign-off** and is re-released as the next version (`v2`, `v3`…). Goods already received carry
+forward. If the new quantities push a line **over budget**, releasing also needs the **MD's
+senior bypass**.
+
+**Switch it on:** amending = `procurement.order:update` (Procurement Manager). The **senior
+bypass** is only available to a **wildcard/MD (admin)** account.
+
+- ⬜ **Pre-req:** an **Issued** PO (section 9).
+- ⬜ Click **Amend** (top-right of the PO) → optionally note the reason. Status turns
+  **Amending**, the version shows `v2`, and the sign-offs reset.
+- ⬜ The order lines are now editable — change a quantity or rate; the amount updates. (You
+  can't drop a quantity below what's already been received.)
+- ⬜ Push a line's quantity high enough to exceed its budget → the PO shows **Over budget** and a
+  **Senior (MD) bypass** row appears in the sign-off panel.
+- ⬜ Re-do **Finance** + **Director** sign-off. As an **admin (MD)**, click the **Senior (MD)
+  bypass** sign-off.
+- ⬜ **Release amendment** — blocked until both sign-offs (and the MD bypass, if over budget) are
+  in. The PO returns to **Issued** at the new version, with received quantities intact.
+
 ---
 
 ## What's NOT built yet (so you don't go looking)
 
-Still planned: **versioned PO amendments** — vendor-fixed changes to qty/rate/terms with the
-Director + Finance re-sign-off and the MD over-budget escalation. (The Excel importers cover the
-canonical template; unusual workbook layouts may need review-step tweaks.) See
+The core module is complete. Minor follow-ups only: auto-routing a *new intent on an
+already-ordered line* straight into an amendment (today you open the amendment on the PO
+directly), and importer tweaks for workbook layouts beyond the canonical template. See
 [procurement-module-plan.md](procurement-module-plan.md) for the full plan.

@@ -28,6 +28,7 @@ const STATUS_TONE: Record<OrderStatus, string> = {
   draft: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
   issued: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
   closed: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  amending: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
 };
 
 const fmt = (n: number) =>

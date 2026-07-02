@@ -118,6 +118,45 @@ export async function getOrderDocumentUrl(
   return { ok: true, url: data.signedUrl };
 }
 
+/** Open an amendment on a live PO (vendor stays fixed). */
+export async function startAmendment(
+  projectId: string,
+  orderId: string,
+  note: string
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("start_amendment", { p_order: orderId, p_note: note });
+  if (error) return fail(error.message);
+  await logAudit("procurement.order.amend", "Opened a PO amendment", { projectId, orderId });
+  refreshOne(projectId, orderId);
+  return ok;
+}
+
+/** Edit a line's quantity/rate during an amendment. */
+export async function amendOrderLine(
+  projectId: string,
+  orderId: string,
+  lineId: string,
+  qty: number,
+  rate: number
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("amend_order_line", { p_line: lineId, p_qty: qty, p_rate: rate });
+  if (error) return fail(error.message);
+  refreshOne(projectId, orderId);
+  return ok;
+}
+
+/** The MD clears an over-budget amendment (the senior bypass). */
+export async function seniorBypassOrder(projectId: string, orderId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("senior_bypass_order", { p_order: orderId });
+  if (error) return fail(error.message);
+  await logAudit("procurement.order.bypass", "MD cleared an over-budget PO", { projectId, orderId });
+  refreshOne(projectId, orderId);
+  return ok;
+}
+
 /** Record a (partial) goods receipt against a released PO. */
 export async function recordReceipt(
   projectId: string,

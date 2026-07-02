@@ -22,11 +22,14 @@ import {
   type OrderStatus,
 } from "@/modules/procurement/types";
 import {
+  amendOrderLine,
   approveOrder,
   getOrderDocumentUrl,
   recordReceipt,
   releaseOrder,
   reviewOrder,
+  seniorBypassOrder,
+  startAmendment,
   uploadOrderDocument,
 } from "@/modules/procurement/order-actions";
 
@@ -36,6 +39,7 @@ const STATUS_TONE: Record<OrderStatus, string> = {
   draft: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
   issued: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
   closed: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  amending: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
 };
 
 const field = "border-input bg-background h-8 rounded-md border px-2 text-sm";
@@ -59,6 +63,7 @@ export function OrderDetailView({
   const [receivedOn, setReceivedOn] = useState("");
   const [notes, setNotes] = useState("");
   const [qtys, setQtys] = useState<Record<string, number>>({});
+  const [edits, setEdits] = useState<Record<string, { qty: number; rate: number }>>({});
 
   const run = (fn: () => Promise<Result>, after?: () => void) =>
     startTransition(async () => {
@@ -71,8 +76,16 @@ export function OrderDetailView({
       }
     });
 
-  const isDraft = order.status === "draft";
+  const isEditable = order.status === "draft" || order.status === "amending";
+  const isAmending = order.status === "amending";
   const signedOff = !!order.finance_reviewed_by && !!order.director_approved_by;
+  const bypassOk = !order.over_budget || !!order.senior_bypass_by;
+  const releaseReady = signedOff && bypassOk;
+
+  const amend = () => {
+    const note = window.prompt("What is changing in this amendment? (optional)") ?? "";
+    run(() => startAmendment(projectId, order.id, note));
+  };
 
   const download = async (kind: "po" | "acceptance") => {
     setError(null);
@@ -102,7 +115,20 @@ export function OrderDetailView({
     );
   };
 
-  const total = lines.reduce((s, l) => s + l.amount, 0);
+  const amendable = isAmending && order.can_amend;
+  const editOf = (l: OrderLine) => edits[l.id] ?? { qty: l.qty_ordered, rate: l.rate };
+  const setEdit = (l: OrderLine, patch: Partial<{ qty: number; rate: number }>) =>
+    setEdits((e) => ({ ...e, [l.id]: { ...editOf(l), ...patch } }));
+  const commitLine = (l: OrderLine) => {
+    const v = edits[l.id];
+    if (!v || (v.qty === l.qty_ordered && v.rate === l.rate)) return;
+    run(() => amendOrderLine(projectId, order.id, l.id, v.qty, v.rate));
+  };
+
+  const total = lines.reduce(
+    (s, l) => s + (amendable ? editOf(l).qty * editOf(l).rate : l.amount),
+    0
+  );
 
   return (
     <div className="space-y-6">
@@ -118,12 +144,23 @@ export function OrderDetailView({
           <h1 className="text-2xl font-semibold tracking-tight">
             {order.po_number ?? "PO"} · {order.vendor_name}
           </h1>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground flex items-center gap-2 text-sm">
             <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_TONE[order.status])}>
               {ORDER_STATUS_LABEL[order.status]}
             </span>
+            {order.version_no > 1 && <span>v{order.version_no}</span>}
+            {order.over_budget && (
+              <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-400">
+                Over budget
+              </span>
+            )}
           </p>
         </div>
+        {order.status === "issued" && order.can_amend && (
+          <Button size="sm" variant="outline" disabled={pending} onClick={amend}>
+            Amend
+          </Button>
+        )}
       </div>
 
       {error && (
@@ -133,38 +170,54 @@ export function OrderDetailView({
       )}
 
       {/* Sign-off + release ------------------------------------------------- */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Sign-off</CardTitle>
-          <CardDescription>Both sign-offs are needed before the PO can be released.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-4 text-sm">
-          <SignRow
-            label="Finance review"
-            byName={order.finance_reviewed_name}
-            canAct={isDraft && order.can_review && !order.finance_reviewed_by}
-            pending={pending}
-            onAct={() => run(() => reviewOrder(projectId, order.id))}
-          />
-          <SignRow
-            label="Director approval"
-            byName={order.director_approved_name}
-            canAct={isDraft && order.can_approve && !order.director_approved_by}
-            pending={pending}
-            onAct={() => run(() => approveOrder(projectId, order.id))}
-          />
-          {isDraft && order.can_issue && (
-            <Button
-              size="sm"
-              disabled={pending || !signedOff}
-              title={signedOff ? undefined : "Needs both sign-offs first"}
-              onClick={() => run(() => releaseOrder(projectId, order.id))}
-            >
-              Release PO
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+      {isEditable && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {isAmending ? "Re-sign-off (amendment)" : "Sign-off"}
+            </CardTitle>
+            <CardDescription>
+              Both sign-offs are needed before the PO can be released
+              {order.over_budget ? ", and the MD must clear the over-budget amount" : ""}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center gap-4 text-sm">
+            <SignRow
+              label="Finance review"
+              byName={order.finance_reviewed_name}
+              canAct={order.can_review && !order.finance_reviewed_by}
+              pending={pending}
+              onAct={() => run(() => reviewOrder(projectId, order.id))}
+            />
+            <SignRow
+              label="Director approval"
+              byName={order.director_approved_name}
+              canAct={order.can_approve && !order.director_approved_by}
+              pending={pending}
+              onAct={() => run(() => approveOrder(projectId, order.id))}
+            />
+            {order.over_budget && (
+              <SignRow
+                label="Senior (MD) bypass"
+                byName={order.senior_bypass_name}
+                canAct={order.can_bypass && !order.senior_bypass_by}
+                pending={pending}
+                onAct={() => run(() => seniorBypassOrder(projectId, order.id))}
+              />
+            )}
+            {order.can_issue && (
+              <Button
+                size="sm"
+                disabled={pending || !releaseReady}
+                title={releaseReady ? undefined : "Needs the sign-offs (and MD bypass if over budget)"}
+                onClick={() => run(() => releaseOrder(projectId, order.id))}
+              >
+                {isAmending ? "Release amendment" : "Release PO"}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Documents ---------------------------------------------------------- */}
       <Card>
@@ -224,9 +277,38 @@ export function OrderDetailView({
                       {l.description}
                       {l.unit && <span className="text-muted-foreground"> ({l.unit})</span>}
                     </td>
-                    <td className="py-1 text-right">{fmtQty(l.qty_ordered)}</td>
-                    <td className="py-1 text-right">{fmt(l.rate)}</td>
-                    <td className="py-1 text-right">{fmt(l.amount)}</td>
+                    {amendable ? (
+                      <>
+                        <td className="py-1">
+                          <Input
+                            type="number"
+                            value={editOf(l).qty}
+                            min={l.qty_received}
+                            onChange={(e) => setEdit(l, { qty: e.target.valueAsNumber || 0 })}
+                            onBlur={() => commitLine(l)}
+                            className="h-8 text-right"
+                            aria-label={`Ordered qty ${l.description}`}
+                          />
+                        </td>
+                        <td className="py-1">
+                          <Input
+                            type="number"
+                            value={editOf(l).rate}
+                            onChange={(e) => setEdit(l, { rate: e.target.valueAsNumber || 0 })}
+                            onBlur={() => commitLine(l)}
+                            className="h-8 text-right"
+                            aria-label={`Rate ${l.description}`}
+                          />
+                        </td>
+                        <td className="py-1 text-right">{fmt(editOf(l).qty * editOf(l).rate)}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="py-1 text-right">{fmtQty(l.qty_ordered)}</td>
+                        <td className="py-1 text-right">{fmt(l.rate)}</td>
+                        <td className="py-1 text-right">{fmt(l.amount)}</td>
+                      </>
+                    )}
                     <td className="py-1 text-right">{fmtQty(l.qty_received)}</td>
                     <td className={cn("py-1 text-right", balance === 0 && "text-emerald-600")}>
                       {fmtQty(balance)}

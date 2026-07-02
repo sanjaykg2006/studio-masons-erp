@@ -42,6 +42,14 @@ export type ModuleResource = {
    */
   projectRole?: boolean;
   /**
+   * The subset of `actions` grantable DEPARTMENT-WIDE (per person, in People &
+   * Access). Defaults to all `actions`. Use it to keep an all-projects verb off
+   * the department grid — e.g. `project` allows only `create` department-wide;
+   * viewing/editing a project must come from project membership, not a
+   * department-wide tick that would silently expose every project.
+   */
+  departmentActions?: Action[];
+  /**
    * If this resource has its own page inside a project, its link details. The
    * project screen renders a button for it — gated by `<id>:read` — so allotting
    * the module to the project's department surfaces the link automatically, with

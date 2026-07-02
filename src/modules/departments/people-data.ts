@@ -88,10 +88,13 @@ export async function getDepartmentPeopleData(
     people: (peopleRes.data ?? []) as AccessUser[],
     roles: (rolesRes.data ?? []) as TeamRole[],
     // Plain {id,label,actions} — the registry rows also carry a projectLink icon
-    // (a component) that can't cross into the client PeopleAccessView.
+    // (a component) that can't cross into the client PeopleAccessView. Use
+    // `departmentActions` where a resource limits which verbs are grantable
+    // department-wide (e.g. project = create only; view/edit come from
+    // membership).
     resources: resourcesForModules(deptModuleIds)
       .filter((r) => r.departmentLevel)
-      .map((r) => ({ id: r.id, label: r.label, actions: r.actions })),
+      .map((r) => ({ id: r.id, label: r.label, actions: r.departmentActions ?? r.actions })),
     subteams: (subteamsRes.data ?? []) as SubteamRef[],
     subteamMembers: (subMembersRes.data ?? []) as SubteamMembership[],
   };

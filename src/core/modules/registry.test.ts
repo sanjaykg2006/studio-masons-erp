@@ -98,6 +98,16 @@ describe("resourcesForModules", () => {
     expect(deptRows).not.toContain("procurement.order");
   });
 
+  it("only lets `project` be granted department-wide for create (not all-projects view)", () => {
+    // Membership decides visibility: a department-wide project:read tick would
+    // expose every project, so People & Access may only grant `create`.
+    const [project] = resourcesForModules(["project"]);
+    const deptActions = project.departmentActions ?? project.actions;
+    expect(deptActions).toEqual(["create"]);
+    // The full verb set still exists for per-project roles / central /access.
+    expect(project.actions).toEqual(["read", "create", "update", "approve", "delete"]);
+  });
+
   it("only surfaces resources that opt in via projectLink, with a segment + icon", () => {
     // The project page renders these; declaring projectLink is all it takes for a
     // new module's page to appear there — nothing is listed in the page itself.

@@ -31,6 +31,10 @@ export const projectsModule: ModuleDefinition = {
       // viewing/editing a project is a per-project-role ability.
       departmentLevel: true,
       projectRole: true,
+      // Only "create" may be granted department-wide. View/edit/approve/delete a
+      // project come from project MEMBERSHIP — a department-wide project:read tick
+      // would silently expose every project ("membership decides visibility").
+      departmentActions: ["create"],
     },
     {
       id: "project.brief",

@@ -2,15 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState, useTransition } from "react";
-import { Pencil, Share2, Trash2, X } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { Download, Paperclip, Pencil, Share2, Trash2, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  humanSize,
+  shortTime,
   TASK_STATUS_LABEL,
   TASK_STATUS_ORDER,
+  type TaskAttachment,
   type TaskPerson,
   type TaskProjectRef,
   type TaskRow,
@@ -19,10 +22,14 @@ import {
 } from "@/modules/design/task-types";
 import {
   deleteTask,
+  deleteTaskAttachment,
+  getTaskAttachmentUrl,
+  loadTaskAttachments,
   loadTaskInvites,
   setTaskInvite,
   setTaskStatus,
   updateTask,
+  uploadTaskAttachment,
   type TaskInvitee,
 } from "@/modules/design/task-actions";
 
@@ -79,6 +86,10 @@ function TaskCard({ task: t, people, subteams, projects, onError }: { task: Task
   const [showShare, setShowShare] = useState(false);
   const [invitees, setInvitees] = useState<TaskInvitee[] | null>(null);
   const [addPerson, setAddPerson] = useState("");
+  const [showDocs, setShowDocs] = useState(false);
+  const [docs, setDocs] = useState<TaskAttachment[] | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     title: t.title,
     description: t.description ?? "",
@@ -86,7 +97,9 @@ function TaskCard({ task: t, people, subteams, projects, onError }: { task: Task
     projectId: t.project_id ?? "",
     assigneeId: t.assignee_id ?? "",
     startDate: t.start_date ?? "",
+    startTime: shortTime(t.start_time) ?? "",
     dueDate: t.due_date ?? "",
+    dueTime: shortTime(t.due_time) ?? "",
   });
 
   const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) =>
@@ -126,6 +139,46 @@ function TaskCard({ task: t, people, subteams, projects, onError }: { task: Task
     run(
       () => setTaskInvite(t.id, userId, false),
       () => setInvitees((cur) => (cur ?? []).filter((x) => x.user_id !== userId))
+    );
+
+  const openDocs = async () => {
+    const next = !showDocs;
+    setShowDocs(next);
+    if (next && docs === null) {
+      const res = await loadTaskAttachments(t.id);
+      if (res.ok) setDocs(res.docs);
+      else onError(res.error);
+    }
+  };
+
+  const upload = async (file: File) => {
+    setUploading(true);
+    onError(null);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await uploadTaskAttachment(t.id, fd);
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = "";
+    if (!res.ok) {
+      onError(res.error);
+      return;
+    }
+    const reload = await loadTaskAttachments(t.id);
+    if (reload.ok) setDocs(reload.docs);
+    router.refresh();
+  };
+
+  const download = async (id: string) => {
+    onError(null);
+    const res = await getTaskAttachmentUrl(id);
+    if (res.ok) window.open(res.url, "_blank");
+    else onError(res.error);
+  };
+
+  const removeDoc = (id: string) =>
+    run(
+      () => deleteTaskAttachment(id),
+      () => setDocs((cur) => (cur ?? []).filter((d) => d.id !== id))
     );
 
   const dueTone = (() => {
@@ -171,8 +224,22 @@ function TaskCard({ task: t, people, subteams, projects, onError }: { task: Task
           ))}
         </select>
         <div className="grid grid-cols-2 gap-2">
-          <input type="date" className={field} value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} aria-label="Start date" />
-          <input type="date" className={field} value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} aria-label="Due date" />
+          <label className="text-muted-foreground flex flex-col gap-0.5 text-[10px]">
+            Start date
+            <input type="date" className={field} value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} aria-label="Start date" />
+          </label>
+          <label className="text-muted-foreground flex flex-col gap-0.5 text-[10px]">
+            Start time
+            <input type="time" className={field} value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} aria-label="Start time" />
+          </label>
+          <label className="text-muted-foreground flex flex-col gap-0.5 text-[10px]">
+            Due date
+            <input type="date" className={field} value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} aria-label="Due date" />
+          </label>
+          <label className="text-muted-foreground flex flex-col gap-0.5 text-[10px]">
+            Due time
+            <input type="time" className={field} value={form.dueTime} onChange={(e) => setForm({ ...form, dueTime: e.target.value })} aria-label="Due time" />
+          </label>
         </div>
         <div className="flex gap-2">
           <Button
@@ -188,7 +255,9 @@ function TaskCard({ task: t, people, subteams, projects, onError }: { task: Task
                     projectId: form.projectId || null,
                     assigneeId: form.assigneeId || null,
                     startDate: form.startDate || null,
+                    startTime: form.startTime || null,
                     dueDate: form.dueDate || null,
+                    dueTime: form.dueTime || null,
                   }),
                 () => setMode("view")
               )
@@ -214,6 +283,9 @@ function TaskCard({ task: t, people, subteams, projects, onError }: { task: Task
           </button>
           <button type="button" disabled={pending} onClick={openShare} className={cn("hover:text-foreground", showShare ? "text-foreground" : "text-muted-foreground")} aria-label="Share task">
             <Share2 className="size-3.5" />
+          </button>
+          <button type="button" disabled={pending} onClick={openDocs} className={cn("hover:text-foreground", showDocs ? "text-foreground" : "text-muted-foreground")} aria-label="Attach documents">
+            <Paperclip className="size-3.5" />
           </button>
           <button
             type="button"
@@ -242,7 +314,18 @@ function TaskCard({ task: t, people, subteams, projects, onError }: { task: Task
             {t.project_name ?? "Project"}
           </Link>
         )}
-        {t.due_date && <span className={cn("text-[10px]", dueTone)}>Due {t.due_date}</span>}
+        {t.start_date && (
+          <span className="text-muted-foreground text-[10px]">
+            Start {t.start_date}
+            {shortTime(t.start_time) ? ` ${shortTime(t.start_time)}` : ""}
+          </span>
+        )}
+        {t.due_date && (
+          <span className={cn("text-[10px]", dueTone)}>
+            Due {t.due_date}
+            {shortTime(t.due_time) ? ` ${shortTime(t.due_time)}` : ""}
+          </span>
+        )}
       </div>
 
       {showShare && (
@@ -274,6 +357,58 @@ function TaskCard({ task: t, people, subteams, projects, onError }: { task: Task
                 <option key={p.user_id} value={p.user_id}>{p.full_name ?? p.email}</option>
               ))}
           </select>
+        </div>
+      )}
+
+      {showDocs && (
+        <div className="space-y-1.5 rounded-md border bg-background/60 p-2">
+          <p className="text-muted-foreground text-[10px] font-medium">Documents</p>
+          {docs === null ? (
+            <p className="text-muted-foreground text-[10px]">Loading…</p>
+          ) : docs.length === 0 ? (
+            <p className="text-muted-foreground text-[10px]">No documents yet.</p>
+          ) : (
+            <ul className="space-y-1">
+              {docs.map((d) => (
+                <li key={d.id} className="flex items-center justify-between gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => download(d.id)}
+                    className="flex min-w-0 items-center gap-1 text-left hover:underline"
+                  >
+                    <Download className="size-3 shrink-0" />
+                    <span className="truncate">{d.name}</span>
+                    {d.size_bytes ? (
+                      <span className="text-muted-foreground shrink-0 text-[10px]">
+                        ({humanSize(d.size_bytes)})
+                      </span>
+                    ) : null}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => removeDoc(d.id)}
+                    className="text-muted-foreground hover:text-destructive shrink-0"
+                    aria-label="Remove document"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            disabled={uploading}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) upload(f);
+            }}
+            className="text-muted-foreground block w-full text-[10px] file:mr-2 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1 file:text-[10px]"
+            aria-label="Upload a document"
+          />
+          {uploading && <p className="text-muted-foreground text-[10px]">Uploading…</p>}
         </div>
       )}
 

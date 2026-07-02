@@ -27,7 +27,9 @@ const emptyForm = {
   projectId: "",
   assigneeId: "",
   startDate: "",
+  startTime: "",
   dueDate: "",
+  dueTime: "",
 };
 
 export function TasksView({
@@ -176,9 +178,9 @@ export function TasksView({
                   </option>
                 ))}
               </select>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:col-span-2">
                 <label className="text-muted-foreground flex flex-col gap-1 text-xs">
-                  Start
+                  Start date
                   <input
                     type="date"
                     className={field}
@@ -188,7 +190,17 @@ export function TasksView({
                   />
                 </label>
                 <label className="text-muted-foreground flex flex-col gap-1 text-xs">
-                  Due
+                  Start time
+                  <input
+                    type="time"
+                    className={field}
+                    value={form.startTime}
+                    onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                    aria-label="Start time"
+                  />
+                </label>
+                <label className="text-muted-foreground flex flex-col gap-1 text-xs">
+                  Due date
                   <input
                     type="date"
                     className={field}
@@ -197,7 +209,21 @@ export function TasksView({
                     aria-label="Due date"
                   />
                 </label>
+                <label className="text-muted-foreground flex flex-col gap-1 text-xs">
+                  Due time
+                  <input
+                    type="time"
+                    className={field}
+                    value={form.dueTime}
+                    onChange={(e) => setForm({ ...form, dueTime: e.target.value })}
+                    aria-label="Due time"
+                  />
+                </label>
               </div>
+              <p className="text-muted-foreground text-xs sm:col-span-2">
+                You can attach documents to the task after adding it (open the task
+                and use the paperclip).
+              </p>
               <div className="sm:col-span-2">
                 <Button type="submit" size="sm" disabled={pending}>
                   Add task

@@ -20,6 +20,7 @@ export default async function DepartmentTasksPage({
       people={data.people}
       subteams={data.subteams}
       projects={data.projects}
+      canCreate={data.canCreate}
     />
   );
 }

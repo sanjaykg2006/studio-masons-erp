@@ -38,12 +38,15 @@ export function TasksView({
   people,
   subteams,
   projects,
+  canCreate,
 }: {
   departmentId: string;
   tasks: TaskRow[];
   people: TaskPerson[];
   subteams: TaskSubteam[];
   projects: TaskProjectRef[];
+  /** Only a department lead (or admin) may create tasks. */
+  canCreate: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -108,9 +111,11 @@ export function TasksView({
               <CalendarDays className="size-4" /> Calendar
             </button>
           </div>
-          <Button size="sm" onClick={() => setOpen((o) => !o)}>
-            <Plus className="size-4" /> New task
-          </Button>
+          {canCreate && (
+            <Button size="sm" onClick={() => setOpen((o) => !o)}>
+              <Plus className="size-4" /> New task
+            </Button>
+          )}
         </div>
       </div>
 

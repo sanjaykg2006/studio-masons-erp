@@ -16,6 +16,7 @@ export default async function DesignTasksPage() {
       people={data.people}
       subteams={data.subteams}
       projects={data.projects}
+      canCreate={data.canCreate}
     />
   );
 }

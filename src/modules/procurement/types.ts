@@ -206,6 +206,9 @@ export type ComparisonLine = {
   description: string;
   unit: string | null;
   qty: number;
+  /** The budgeted rate for this line (from the budget package), for the vs-budget
+   * benchmark column. null when the line isn't bound to a budget line. */
+  budget_rate: number | null;
   sort: number;
   quotes: ComparisonQuote[];
   award: ComparisonAward | null;

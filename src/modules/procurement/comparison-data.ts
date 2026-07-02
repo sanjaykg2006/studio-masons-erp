@@ -60,6 +60,7 @@ type RawLine = {
   unit: string | null;
   qty: number;
   sort: number;
+  procurement_budget_lines: { rate: number } | null;
   procurement_comparison_quotes: { vendor_id: string; rate: number; make: string | null }[];
   procurement_comparison_awards: { vendor_id: string; qty: number; rate: number }[];
 };
@@ -89,6 +90,7 @@ export async function getComparison(
         .from("procurement_comparison_lines")
         .select(
           "id, budget_line_id, description, unit, qty, sort, " +
+            "procurement_budget_lines(rate), " +
             "procurement_comparison_quotes(vendor_id, rate, make), " +
             "procurement_comparison_awards(vendor_id, qty, rate)"
         )
@@ -117,6 +119,7 @@ export async function getComparison(
     description: l.description,
     unit: l.unit,
     qty: Number(l.qty),
+    budget_rate: l.procurement_budget_lines ? Number(l.procurement_budget_lines.rate) : null,
     sort: l.sort,
     quotes: (l.procurement_comparison_quotes ?? []).map((q) => ({
       vendor_id: q.vendor_id,

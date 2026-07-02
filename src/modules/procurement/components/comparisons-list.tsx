@@ -197,10 +197,12 @@ export function ComparisonsList({
       {/* Approved-vendor list ------------------------------------------------ */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Approved vendors for this project</CardTitle>
+          <CardTitle className="text-base">This project&apos;s vendor pool</CardTitle>
           <CardDescription>
-            Comparison winners are added automatically; you can also add or remove
-            vendors here.
+            The vendors approved to work on this project — drawn from the company
+            directory. These are the ones you can quote inside a comparison. Comparison
+            winners are added here automatically; you can also add or remove vendors
+            yourself.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

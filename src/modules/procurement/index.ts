@@ -9,9 +9,12 @@ import type { ModuleDefinition } from "@/core/modules/registry";
  * Design: the vendor directory is a GLOBAL library (has_permission); everything
  * project-tied is project-scoped (has_project_permission).
  *
- * Slice 1 (migration 0036) ships the department + the global vendor directory
- * only. The per-project resources (procurement.budget / .intent / .comparison /
- * .order / .receipt) are added as their slices land.
+ * The global vendor directory (migration 0036) is a department-level library.
+ * The per-project resources (procurement.budget / .intent / .comparison /
+ * .order / .receipt, migrations 0037-0040) are project-scoped: their grants come
+ * from a company-wide department role that reaches every project. Every verb
+ * listed here mirrors what the migrations actually enforce in RLS / the RPCs, so
+ * the access matrix shows a checkbox for each one.
  */
 export const procurementModule: ModuleDefinition = {
   id: "procurement",
@@ -28,6 +31,35 @@ export const procurementModule: ModuleDefinition = {
       actions: ["read", "create", "update", "approve", "delete"],
       // The vendor directory is a shared, department-level library (Team Access).
       departmentLevel: true,
+    },
+    {
+      id: "procurement.budget",
+      label: "Procurement · Budget BOQ",
+      // approve = re-version a released budget (Director sign-off).
+      actions: ["read", "create", "update", "approve", "delete"],
+    },
+    {
+      id: "procurement.intent",
+      label: "Procurement · Purchase intents",
+      // approve = the Director's sign-off on a raised intent.
+      actions: ["read", "create", "approve"],
+    },
+    {
+      id: "procurement.comparison",
+      label: "Procurement · Comparisons",
+      // approve = award the comparison (Director sign-off).
+      actions: ["read", "create", "approve"],
+    },
+    {
+      id: "procurement.order",
+      label: "Procurement · Purchase orders",
+      // issue = record/release a PO; review = Finance; approve = Director.
+      actions: ["read", "update", "review", "approve", "issue"],
+    },
+    {
+      id: "procurement.receipt",
+      label: "Procurement · Receipts",
+      actions: ["read", "create", "update"],
     },
   ],
 };

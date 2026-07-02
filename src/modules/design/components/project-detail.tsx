@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ArrowLeft, FileText, Lock, ShoppingCart, Snowflake, Trash2, UserPlus } from "lucide-react";
+import { ArrowLeft, FileText, Lock, Snowflake, Trash2, UserPlus } from "lucide-react";
 
+import { projectLinkModules } from "@/core/modules/registry";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -54,10 +55,8 @@ type Props = {
   rfis: RfiRow[];
   rfiDepartments: DepartmentRef[];
   rfiRolesByDept: Record<string, RoleRef[]>;
-  canViewBudget: boolean;
-  canViewIntents: boolean;
-  canViewComparisons: boolean;
-  canViewOrders: boolean;
+  /** Resource ids of the per-project module pages this user may open. */
+  visibleModuleResourceIds: string[];
   canDecideChanges: boolean;
   members: ProjectMemberView[];
   briefs: ProjectBriefRow[];
@@ -81,10 +80,7 @@ export function ProjectDetail({
   rfis,
   rfiDepartments,
   rfiRolesByDept,
-  canViewBudget,
-  canViewIntents,
-  canViewComparisons,
-  canViewOrders,
+  visibleModuleResourceIds,
   canDecideChanges,
   members,
   briefs,
@@ -115,6 +111,7 @@ export function ProjectDetail({
       else router.refresh();
     });
 
+  const visibleModuleIds = new Set(visibleModuleResourceIds);
   const usedTemplates = new Set(briefs.map((b) => b.template_id));
   const available = templates.filter((t) => !usedTemplates.has(t.id));
   const memberIds = new Set(members.map((m) => m.user_id));
@@ -238,50 +235,35 @@ export function ProjectDetail({
       {/* Questions (RFIs) --------------------------------------------------- */}
       <RfiCard projectId={project.id} rfis={rfis} departments={rfiDepartments} rolesByDept={rfiRolesByDept} />
 
-      {/* Procurement -------------------------------------------------------- */}
-      {(canViewBudget || canViewIntents || canViewComparisons || canViewOrders) && (
-        <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-4">
-            <div>
-              <CardTitle>Procurement</CardTitle>
-              <CardDescription>
-                The project&apos;s Budget BOQ, purchase intents, vendor comparisons
-                and purchase orders.
-              </CardDescription>
-            </div>
-            <div className="flex shrink-0 flex-wrap justify-end gap-2">
-              {canViewBudget && (
-                <Button asChild size="sm" variant="outline">
-                  <Link href={`/projects/${project.id}/budget`}>
-                    <ShoppingCart className="size-4" /> Budget BOQ
-                  </Link>
-                </Button>
-              )}
-              {canViewIntents && (
-                <Button asChild size="sm" variant="outline">
-                  <Link href={`/projects/${project.id}/intents`}>
-                    <FileText className="size-4" /> Purchase intents
-                  </Link>
-                </Button>
-              )}
-              {canViewComparisons && (
-                <Button asChild size="sm" variant="outline">
-                  <Link href={`/projects/${project.id}/comparisons`}>
-                    <FileText className="size-4" /> Comparisons
-                  </Link>
-                </Button>
-              )}
-              {canViewOrders && (
-                <Button asChild size="sm" variant="outline">
-                  <Link href={`/projects/${project.id}/orders`}>
-                    <ShoppingCart className="size-4" /> Purchase orders
-                  </Link>
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-        </Card>
-      )}
+      {/* Per-project module pages — data-driven from the registry, one card per
+          module. A module appears just by declaring `projectLink`; the buttons
+          are gated by the caller's `<id>:read` (visibleModuleResourceIds). */}
+      {projectLinkModules().map(({ module, resources }) => {
+        const links = resources.filter((r) => visibleModuleIds.has(r.id));
+        if (links.length === 0) return null;
+        return (
+          <Card key={module.id}>
+            <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <div>
+                <CardTitle>{module.label}</CardTitle>
+                <CardDescription>Open this project&apos;s {module.label} pages.</CardDescription>
+              </div>
+              <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                {links.map((r) => {
+                  const Icon = r.projectLink!.icon;
+                  return (
+                    <Button key={r.id} asChild size="sm" variant="outline">
+                      <Link href={`/projects/${project.id}/${r.projectLink!.segment}`}>
+                        <Icon className="size-4" /> {r.label.replace(/^\w+ ·\s*/, "")}
+                      </Link>
+                    </Button>
+                  );
+                })}
+              </div>
+            </CardHeader>
+          </Card>
+        );
+      })}
 
       {/* Brief(s) ------------------------------------------------------------ */}
       <Card>

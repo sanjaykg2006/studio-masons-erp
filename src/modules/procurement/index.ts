@@ -1,4 +1,4 @@
-import { ShoppingCart } from "lucide-react";
+import { FileText, ShoppingCart } from "lucide-react";
 
 import type { ModuleDefinition } from "@/core/modules/registry";
 
@@ -37,24 +37,28 @@ export const procurementModule: ModuleDefinition = {
       label: "Procurement · Budget BOQ",
       // approve = re-version a released budget (Director sign-off).
       actions: ["read", "create", "update", "approve", "delete"],
+      projectLink: { segment: "budget", icon: ShoppingCart },
     },
     {
       id: "procurement.intent",
       label: "Procurement · Purchase intents",
       // approve = the Director's sign-off on a raised intent.
       actions: ["read", "create", "approve"],
+      projectLink: { segment: "intents", icon: FileText },
     },
     {
       id: "procurement.comparison",
       label: "Procurement · Comparisons",
       // approve = award the comparison (Director sign-off).
       actions: ["read", "create", "approve"],
+      projectLink: { segment: "comparisons", icon: FileText },
     },
     {
       id: "procurement.order",
       label: "Procurement · Purchase orders",
       // issue = record/release a PO; review = Finance; approve = Director.
       actions: ["read", "update", "review", "approve", "issue"],
+      projectLink: { segment: "orders", icon: ShoppingCart },
     },
     {
       id: "procurement.receipt",

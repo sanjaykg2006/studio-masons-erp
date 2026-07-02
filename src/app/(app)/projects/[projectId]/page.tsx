@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { requireProjectPermission, canOnProject } from "@/core/rbac/can";
+import { projectLinkModules } from "@/core/modules/registry";
 import {
   getProjectDetail,
   getMembershipPickers,
@@ -26,29 +27,22 @@ export default async function ProjectPage({
   const canManageMembers = detail.can("project.member", "manage");
   const canCreateBrief = detail.can("project.brief", "create");
 
-  const [
-    pickers,
-    templates,
-    progress,
-    folders,
-    changeRequests,
-    rfis,
-    canViewBudget,
-    canViewIntents,
-    canViewComparisons,
-    canViewOrders,
-  ] = await Promise.all([
-    canManageMembers ? getMembershipPickers() : Promise.resolve({ users: [], roles: [] }),
-    canCreateBrief ? getPublishableTemplates() : Promise.resolve([]),
-    getProjectProgress(projectId),
-    getProjectFolders(projectId),
-    getProjectChangeRequests(projectId),
-    getProjectRfis(projectId),
-    canOnProject(projectId, "procurement.budget", "read"),
-    canOnProject(projectId, "procurement.intent", "read"),
-    canOnProject(projectId, "procurement.comparison", "read"),
-    canOnProject(projectId, "procurement.order", "read"),
-  ]);
+  // Which per-project module pages this user may open — computed from the registry,
+  // so a module surfaces its link just by declaring `projectLink` (no list here).
+  const linkResourceIds = projectLinkModules().flatMap((g) => g.resources.map((r) => r.id));
+
+  const [pickers, templates, progress, folders, changeRequests, rfis, ...linkPerms] =
+    await Promise.all([
+      canManageMembers ? getMembershipPickers() : Promise.resolve({ users: [], roles: [] }),
+      canCreateBrief ? getPublishableTemplates() : Promise.resolve([]),
+      getProjectProgress(projectId),
+      getProjectFolders(projectId),
+      getProjectChangeRequests(projectId),
+      getProjectRfis(projectId),
+      ...linkResourceIds.map((id) => canOnProject(projectId, id, "read")),
+    ]);
+
+  const visibleModuleResourceIds = linkResourceIds.filter((_, i) => linkPerms[i]);
 
   return (
     <ProjectDetail
@@ -59,10 +53,7 @@ export default async function ProjectPage({
       rfis={rfis.rfis}
       rfiDepartments={rfis.departments}
       rfiRolesByDept={rfis.rolesByDept}
-      canViewBudget={canViewBudget}
-      canViewIntents={canViewIntents}
-      canViewComparisons={canViewComparisons}
-      canViewOrders={canViewOrders}
+      visibleModuleResourceIds={visibleModuleResourceIds}
       canDecideChanges={detail.can("project", "approve")}
       members={detail.members}
       briefs={detail.briefs}

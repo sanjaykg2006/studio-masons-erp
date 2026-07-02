@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { moduleResources, resourcesForModules } from "@/core/modules/registry";
+import {
+  moduleResources,
+  projectLinkModules,
+  resourcesForModules,
+} from "@/core/modules/registry";
 
 describe("moduleResources", () => {
   const resources = moduleResources();
@@ -55,6 +59,21 @@ describe("resourcesForModules", () => {
   it("ignores unknown module ids and an empty allotment", () => {
     expect(resourcesForModules(["not.a.real.module"])).toEqual([]);
     expect(resourcesForModules([])).toEqual([]);
+  });
+
+  it("only surfaces resources that opt in via projectLink, with a segment + icon", () => {
+    // The project page renders these; declaring projectLink is all it takes for a
+    // new module's page to appear there — nothing is listed in the page itself.
+    const groups = projectLinkModules();
+    const linked = groups.flatMap((g) => g.resources);
+    expect(linked.length).toBeGreaterThan(0);
+    for (const r of linked) {
+      expect(r.projectLink?.segment).toBeTruthy();
+      expect(r.projectLink?.icon).toBeTruthy();
+    }
+    // A resource without a project page (the vendor directory) must not be there.
+    expect(linked.some((r) => r.id === "procurement.vendor")).toBe(false);
+    expect(linked.some((r) => r.id === "procurement.order")).toBe(true);
   });
 
   it("resolves a real allotment (Design's modules) to their registry rows", () => {

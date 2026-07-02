@@ -32,6 +32,14 @@ export type ModuleResource = {
    * not Team Access. Default false.
    */
   departmentLevel?: boolean;
+  /**
+   * If this resource has its own page inside a project, its link details. The
+   * project screen renders a button for it — gated by `<id>:read` — so allotting
+   * the module to the project's department surfaces the link automatically, with
+   * no per-page list to maintain. `segment` is the path under
+   * `/projects/<id>/`, e.g. "budget".
+   */
+  projectLink?: { segment: string; icon: LucideIcon };
 };
 
 export type ModuleDefinition = {
@@ -84,6 +92,18 @@ export function moduleResources(): ModuleResource[] {
 export function resourcesForModules(moduleIds: Iterable<string>): ModuleResource[] {
   const allowed = new Set(moduleIds);
   return moduleResources().filter((r) => allowed.has(r.id));
+}
+
+/**
+ * Modules that expose per-project pages, each with the resources whose link the
+ * project screen should render (see `ModuleResource.projectLink`). Grouped by
+ * module so the project page can show one card per module — data-driven, so a new
+ * project module appears just by declaring `projectLink`, with no page edits.
+ */
+export function projectLinkModules(): { module: ModuleDefinition; resources: ModuleResource[] }[] {
+  return modules
+    .map((m) => ({ module: m, resources: (m.resources ?? []).filter((r) => r.projectLink) }))
+    .filter((g) => g.resources.length > 0);
 }
 
 /**

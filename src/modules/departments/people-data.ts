@@ -41,29 +41,49 @@ export async function getDepartmentPeopleData(
   if (!department || !department.can_manage) return null;
 
   const supabase = await createClient();
-  const [membersRes, grantsRes, peopleRes, rolesRes, subteamsRes, subMembersRes] =
-    await Promise.all([
-      supabase
-        .from("team_members")
-        .select("department_id, user_id, all_projects, all_projects_role_id")
-        .eq("department_id", deptId),
-      supabase
-        .from("team_member_permissions")
-        .select("department_id, user_id, resource, action")
-        .eq("department_id", deptId),
-      supabase
-        .from("profiles")
-        .select("id, email, full_name, role_id")
-        .order("email"),
-      supabase
-        .from("roles")
-        .select("id, label, department_id")
-        .eq("department_id", deptId)
-        .order("rank", { ascending: true })
-        .order("label"),
-      supabase.rpc("list_department_subteams", { p_dept: deptId }),
-      supabase.rpc("list_subteam_members", { p_dept: deptId }),
-    ]);
+  const [
+    membersRes,
+    grantsRes,
+    peopleRes,
+    rolesRes,
+    subteamsRes,
+    subMembersRes,
+    deptModsRes,
+    settingsRes,
+  ] = await Promise.all([
+    supabase
+      .from("team_members")
+      .select("department_id, user_id, all_projects, all_projects_role_id")
+      .eq("department_id", deptId),
+    supabase
+      .from("team_member_permissions")
+      .select("department_id, user_id, resource, action")
+      .eq("department_id", deptId),
+    supabase
+      .from("profiles")
+      .select("id, email, full_name, role_id")
+      .order("email"),
+    supabase
+      .from("roles")
+      .select("id, label, department_id")
+      .eq("department_id", deptId)
+      .order("rank", { ascending: true })
+      .order("label"),
+    supabase.rpc("list_department_subteams", { p_dept: deptId }),
+    supabase.rpc("list_subteam_members", { p_dept: deptId }),
+    supabase.from("department_modules").select("module_id").eq("department_id", deptId),
+    supabase.from("module_settings").select("module_id, is_general"),
+  ]);
+
+  // Only this department's own modules (plus any marked general) belong on its
+  // matrix — otherwise every department would list every other one's abilities
+  // (e.g. Procurement · Vendors showing under Design).
+  const deptModuleIds = new Set<string>([
+    ...((deptModsRes.data ?? []) as { module_id: string }[]).map((m) => m.module_id),
+    ...((settingsRes.data ?? []) as { module_id: string; is_general: boolean }[])
+      .filter((s) => s.is_general)
+      .map((s) => s.module_id),
+  ]);
 
   return {
     department,
@@ -71,7 +91,7 @@ export async function getDepartmentPeopleData(
     grants: (grantsRes.data ?? []) as TeamGrant[],
     people: (peopleRes.data ?? []) as AccessUser[],
     roles: (rolesRes.data ?? []) as TeamRole[],
-    resources: DEPARTMENT_RESOURCES,
+    resources: DEPARTMENT_RESOURCES.filter((r) => deptModuleIds.has(r.id)),
     subteams: (subteamsRes.data ?? []) as SubteamRef[],
     subteamMembers: (subMembersRes.data ?? []) as SubteamMembership[],
   };

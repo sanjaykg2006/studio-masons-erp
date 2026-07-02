@@ -1,5 +1,5 @@
 -- Studio-Masons ERP — attach documents to RFI messages
--- Run AFTER 0030_task_times_and_docs.sql.
+-- Run AFTER 0033_tidy_dead_verbs.sql.
 --
 -- WHAT THIS ADDS
 --   Files people attach to a single RFI message (a reply or an answer). Same

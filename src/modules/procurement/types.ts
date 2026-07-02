@@ -154,3 +154,73 @@ export type ReleasedBudgetLine = {
 
 /** One line the user is adding to a new intent. */
 export type IntentLineDraft = { budget_line_id: string; qty: number };
+
+// ── Comparison ───────────────────────────────────────────────────────────────
+
+export type ComparisonStatus = "draft" | "awarded";
+
+export const COMPARISON_STATUS_LABEL: Record<ComparisonStatus, string> = {
+  draft: "Draft",
+  awarded: "Awarded",
+};
+
+/** A row from list_project_comparisons. */
+export type ComparisonSummary = {
+  id: string;
+  title: string | null;
+  package_id: string | null;
+  package_name: string | null;
+  status: ComparisonStatus;
+  prepared_by: string | null;
+  prepared_by_name: string | null;
+  created_at: string;
+  awarded_by: string | null;
+  awarded_by_name: string | null;
+  awarded_at: string | null;
+  line_count: number;
+  vendor_count: number;
+  can_edit: boolean;
+  can_award: boolean;
+};
+
+/** A released budget package offered when starting a comparison. */
+export type PackageRef = { id: string; name: string };
+
+/** A vendor on the project's approved-vendor list. */
+export type ProjectVendor = {
+  vendor_id: string;
+  name: string;
+  type: VendorType;
+  approved_by: string | null;
+  approved_by_name: string | null;
+  approved_at: string;
+};
+
+export type ComparisonVendorRef = { vendor_id: string; name: string };
+export type ComparisonQuote = { vendor_id: string; rate: number; make: string | null };
+export type ComparisonAward = { vendor_id: string; qty: number; rate: number };
+
+export type ComparisonLine = {
+  id: string;
+  budget_line_id: string | null;
+  description: string;
+  unit: string | null;
+  qty: number;
+  sort: number;
+  quotes: ComparisonQuote[];
+  award: ComparisonAward | null;
+};
+
+/** The fully-loaded comparison grid. */
+export type ComparisonDetail = {
+  id: string;
+  title: string | null;
+  status: ComparisonStatus;
+  package_name: string | null;
+  awarded_by_name: string | null;
+  awarded_at: string | null;
+  vendors: ComparisonVendorRef[];
+  lines: ComparisonLine[];
+  canEdit: boolean;
+  canAward: boolean;
+};

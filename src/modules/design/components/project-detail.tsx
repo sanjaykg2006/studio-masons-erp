@@ -56,6 +56,7 @@ type Props = {
   rfiRolesByDept: Record<string, RoleRef[]>;
   canViewBudget: boolean;
   canViewIntents: boolean;
+  canViewComparisons: boolean;
   canDecideChanges: boolean;
   members: ProjectMemberView[];
   briefs: ProjectBriefRow[];
@@ -81,6 +82,7 @@ export function ProjectDetail({
   rfiRolesByDept,
   canViewBudget,
   canViewIntents,
+  canViewComparisons,
   canDecideChanges,
   members,
   briefs,
@@ -235,17 +237,17 @@ export function ProjectDetail({
       <RfiCard projectId={project.id} rfis={rfis} departments={rfiDepartments} rolesByDept={rfiRolesByDept} />
 
       {/* Procurement -------------------------------------------------------- */}
-      {(canViewBudget || canViewIntents) && (
+      {(canViewBudget || canViewIntents || canViewComparisons) && (
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle>Procurement</CardTitle>
               <CardDescription>
-                The project&apos;s Budget BOQ and the purchase intents raised
-                against it.
+                The project&apos;s Budget BOQ, the purchase intents raised against
+                it, and vendor comparisons.
               </CardDescription>
             </div>
-            <div className="flex shrink-0 gap-2">
+            <div className="flex shrink-0 flex-wrap justify-end gap-2">
               {canViewBudget && (
                 <Button asChild size="sm" variant="outline">
                   <Link href={`/projects/${project.id}/budget`}>
@@ -257,6 +259,13 @@ export function ProjectDetail({
                 <Button asChild size="sm" variant="outline">
                   <Link href={`/projects/${project.id}/intents`}>
                     <FileText className="size-4" /> Purchase intents
+                  </Link>
+                </Button>
+              )}
+              {canViewComparisons && (
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/projects/${project.id}/comparisons`}>
+                    <FileText className="size-4" /> Comparisons
                   </Link>
                 </Button>
               )}

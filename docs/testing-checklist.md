@@ -20,9 +20,10 @@ Nothing below works until these are applied to your live database. Run each with
 | `0036_procurement_department.sql` | Procurement department + vendor directory | ⬜ |
 | `0037_procurement_budget.sql` | Per-project Budget BOQ (versioned) | ⬜ |
 | `0038_procurement_intents.sql` | Per-project purchase intents | ⬜ |
+| `0039_procurement_comparison.sql` | Comparison + per-project vendor list | ⬜ |
 
 **How to confirm they're on:** run `npx supabase migration list` — the Local and Remote
-columns should both show `0034` … `0038`.
+columns should both show `0034` … `0039`.
 
 ---
 
@@ -179,9 +180,42 @@ over-budget line records the bypass. The raiser can withdraw their own pending i
 
 ---
 
+## 8. Procurement — comparison + approved vendors (module slice 4)
+
+**What it is:** the **Procurement Manager** builds a **comparison** from a released budget
+package (its lines copy in), adds the vendors being compared, and enters each vendor's **rate**
+per line. The **Director awards** each line to a winner (same vendor everywhere = a whole
+package; different vendors = a split). Winners are added to the project's **approved-vendor
+list** (which you can also edit by hand).
+
+**Switch it on (permissions):**
+- **Preparing** a comparison needs `procurement.comparison:create` — seeded on the
+  **Procurement Manager / team** roles (held company-wide via Team Access on the Procurement
+  department, or as a global role).
+- **Awarding** needs `procurement.comparison:approve` — a **Director**-level company-wide grant
+  (assign via Access, or use an admin).
+
+**Where:** project → **Procurement** card → **Comparisons** (or `/projects/<id>/comparisons`).
+
+- ⬜ **Pre-req:** a **released** budget with at least one package + lines, and some **Approved**
+  vendors in the directory (section 5).
+- ⬜ As the **Procurement Manager**, **New comparison** → pick a package → it opens with the
+  package's lines down the left.
+- ⬜ **Add a vendor to compare** (only *approved* vendors appear) → a column appears. Add two
+  or three.
+- ⬜ Type a **rate** into cells and click away — it saves. Clear a cell to remove that quote.
+- ⬜ As the **Director/admin**, in the **Awarded** column pick a winning vendor per line (only
+  vendors you quoted show) → **Confirm award**. The comparison locks; winning cells go green.
+- ⬜ Back on the comparisons page, the winners now appear under **Approved vendors for this
+  project**.
+- ⬜ As an approver, **add** another approved vendor to that list by hand, and **remove** one
+  (trash icon).
+- ⬜ Re-open an **awarded** comparison → it's read-only and shows each line's winner + amount.
+
+---
+
 ## What's NOT built yet (so you don't go looking)
 
-Still planned, not implemented: **comparison, purchase orders/amendments, goods receipts**,
-the **per-project approved-vendor list**, and **Excel import** of the Budget BOQ / comparison
-workbooks (entry is manual for now). See
-[procurement-module-plan.md](procurement-module-plan.md) for the full plan.
+Still planned, not implemented: **purchase orders / amendments and goods receipts** (one PO per
+awarded vendor), and **Excel import** of the Budget BOQ / comparison workbooks (entry is manual
+for now). See [procurement-module-plan.md](procurement-module-plan.md) for the full plan.

@@ -35,6 +35,7 @@ export default async function ProjectPage({
     rfis,
     canViewBudget,
     canViewIntents,
+    canViewComparisons,
   ] = await Promise.all([
     canManageMembers ? getMembershipPickers() : Promise.resolve({ users: [], roles: [] }),
     canCreateBrief ? getPublishableTemplates() : Promise.resolve([]),
@@ -44,6 +45,7 @@ export default async function ProjectPage({
     getProjectRfis(projectId),
     canOnProject(projectId, "procurement.budget", "read"),
     canOnProject(projectId, "procurement.intent", "read"),
+    canOnProject(projectId, "procurement.comparison", "read"),
   ]);
 
   return (
@@ -57,6 +59,7 @@ export default async function ProjectPage({
       rfiRolesByDept={rfis.rolesByDept}
       canViewBudget={canViewBudget}
       canViewIntents={canViewIntents}
+      canViewComparisons={canViewComparisons}
       canDecideChanges={detail.can("project", "approve")}
       members={detail.members}
       briefs={detail.briefs}

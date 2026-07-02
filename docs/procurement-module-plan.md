@@ -359,9 +359,12 @@ diffing beyond that.
      `procurement_intents` / `_lines`, resource registered to Procurement + PM depts,
      RFI-style RPCs (raise/approve/reject/withdraw), over-budget flagging vs cumulative
      approved qty, Director approval clears the intent-stage bypass.
-  4. comparison (also adds `procurement_vendor_project_approvals` — the per-project
-     approved-vendor list is mostly populated by comparison winners, so it rides here)
-     → 5. orders/amendments/receipts → 6. files.
+  4. **comparison + per-project approved vendors** ✅ *BUILT (`0039` +
+     `/projects/[id]/comparisons`).* `procurement_comparisons` / `_vendors` / `_lines` /
+     `_quotes` / `_awards` + `procurement_vendor_project_approvals`; RPCs to prepare from a
+     package, quote, award (whole-package or split per line), and manage the approved list.
+     Winners auto-join the project's approved vendors.
+  5. orders/amendments/receipts → 6. files.
 - `src/modules/procurement/` — `index.ts`, `types.ts`, `data.ts`, `actions.ts`,
   `parsers/`, `components/`. Route `app/(app)/procurement/`. One registry line.
 - Reuse Design patterns: versioning, lock-on-finalise (issued PO read-only),

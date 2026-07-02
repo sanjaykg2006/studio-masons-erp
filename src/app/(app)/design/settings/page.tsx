@@ -67,19 +67,27 @@ export default async function DesignSettingsPage() {
       </Link>
 
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Design settings</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Design settings — how Design runs its projects
+        </h1>
         <p className="text-muted-foreground text-sm">
-          These rules apply to every design project. Changes take effect immediately.
+          This is the Design department&apos;s own rulebook. The projects
+          themselves live under{" "}
+          <Link href="/projects" className="underline">
+            Projects
+          </Link>
+          ; the rules below decide how Design works on them and apply to every
+          Design project immediately.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Project roles</CardTitle>
+          <CardTitle>Design&apos;s project roles</CardTitle>
           <CardDescription>
-            Create the roles people are given on a project and tick what each can
-            do. New roles appear in every project&apos;s &ldquo;add member&rdquo;
-            list straight away.
+            The roles Design gives people on a project (Designer, Junior, …) and
+            what each can do. New roles appear in every Design project&apos;s
+            &ldquo;add member&rdquo; list straight away.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -97,9 +105,10 @@ export default async function DesignSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Controlled folder access</CardTitle>
+          <CardTitle>Design&apos;s controlled folder access</CardTitle>
           <CardDescription>
-            Who can do what in each of the 12 standard project folders, by design role.
+            Who can do what in each of the 12 standard project folders, by Design
+            role. Applies to Design&apos;s projects.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -132,10 +141,10 @@ export default async function DesignSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Stage checklist</CardTitle>
+          <CardTitle>Design&apos;s stage checklist</CardTitle>
           <CardDescription>
-            The steps that fill each project&apos;s progress bars. Add, rename or
-            remove steps per stage.
+            The steps that fill each Design project&apos;s progress bars. Add,
+            rename or remove steps per stage.
           </CardDescription>
         </CardHeader>
         <CardContent>

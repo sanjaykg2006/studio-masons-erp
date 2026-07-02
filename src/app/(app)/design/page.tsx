@@ -99,7 +99,8 @@ export default async function DesignPage() {
                   <Settings className="size-4" /> Settings
                 </CardTitle>
                 <CardDescription>
-                  Project roles, controlled-folder access and the stage checklist.
+                  How Design runs its projects: its roles, folder access and stage
+                  checklist.
                 </CardDescription>
               </CardHeader>
             </Card>

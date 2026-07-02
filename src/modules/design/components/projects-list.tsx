@@ -14,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { DesignProject } from "@/modules/design/types";
+import type { DesignProject } from "@/modules/projects/types";
 import { createProject } from "@/modules/design/actions";
 import {
   ProjectPhaseBadge,

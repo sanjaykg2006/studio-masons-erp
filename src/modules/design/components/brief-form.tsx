@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { RevisionState, TemplateTree } from "@/modules/design/data";
-import type { DesignBrief } from "@/modules/design/types";
+import type { DesignBrief } from "@/modules/projects/types";
 import {
   approveBrief,
   approveBriefRevision,

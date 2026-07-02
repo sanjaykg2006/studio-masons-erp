@@ -9,11 +9,8 @@ import { getUser } from "@/core/auth/get-user";
 import { logAudit } from "@/modules/audit/log";
 import { getBriefForPdf } from "@/modules/design/data";
 import { renderBriefPdf } from "@/modules/design/brief-pdf";
-import type {
-  Discipline,
-  DesignStage,
-  FolderCapability,
-} from "@/modules/design/types";
+import type { FolderCapability } from "@/modules/design/types";
+import type { Discipline, DesignStage } from "@/modules/projects/types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 const ok: ActionResult = { ok: true };

@@ -4,33 +4,35 @@ import { createClient } from "@/core/supabase/server";
 import { getProjectPermissions } from "@/core/rbac/permissions";
 import { permissionKey, type Action, type PermissionKey } from "@/core/rbac/types";
 import type { BriefPdfData } from "@/modules/design/brief-pdf";
-import { DISCIPLINE_LABEL } from "@/modules/design/types";
 import {
+  type DesignFolderAccess,
+  type DesignFolderType,
+  type FolderCapability,
+  type DesignTemplate,
+  type DesignTemplateColumn,
+  type DesignTemplateQuestion,
+  type DesignTemplateSection,
+  type DesignTemplateVersion,
+  type TemplateStatus,
+} from "@/modules/design/types";
+import {
+  DISCIPLINE_LABEL,
   DESIGN_STAGES,
   DESIGN_STAGE_LABEL,
   type BriefStatus,
   type DesignBrief,
   type DesignChangeRequest,
   type DesignFile,
-  type DesignFolderAccess,
-  type DesignFolderType,
   type DesignProject,
   type DesignStage,
   type DesignStageStep,
-  type FolderCapability,
+  type Discipline,
   type ProjectFolder,
   type ProjectStep,
-  type DesignTemplate,
-  type DesignTemplateColumn,
-  type DesignTemplateQuestion,
-  type DesignTemplateSection,
-  type DesignTemplateVersion,
-  type Discipline,
   type ProjectProgress,
   type ProjectStatus,
   type StageProgress,
-  type TemplateStatus,
-} from "@/modules/design/types";
+} from "@/modules/projects/types";
 
 // --- Templates ---------------------------------------------------------------
 

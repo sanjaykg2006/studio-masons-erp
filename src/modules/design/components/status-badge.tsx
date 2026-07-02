@@ -6,7 +6,7 @@ import {
   type BriefStatus,
   type ProjectPhase,
   type ProjectStatus,
-} from "@/modules/design/types";
+} from "@/modules/projects/types";
 
 const PROJECT_TONE: Record<ProjectStatus, string> = {
   draft: "bg-muted text-muted-foreground",

@@ -22,7 +22,7 @@ import {
   CHANGE_STATUS_LABEL,
   type ChangeRequestStatus,
   type DesignChangeRequest,
-} from "@/modules/design/types";
+} from "@/modules/projects/types";
 
 const STATUS_TONE: Record<ChangeRequestStatus, string> = {
   open: "bg-amber-500/15 text-amber-700 dark:text-amber-400",

@@ -16,7 +16,7 @@ import {
   DESIGN_STAGE_LABEL,
   type DesignStage,
   type DesignStageStep,
-} from "@/modules/design/types";
+} from "@/modules/projects/types";
 
 /** Edit the checklist steps that drive every project's progress bars. */
 export function StageStepsEditor({ steps }: { steps: DesignStageStep[] }) {

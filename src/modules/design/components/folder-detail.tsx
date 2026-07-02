@@ -20,7 +20,7 @@ import {
   issueFiles,
   uploadFile,
 } from "@/modules/design/actions";
-import type { DesignFile, ProjectFolder } from "@/modules/design/types";
+import type { DesignFile, ProjectFolder } from "@/modules/projects/types";
 
 function formatBytes(n: number | null): string {
   if (!n) return "—";

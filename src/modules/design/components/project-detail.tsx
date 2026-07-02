@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { DISCIPLINE_LABEL, type Discipline } from "@/modules/design/types";
+import { DISCIPLINE_LABEL, type Discipline } from "@/modules/projects/types";
 import type {
   AssignableUser,
   DesignRole,
@@ -25,7 +25,7 @@ import type {
   DesignProject,
   ProjectFolder,
   ProjectProgress,
-} from "@/modules/design/types";
+} from "@/modules/projects/types";
 import {
   addMember,
   createBriefs,

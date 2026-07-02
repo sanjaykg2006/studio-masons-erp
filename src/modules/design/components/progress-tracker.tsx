@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toggleProjectStep } from "@/modules/design/actions";
-import type { ProjectProgress } from "@/modules/design/types";
+import type { ProjectProgress } from "@/modules/projects/types";
 
 /** A thin filled bar; width is the percentage, with a gentle fill animation. */
 function Bar({ pct, className }: { pct: number; className?: string }) {

@@ -118,6 +118,16 @@ export async function releaseOrder(projectId: string, orderId: string): Promise<
   return ok;
 }
 
+/** Senior sign-off that clears an over-budget PO for release (procurement.order:manage). */
+export async function seniorBypassOrder(projectId: string, orderId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("senior_bypass_order", { p_order: orderId });
+  if (error) return fail(error.message);
+  await logAudit("procurement.order.bypass", "Cleared an over-budget PO", { projectId, orderId });
+  refreshOne(projectId, orderId);
+  return ok;
+}
+
 /** Upload the PO document or the vendor's acceptance letter. */
 export async function uploadOrderDocument(
   projectId: string,

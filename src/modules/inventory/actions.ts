@@ -97,13 +97,13 @@ export async function saveAsset(
   return ok;
 }
 
-/** Place an asset in a project + custodian directly (no transfer). */
+/** Place an asset in a project + custodian directly (no transfer) — senior only. */
 export async function assignAsset(
   assetId: string,
   projectId: string | null,
   custodianId: string | null
 ): Promise<ActionResult> {
-  const denied = await authorize("inventory.asset", "update");
+  const denied = await authorize("inventory.asset", "delete");
   if (denied) return denied;
 
   const supabase = await createClient();

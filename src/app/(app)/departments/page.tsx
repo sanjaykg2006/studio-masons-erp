@@ -2,18 +2,13 @@ import Link from "next/link";
 import { Building2 } from "lucide-react";
 
 import { getMyDepartments } from "@/modules/departments/data";
+import { DEPARTMENT_HOME } from "@/modules/departments/home";
 import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-/** Departments with their own richer home page (not the generic workspace). */
-const DEPT_HOME: Record<string, string> = {
-  design: "/design",
-  procurement: "/procurement",
-};
 
 /** Hub listing the departments the user belongs to, each linking to its
  * workspace (task board + roles settings). Design and Procurement keep their
@@ -37,7 +32,7 @@ export default async function DepartmentsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {depts.map((d) => (
-            <Link key={d.id} href={DEPT_HOME[d.key] ?? `/departments/${d.id}`}>
+            <Link key={d.id} href={DEPARTMENT_HOME[d.key] ?? `/departments/${d.id}`}>
               <Card className="hover:bg-accent/50 h-full transition-colors">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">

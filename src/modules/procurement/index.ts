@@ -53,8 +53,9 @@ export const procurementModule: ModuleDefinition = {
     {
       id: "procurement.order",
       label: "Procurement · Purchase orders",
-      // issue = record/release a PO; review = Finance; approve = Director.
-      actions: ["read", "update", "review", "approve", "issue"],
+      // issue = record/release a PO; review = Finance; approve = Director;
+      // manage = the senior sign-off that clears an over-budget PO for release.
+      actions: ["read", "update", "review", "approve", "issue", "manage"],
       projectRole: true,
       projectLink: { segment: "orders", icon: ShoppingCart },
     },

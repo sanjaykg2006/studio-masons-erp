@@ -32,6 +32,7 @@ import {
   releaseOrder,
   requestOrderCancel,
   reviewOrder,
+  seniorBypassOrder,
   startAmendment,
   uploadOrderDocument,
 } from "@/modules/procurement/order-actions";
@@ -83,6 +84,8 @@ export function OrderDetailView({
   const isEditable = order.status === "draft" || order.status === "amending";
   const isAmending = order.status === "amending";
   const signedOff = !!order.finance_reviewed_by && !!order.director_approved_by;
+  // An over-budget PO also needs the senior sign-off before it can be released.
+  const overBudgetBlocked = order.over_budget && !order.senior_bypass_by;
   const cancelRequested = order.status === "issued" && !!order.cancel_requested_by;
 
   const amend = () => {
@@ -280,11 +283,26 @@ export function OrderDetailView({
               pending={pending}
               onAct={() => run(() => approveOrder(projectId, order.id))}
             />
+            {order.over_budget && (
+              <SignRow
+                label="Over-budget sign-off"
+                byName={order.senior_bypass_name}
+                canAct={order.can_bypass && !order.senior_bypass_by}
+                pending={pending}
+                onAct={() => run(() => seniorBypassOrder(projectId, order.id))}
+              />
+            )}
             {order.can_issue && (
               <Button
                 size="sm"
-                disabled={pending || !signedOff}
-                title={signedOff ? undefined : "Needs both sign-offs"}
+                disabled={pending || !signedOff || overBudgetBlocked}
+                title={
+                  !signedOff
+                    ? "Needs both sign-offs"
+                    : overBudgetBlocked
+                      ? "Over budget — needs the senior sign-off"
+                      : undefined
+                }
                 onClick={() => run(() => releaseOrder(projectId, order.id))}
               >
                 {isAmending ? "Release amendment" : "Release PO"}

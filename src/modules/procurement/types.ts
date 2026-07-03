@@ -237,6 +237,8 @@ export type OrderDetail = {
   finance_reviewed_name: string | null;
   director_approved_by: string | null;
   director_approved_name: string | null;
+  senior_bypass_by: string | null;
+  senior_bypass_name: string | null;
   issued_at: string | null;
   cancel_reason: string | null;
   cancel_requested_by: string | null;
@@ -250,6 +252,8 @@ export type OrderDetail = {
   can_amend: boolean;
   can_cancel: boolean;
   can_approve_cancel: boolean;
+  /** May clear an over-budget PO for release (the senior `manage` verb). */
+  can_bypass: boolean;
 };
 
 /** A PO line from get_order_lines, with the budgeted rate and received-so-far. */

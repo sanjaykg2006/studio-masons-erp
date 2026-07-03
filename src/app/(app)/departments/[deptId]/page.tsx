@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CheckSquare, Settings, Users } from "lucide-react";
 
 import { getDepartment } from "@/modules/departments/data";
+import { DEPARTMENT_HOME } from "@/modules/departments/home";
 import {
   Card,
   CardDescription,
@@ -19,6 +20,13 @@ export default async function DepartmentHome({
   const { deptId } = await params;
   const dept = await getDepartment(deptId);
   if (!dept) notFound();
+
+  // Design / Procurement have their own richer hub. Redirect here so that every
+  // way into this generic page — notably the Settings "back" arrow — lands on
+  // the full hub (with Vendor directory, Company assets, …) instead of the
+  // stripped-down 3-card version.
+  const richHome = DEPARTMENT_HOME[dept.key];
+  if (richHome) redirect(richHome);
 
   return (
     <div className="space-y-6">

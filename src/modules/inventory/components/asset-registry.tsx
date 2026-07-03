@@ -227,7 +227,7 @@ export function AssetRegistry({
                         </td>
                         <td className="py-2">
                           <div className="flex items-center justify-end gap-1">
-                            {canManage && a.status !== "retired" && !a.pending_transfer_id && (
+                            {canDelete && a.status !== "retired" && !a.pending_transfer_id && (
                               <button
                                 type="button"
                                 disabled={pending}
@@ -237,8 +237,8 @@ export function AssetRegistry({
                                   setEditing(null);
                                 }}
                                 className="text-muted-foreground hover:text-foreground"
-                                title="Assign custodian"
-                                aria-label={`Assign ${a.name}`}
+                                title="Place directly (senior)"
+                                aria-label={`Place ${a.name} directly`}
                               >
                                 <UserPlus className="size-4" />
                               </button>
@@ -340,16 +340,18 @@ export function AssetRegistry({
                                       Reactivate
                                     </Button>
                                   )}
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={pending}
-                                    onClick={() => run(() => assignAsset(a.id, null, null))}
-                                    title="Remove from its current project (mark idle)"
-                                  >
-                                    Unassign
-                                  </Button>
+                                  {canDelete && (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={pending}
+                                      onClick={() => run(() => assignAsset(a.id, null, null))}
+                                      title="Remove from its current project (mark idle) — senior only"
+                                    >
+                                      Unassign
+                                    </Button>
+                                  )}
                                 </div>
                               }
                             />
@@ -375,7 +377,7 @@ export function AssetRegistry({
                           </td>
                         </tr>
                       )}
-                      {assigning === a.id && canManage && (
+                      {assigning === a.id && canDelete && (
                         <tr>
                           <td colSpan={6} className="pb-3">
                             <AssignForm

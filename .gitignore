@@ -52,6 +52,15 @@ ERP-Project-Tracker.xlsx
 # local Claude Code settings
 .claude/settings.local.json
 
+# reference docs / spreadsheets dropped at repo root — not source, keep OFF git
+/*.docx
+/*.xlsx
+/*.xls
+/*.csv
+
+# old parser — dead code kept locally for reference
+/Old Parser/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

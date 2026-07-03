@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Fragment, type FormEvent, useState, useTransition } from "react";
-import { ArrowLeftRight, Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeftRight, Check, Pencil, Plus, Trash2, UserPlus, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  ASSET_CATEGORIES,
   ASSET_STATUS_LABEL,
   type Asset,
   type AssetCategoryTotal,
@@ -44,7 +43,7 @@ const STATUS_TONE: Record<AssetStatus, string> = {
   retired: "bg-muted text-muted-foreground",
 };
 
-const EMPTY: AssetInput = { name: "", category: "machine", tag: "", notes: "" };
+const EMPTY: AssetInput = { name: "", category: "", tag: "", notes: "" };
 
 export function AssetRegistry({
   assets,
@@ -69,6 +68,7 @@ export function AssetRegistry({
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [transferring, setTransferring] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState<string | null>(null);
 
   const run = (fn: () => Promise<Result>, after?: () => void) =>
     startTransition(async () => {
@@ -231,9 +231,26 @@ export function AssetRegistry({
                               <button
                                 type="button"
                                 disabled={pending}
-                                onClick={() =>
-                                  setTransferring((id) => (id === a.id ? null : a.id))
-                                }
+                                onClick={() => {
+                                  setAssigning((id) => (id === a.id ? null : a.id));
+                                  setTransferring(null);
+                                  setEditing(null);
+                                }}
+                                className="text-muted-foreground hover:text-foreground"
+                                title="Assign custodian"
+                                aria-label={`Assign ${a.name}`}
+                              >
+                                <UserPlus className="size-4" />
+                              </button>
+                            )}
+                            {canManage && a.status !== "retired" && !a.pending_transfer_id && (
+                              <button
+                                type="button"
+                                disabled={pending}
+                                onClick={() => {
+                                  setTransferring((id) => (id === a.id ? null : a.id));
+                                  setAssigning(null);
+                                }}
                                 className="text-muted-foreground hover:text-foreground"
                                 title="Transfer"
                                 aria-label={`Transfer ${a.name}`}
@@ -260,6 +277,7 @@ export function AssetRegistry({
                                 onClick={() => {
                                   setEditing((id) => (id === a.id ? null : a.id));
                                   setTransferring(null);
+                                  setAssigning(null);
                                 }}
                                 className="text-muted-foreground hover:text-foreground"
                                 title="Edit"
@@ -357,6 +375,25 @@ export function AssetRegistry({
                           </td>
                         </tr>
                       )}
+                      {assigning === a.id && canManage && (
+                        <tr>
+                          <td colSpan={6} className="pb-3">
+                            <AssignForm
+                              asset={a}
+                              projects={projects}
+                              people={people}
+                              pending={pending}
+                              onCancel={() => setAssigning(null)}
+                              onSubmit={(project, custodian) =>
+                                run(
+                                  () => assignAsset(a.id, project, custodian),
+                                  () => setAssigning(null)
+                                )
+                              }
+                            />
+                          </td>
+                        </tr>
+                      )}
                     </Fragment>
                   ))}
                 </tbody>
@@ -408,18 +445,13 @@ function AssetForm({
               className="sm:flex-1"
               aria-label="Asset name"
             />
-            <select
-              className={cn(field, "sm:w-44")}
-              value={ASSET_CATEGORIES.includes(form.category as never) ? form.category : "other"}
+            <Input
+              placeholder="Category (e.g. Excavator, Laptop)"
+              value={form.category}
               onChange={(e) => set({ category: e.target.value })}
+              className="sm:w-48"
               aria-label="Asset category"
-            >
-              {ASSET_CATEGORIES.map((c) => (
-                <option key={c} value={c} className="capitalize">
-                  {c[0].toUpperCase() + c.slice(1)}
-                </option>
-              ))}
-            </select>
+            />
             <Input
               placeholder="Tag / serial (optional)"
               value={form.tag}
@@ -442,6 +474,85 @@ function AssetForm({
               Cancel
             </Button>
             {extra}
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Direct assign/place: set an asset's project + custodian straight away (no
+ * acceptance step). For initial placement or an admin fix — use Transfer when the
+ * receiving person should confirm the handover.
+ */
+function AssignForm({
+  asset,
+  projects,
+  people,
+  pending,
+  onSubmit,
+  onCancel,
+}: {
+  asset: Asset;
+  projects: PickerOption[];
+  people: PickerOption[];
+  pending: boolean;
+  onSubmit: (project: string | null, custodian: string | null) => void;
+  onCancel: () => void;
+}) {
+  const [project, setProject] = useState(asset.current_project_id ?? "");
+  const [custodian, setCustodian] = useState(asset.custodian_id ?? "");
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!custodian) return;
+    onSubmit(project || null, custodian || null);
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Assign {asset.name}</CardTitle>
+        <CardDescription>
+          Place this asset with a project and custodian now — no acceptance needed.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={submit} className="space-y-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <select
+              className={cn(field, "sm:flex-1")}
+              value={project}
+              onChange={(e) => setProject(e.target.value)}
+              aria-label="Assign to project"
+            >
+              <option value="">No project (idle)</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <select
+              className={cn(field, "sm:flex-1")}
+              value={custodian}
+              onChange={(e) => setCustodian(e.target.value)}
+              aria-label="Custodian"
+            >
+              <option value="">Choose custodian…</option>
+              {people.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" disabled={pending || !custodian}>
+              Assign
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
           </div>
         </form>
       </CardContent>

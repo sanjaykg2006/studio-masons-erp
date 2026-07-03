@@ -40,9 +40,6 @@ export const ASSET_STATUS_LABEL: Record<AssetStatus, string> = {
   retired: "Retired",
 };
 
-/** Common asset categories offered in the picker (free text is also allowed). */
-export const ASSET_CATEGORIES = ["machine", "monitor", "printer", "other"] as const;
-
 /** An asset row from list_assets, with its current pending transfer (if any). */
 export type Asset = {
   id: string;

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CheckSquare, Settings, ShoppingCart, Users } from "lucide-react";
+import { Boxes, CheckSquare, Settings, ShoppingCart, Users } from "lucide-react";
 
 import { can } from "@/core/rbac/can";
 import { getMyDepartments } from "@/modules/departments/data";
@@ -18,8 +18,9 @@ import {
  * (budget, intents, orders) is reached from each project.
  */
 export default async function ProcurementPage() {
-  const [canVendors, myDepts] = await Promise.all([
+  const [canVendors, canAssets, myDepts] = await Promise.all([
     can("procurement.vendor", "read"),
+    can("inventory.asset", "read"),
     getMyDepartments(),
   ]);
   const dept = myDepts.find((d) => d.key === "procurement");
@@ -71,6 +72,20 @@ export default async function ProcurementPage() {
                 </CardTitle>
                 <CardDescription>
                   The company&apos;s suppliers, subcontractors and service providers.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        )}
+        {canAssets && (
+          <Link href="/inventory">
+            <Card className="hover:bg-accent/50 transition-colors">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Boxes className="size-4" /> Company assets
+                </CardTitle>
+                <CardDescription>
+                  Machines, monitors, printers and other equipment — where each is and who holds it.
                 </CardDescription>
               </CardHeader>
             </Card>

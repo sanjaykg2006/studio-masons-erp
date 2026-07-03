@@ -7,6 +7,7 @@ import { auditModule } from "@/modules/audit";
 import { projectsModule } from "@/modules/projects";
 import { designModule } from "@/modules/design";
 import { procurementModule } from "@/modules/procurement";
+import { inventoryModule } from "@/modules/inventory";
 import { departmentsModule } from "@/modules/departments";
 import { teamAccessModule } from "@/modules/team-access";
 
@@ -137,6 +138,7 @@ export const modules: ModuleDefinition[] = [
   projectsModule,
   designModule,
   procurementModule,
+  inventoryModule,
   departmentsModule,
   teamAccessModule,
   accessModule,

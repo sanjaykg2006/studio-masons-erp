@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { type ChangeEvent, useRef, useState, useTransition } from "react";
-import { AlertTriangle, Upload } from "lucide-react";
+import { AlertTriangle, Check, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,11 +12,32 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { BudgetImportPreview } from "@/modules/procurement/types";
+import type { BudgetImportReconcile, BudgetImportPreview } from "@/modules/procurement/types";
 import { commitBudgetImport, previewBudgetImport } from "@/modules/procurement/import-actions";
 
 const fmt = (n: number) =>
   n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** The per-sheet self-check: ✓ matches the sheet's own total, ⚠ differs (shows
+ * that total so the QS can eyeball it), — no total row on the sheet to check. */
+function Reconcile({ r }: { r: BudgetImportReconcile }) {
+  if (r.status === "ok")
+    return (
+      <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400" title="Matches the sheet's own total">
+        <Check className="size-3.5" /> Matches
+      </span>
+    );
+  if (r.status === "warn")
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400"
+        title={`Sheet's own total is ${fmt(r.sheetTotal)}`}
+      >
+        <AlertTriangle className="size-3.5" /> Sheet: {fmt(r.sheetTotal)}
+      </span>
+    );
+  return <span className="text-muted-foreground" title="No total row on the sheet to check against">—</span>;
+}
 
 export function BudgetImport({ projectId }: { projectId: string }) {
   const router = useRouter();
@@ -61,8 +82,9 @@ export function BudgetImport({ projectId }: { projectId: string }) {
         <div>
           <CardTitle className="text-base">Import from Excel</CardTitle>
           <CardDescription>
-            One sheet per package (`BOQ Ref · Description · Unit · Qty · Rate`). Creates
-            a new draft version to review before releasing.
+            One sheet per package (Description · Unit · Qty · Rate · Amount; split
+            Supply/Installation rates are clubbed). Each sheet is checked against its
+            own total. Creates a new draft version to review before releasing.
           </CardDescription>
         </div>
         <input ref={inputRef} type="file" accept=".xlsx" className="hidden" onChange={onFile} aria-label="Budget workbook" />
@@ -93,6 +115,7 @@ export function BudgetImport({ projectId }: { projectId: string }) {
                         <th className="py-1 font-medium">Package</th>
                         <th className="w-20 py-1 text-right font-medium">Lines</th>
                         <th className="w-32 py-1 text-right font-medium">Total</th>
+                        <th className="w-28 py-1 text-right font-medium">Check</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -101,6 +124,9 @@ export function BudgetImport({ projectId }: { projectId: string }) {
                           <td className="py-1">{p.name}</td>
                           <td className="py-1 text-right">{p.lines.length}</td>
                           <td className="py-1 text-right">{fmt(p.total)}</td>
+                          <td className="py-1 text-right">
+                            <Reconcile r={p.reconcile} />
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -109,6 +135,7 @@ export function BudgetImport({ projectId }: { projectId: string }) {
                         <td className="py-1">Grand total</td>
                         <td />
                         <td className="py-1 text-right">{fmt(grand)}</td>
+                        <td />
                       </tr>
                     </tfoot>
                   </table>

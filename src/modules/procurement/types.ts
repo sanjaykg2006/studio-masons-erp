@@ -306,10 +306,18 @@ export type BudgetImportLine = {
   qty: number;
   rate: number;
 };
+/** Self-check of a sheet: does the parsed line sum match the sheet's own stated
+ * total? "ok" = matches (within 0.5%), "warn" = differs (sheetTotal shown so the
+ * QS can eyeball it), "none" = the sheet has no usable total row to check against. */
+export type BudgetImportReconcile =
+  | { status: "ok"; sheetTotal: number }
+  | { status: "warn"; sheetTotal: number }
+  | { status: "none" };
 export type BudgetImportPackage = {
   name: string;
   lines: BudgetImportLine[];
   total: number;
+  reconcile: BudgetImportReconcile;
 };
 export type BudgetImportPreview = {
   packages: BudgetImportPackage[];

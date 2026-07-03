@@ -14,6 +14,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // Let tests import server-only modules (e.g. the BOQ parser) without the
+      // RSC guard throwing under plain Node.
+      "server-only": fileURLToPath(new URL("./src/test/server-only-stub.ts", import.meta.url)),
     },
   },
 });

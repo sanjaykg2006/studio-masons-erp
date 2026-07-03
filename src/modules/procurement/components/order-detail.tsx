@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import {
   ORDER_STATUS_LABEL,
+  VENDOR_TYPE_LABEL,
   type OrderDetail,
   type OrderLine,
   type OrderStatus,
@@ -24,11 +25,13 @@ import {
 import {
   amendOrderLine,
   approveOrder,
+  approveOrderCancel,
   getOrderDocumentUrl,
   recordReceipt,
+  rejectOrderCancel,
   releaseOrder,
+  requestOrderCancel,
   reviewOrder,
-  seniorBypassOrder,
   startAmendment,
   uploadOrderDocument,
 } from "@/modules/procurement/order-actions";
@@ -40,6 +43,7 @@ const STATUS_TONE: Record<OrderStatus, string> = {
   issued: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
   closed: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
   amending: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
+  cancelled: "bg-muted text-muted-foreground",
 };
 
 const field = "border-input bg-background h-8 rounded-md border px-2 text-sm";
@@ -79,15 +83,19 @@ export function OrderDetailView({
   const isEditable = order.status === "draft" || order.status === "amending";
   const isAmending = order.status === "amending";
   const signedOff = !!order.finance_reviewed_by && !!order.director_approved_by;
-  const bypassOk = !order.over_budget || !!order.senior_bypass_by;
-  const releaseReady = signedOff && bypassOk;
+  const cancelRequested = order.status === "issued" && !!order.cancel_requested_by;
 
   const amend = () => {
     const note = window.prompt("What is changing in this amendment? (optional)") ?? "";
     run(() => startAmendment(projectId, order.id, note));
   };
 
-  const download = async (kind: "po" | "acceptance") => {
+  const requestCancel = () => {
+    const reason = window.prompt("Why is this PO being cancelled? (the Director will review)");
+    if (reason && reason.trim()) run(() => requestOrderCancel(projectId, order.id, reason.trim()));
+  };
+
+  const download = async (kind: "po" | "acceptance" | "support") => {
     setError(null);
     const res = await getOrderDocumentUrl(order.id, kind);
     if (res.ok) window.open(res.url, "_blank", "noopener");
@@ -125,10 +133,10 @@ export function OrderDetailView({
     run(() => amendOrderLine(projectId, order.id, l.id, v.qty, v.rate));
   };
 
-  const total = lines.reduce(
-    (s, l) => s + (amendable ? editOf(l).qty * editOf(l).rate : l.amount),
-    0
-  );
+  const qtyOf = (l: OrderLine) => (amendable ? editOf(l).qty : l.qty_ordered);
+  const rateOf = (l: OrderLine) => (amendable ? editOf(l).rate : l.rate);
+  const vendorTotal = lines.reduce((s, l) => s + qtyOf(l) * rateOf(l), 0);
+  const budgetTotal = lines.reduce((s, l) => s + qtyOf(l) * (l.budget_rate ?? 0), 0);
 
   return (
     <div className="space-y-6">
@@ -149,18 +157,20 @@ export function OrderDetailView({
               {ORDER_STATUS_LABEL[order.status]}
             </span>
             {order.version_no > 1 && <span>v{order.version_no}</span>}
-            {order.over_budget && (
-              <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-400">
-                Over budget
-              </span>
-            )}
           </p>
         </div>
-        {order.status === "issued" && order.can_amend && (
-          <Button size="sm" variant="outline" disabled={pending} onClick={amend}>
-            Amend
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {order.status === "issued" && order.can_amend && (
+            <Button size="sm" variant="outline" disabled={pending} onClick={amend}>
+              Amend
+            </Button>
+          )}
+          {order.status === "issued" && order.can_cancel && !cancelRequested && (
+            <Button size="sm" variant="outline" disabled={pending} onClick={requestCancel}>
+              Request cancellation
+            </Button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -169,6 +179,83 @@ export function OrderDetailView({
         </div>
       )}
 
+      {/* Cancellation ------------------------------------------------------- */}
+      {cancelRequested && (
+        <Card className="border-red-500/40">
+          <CardHeader>
+            <CardTitle className="text-base text-red-700 dark:text-red-400">Cancellation requested</CardTitle>
+            <CardDescription>
+              {order.cancel_requested_name ?? "Someone"} asked to cancel this PO
+              {order.cancel_reason ? `: “${order.cancel_reason}”` : "."}
+            </CardDescription>
+          </CardHeader>
+          {order.can_approve_cancel && (
+            <CardContent className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                disabled={pending}
+                onClick={() => run(() => approveOrderCancel(projectId, order.id))}
+              >
+                Approve cancellation
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={() => run(() => rejectOrderCancel(projectId, order.id))}
+              >
+                Decline
+              </Button>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {order.status === "cancelled" && (
+        <Card className="border-muted">
+          <CardHeader>
+            <CardTitle className="text-base">This PO was cancelled</CardTitle>
+            <CardDescription>
+              Cancelled by {order.cancelled_name ?? "a Director"}
+              {order.cancel_reason ? `: “${order.cancel_reason}”` : "."} The un-received
+              balance is free to re-award to another vendor.
+            </CardDescription>
+          </CardHeader>
+          {order.can_issue && order.intent_id && (
+            <CardContent>
+              <Button size="sm" asChild>
+                <Link href={`/projects/${projectId}/intents/${order.intent_id}/order`}>
+                  Re-award to another vendor
+                </Link>
+              </Button>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {/* Vendor ------------------------------------------------------------- */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Vendor</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm">
+          <div className="flex flex-wrap gap-x-6 gap-y-1">
+            <span className="font-medium">{order.vendor_name}</span>
+            <span className="text-muted-foreground">{VENDOR_TYPE_LABEL[order.vendor_type]}</span>
+            {order.vendor_trade && <span className="text-muted-foreground">{order.vendor_trade}</span>}
+            {order.vendor_contact_name && (
+              <span className="text-muted-foreground">{order.vendor_contact_name}</span>
+            )}
+            {order.vendor_contact_phone && (
+              <span className="text-muted-foreground">{order.vendor_contact_phone}</span>
+            )}
+            {order.vendor_contact_email && (
+              <span className="text-muted-foreground">{order.vendor_contact_email}</span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Sign-off + release ------------------------------------------------- */}
       {isEditable && (
         <Card>
@@ -176,10 +263,7 @@ export function OrderDetailView({
             <CardTitle className="text-base">
               {isAmending ? "Re-sign-off (amendment)" : "Sign-off"}
             </CardTitle>
-            <CardDescription>
-              Both sign-offs are needed before the PO can be released
-              {order.over_budget ? ", and the MD must clear the over-budget amount" : ""}.
-            </CardDescription>
+            <CardDescription>Both sign-offs are needed before the PO can be released.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap items-center gap-4 text-sm">
             <SignRow
@@ -196,20 +280,11 @@ export function OrderDetailView({
               pending={pending}
               onAct={() => run(() => approveOrder(projectId, order.id))}
             />
-            {order.over_budget && (
-              <SignRow
-                label="Senior (MD) bypass"
-                byName={order.senior_bypass_name}
-                canAct={order.can_bypass && !order.senior_bypass_by}
-                pending={pending}
-                onAct={() => run(() => seniorBypassOrder(projectId, order.id))}
-              />
-            )}
             {order.can_issue && (
               <Button
                 size="sm"
-                disabled={pending || !releaseReady}
-                title={releaseReady ? undefined : "Needs the sign-offs (and MD bypass if over budget)"}
+                disabled={pending || !signedOff}
+                title={signedOff ? undefined : "Needs both sign-offs"}
                 onClick={() => run(() => releaseOrder(projectId, order.id))}
               >
                 {isAmending ? "Release amendment" : "Release PO"}
@@ -223,9 +298,17 @@ export function OrderDetailView({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Documents</CardTitle>
-          <CardDescription>The issued PO and the vendor&apos;s acceptance letter.</CardDescription>
+          <CardDescription>The supporting quote, the issued PO, and the vendor&apos;s acceptance letter.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
+          <DocSlot
+            label="Supporting document"
+            hasFile={!!order.support_file}
+            canUpload={false}
+            pending={pending}
+            onDownload={() => download("support")}
+            onPick={() => {}}
+          />
           <DocSlot
             label="Purchase order"
             hasFile={!!order.po_file}
@@ -256,29 +339,37 @@ export function OrderDetailView({
           )}
         </CardHeader>
         <CardContent>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-muted-foreground border-b text-left text-xs">
-                <th className="py-1 font-medium">Description</th>
-                <th className="w-20 py-1 text-right font-medium">Ordered</th>
-                <th className="w-24 py-1 text-right font-medium">Rate</th>
-                <th className="w-28 py-1 text-right font-medium">Amount</th>
-                <th className="w-20 py-1 text-right font-medium">Received</th>
-                <th className="w-20 py-1 text-right font-medium">Balance</th>
-                {receiving && <th className="w-24 py-1 text-right font-medium">Receive now</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {lines.map((l) => {
-                const balance = l.qty_ordered - l.qty_received;
-                return (
-                  <tr key={l.id} className="border-b last:border-0">
-                    <td className="py-1">
-                      {l.description}
-                      {l.unit && <span className="text-muted-foreground"> ({l.unit})</span>}
-                    </td>
-                    {amendable ? (
-                      <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-muted-foreground border-b text-left text-xs">
+                  <th className="py-1 font-medium">Description</th>
+                  <th className="py-1 font-medium">Location</th>
+                  <th className="py-1 font-medium">Unit</th>
+                  <th className="w-20 py-1 text-right font-medium">Qty</th>
+                  <th className="w-24 py-1 text-right font-medium">Budget Price</th>
+                  <th className="w-28 py-1 text-right font-medium">Budget Amount</th>
+                  <th className="w-24 py-1 text-right font-medium">Vendor Rate</th>
+                  <th className="w-28 py-1 text-right font-medium">Vendor Amount</th>
+                  <th className="w-20 py-1 text-right font-medium">Received</th>
+                  <th className="w-20 py-1 text-right font-medium">Balance</th>
+                  {receiving && <th className="w-24 py-1 text-right font-medium">Receive now</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((l) => {
+                  const qty = qtyOf(l);
+                  const rate = rateOf(l);
+                  const budgetAmt = qty * (l.budget_rate ?? 0);
+                  const vendorAmt = qty * rate;
+                  const over = (l.budget_rate ?? 0) > 0 && vendorAmt > budgetAmt;
+                  const balance = l.qty_ordered - l.qty_received;
+                  return (
+                    <tr key={l.id} className="border-b last:border-0">
+                      <td className="py-1">{l.description}</td>
+                      <td className="text-muted-foreground py-1">{l.location ?? "—"}</td>
+                      <td className="text-muted-foreground py-1">{l.unit ?? ""}</td>
+                      {amendable ? (
                         <td className="py-1">
                           <Input
                             type="number"
@@ -290,6 +381,16 @@ export function OrderDetailView({
                             aria-label={`Ordered qty ${l.description}`}
                           />
                         </td>
+                      ) : (
+                        <td className="py-1 text-right">{fmtQty(l.qty_ordered)}</td>
+                      )}
+                      <td className="text-muted-foreground py-1 text-right">
+                        {l.budget_rate == null ? "—" : fmt(l.budget_rate)}
+                      </td>
+                      <td className="text-muted-foreground py-1 text-right">
+                        {l.budget_rate == null ? "—" : fmt(budgetAmt)}
+                      </td>
+                      {amendable ? (
                         <td className="py-1">
                           <Input
                             type="number"
@@ -297,55 +398,55 @@ export function OrderDetailView({
                             onChange={(e) => setEdit(l, { rate: e.target.valueAsNumber || 0 })}
                             onBlur={() => commitLine(l)}
                             className="h-8 text-right"
-                            aria-label={`Rate ${l.description}`}
+                            aria-label={`Vendor rate ${l.description}`}
                           />
                         </td>
-                        <td className="py-1 text-right">{fmt(editOf(l).qty * editOf(l).rate)}</td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="py-1 text-right">{fmtQty(l.qty_ordered)}</td>
+                      ) : (
                         <td className="py-1 text-right">{fmt(l.rate)}</td>
-                        <td className="py-1 text-right">{fmt(l.amount)}</td>
-                      </>
-                    )}
-                    <td className="py-1 text-right">{fmtQty(l.qty_received)}</td>
-                    <td className={cn("py-1 text-right", balance === 0 && "text-emerald-600")}>
-                      {fmtQty(balance)}
-                    </td>
-                    {receiving && (
-                      <td className="py-1 text-right">
-                        {balance > 0 ? (
-                          <Input
-                            type="number"
-                            value={qtys[l.id] || ""}
-                            max={balance}
-                            onChange={(e) =>
-                              setQtys((q) => ({ ...q, [l.id]: e.target.valueAsNumber || 0 }))
-                            }
-                            className="h-8 text-right"
-                            placeholder="0"
-                            aria-label={`Receive ${l.description}`}
-                          />
-                        ) : (
-                          <Check className="ml-auto size-4 text-emerald-600" />
-                        )}
+                      )}
+                      <td className={cn("py-1 text-right", over && "text-red-600 dark:text-red-400")}>
+                        {fmt(vendorAmt)}
                       </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr className="border-t font-medium">
-                <td colSpan={3} className="py-1 text-right">
-                  Total
-                </td>
-                <td className="py-1 text-right">{fmt(total)}</td>
-                <td colSpan={receiving ? 3 : 2} />
-              </tr>
-            </tfoot>
-          </table>
+                      <td className="py-1 text-right">{fmtQty(l.qty_received)}</td>
+                      <td className={cn("py-1 text-right", balance === 0 && "text-emerald-600")}>
+                        {fmtQty(balance)}
+                      </td>
+                      {receiving && (
+                        <td className="py-1 text-right">
+                          {balance > 0 ? (
+                            <Input
+                              type="number"
+                              value={qtys[l.id] || ""}
+                              max={balance}
+                              onChange={(e) =>
+                                setQtys((q) => ({ ...q, [l.id]: e.target.valueAsNumber || 0 }))
+                              }
+                              className="h-8 text-right"
+                              placeholder="0"
+                              aria-label={`Receive ${l.description}`}
+                            />
+                          ) : (
+                            <Check className="ml-auto size-4 text-emerald-600" />
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t font-medium">
+                  <td colSpan={5} className="py-1 text-right">
+                    Total
+                  </td>
+                  <td className="text-muted-foreground py-1 text-right">{fmt(budgetTotal)}</td>
+                  <td />
+                  <td className="py-1 text-right">{fmt(vendorTotal)}</td>
+                  <td colSpan={receiving ? 3 : 2} />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
 
           {receiving && (
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3">

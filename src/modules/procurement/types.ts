@@ -134,7 +134,9 @@ export type IntentLine = {
   ref: string | null;
   description: string;
   unit: string | null;
+  location: string | null;
   budgeted_qty: number;
+  budget_rate: number;
   qty_requested: number;
   over_budget: boolean;
   bypass_approved_by: string | null;
@@ -153,90 +155,36 @@ export type ReleasedBudgetLine = {
 };
 
 /** One line the user is adding to a new intent. */
-export type IntentLineDraft = { budget_line_id: string; qty: number };
+export type IntentLineDraft = { budget_line_id: string; qty: number; location: string };
 
-// ── Comparison ───────────────────────────────────────────────────────────────
+// ── Enter vendor rates (approved intent → draft POs) ─────────────────────────
 
-export type ComparisonStatus = "draft" | "awarded";
-
-export const COMPARISON_STATUS_LABEL: Record<ComparisonStatus, string> = {
-  draft: "Draft",
-  awarded: "Awarded",
-};
-
-/** A row from list_project_comparisons. */
-export type ComparisonSummary = {
-  id: string;
-  title: string | null;
-  package_id: string | null;
-  package_name: string | null;
-  status: ComparisonStatus;
-  prepared_by: string | null;
-  prepared_by_name: string | null;
-  created_at: string;
-  awarded_by: string | null;
-  awarded_by_name: string | null;
-  awarded_at: string | null;
-  line_count: number;
-  vendor_count: number;
-  can_edit: boolean;
-  can_award: boolean;
-};
-
-/** A released budget package offered when starting a comparison. */
-export type PackageRef = { id: string; name: string };
-
-/** A vendor on the project's approved-vendor list. */
-export type ProjectVendor = {
-  vendor_id: string;
-  name: string;
-  type: VendorType;
-  approved_by: string | null;
-  approved_by_name: string | null;
-  approved_at: string;
-};
-
-export type ComparisonVendorRef = { vendor_id: string; name: string };
-export type ComparisonQuote = { vendor_id: string; rate: number; make: string | null };
-export type ComparisonAward = { vendor_id: string; qty: number; rate: number };
-
-export type ComparisonLine = {
-  id: string;
-  budget_line_id: string | null;
+/** An approved-intent line still awaiting a vendor (from list_intent_open_lines). */
+export type OpenIntentLine = {
+  intent_line_id: string;
+  package_id: string;
+  package_name: string;
+  ref: string | null;
   description: string;
   unit: string | null;
-  qty: number;
-  /** The budgeted rate for this line (from the budget package), for the vs-budget
-   * benchmark column. null when the line isn't bound to a budget line. */
-  budget_rate: number | null;
-  sort: number;
-  quotes: ComparisonQuote[];
-  award: ComparisonAward | null;
+  location: string | null;
+  budget_rate: number;
+  open_qty: number;
 };
 
-/** The fully-loaded comparison grid. */
-export type ComparisonDetail = {
-  id: string;
-  title: string | null;
-  status: ComparisonStatus;
-  package_name: string | null;
-  awarded_by_name: string | null;
-  awarded_at: string | null;
-  vendors: ComparisonVendorRef[];
-  lines: ComparisonLine[];
-  canEdit: boolean;
-  canAward: boolean;
-};
+/** One open line assigned to a vendor with its rate, sent when generating POs. */
+export type OrderLineAssignment = { intent_line_id: string; vendor_id: string; rate: number };
 
 // ── Purchase orders + receipts ───────────────────────────────────────────────
 
-export type OrderStatus = "draft" | "issued" | "closed" | "amending";
+export type OrderStatus = "draft" | "issued" | "closed" | "amending" | "cancelled";
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   draft: "Draft",
   issued: "Issued",
   closed: "Closed",
   amending: "Amending",
+  cancelled: "Cancelled",
 };
 
 /** A row from list_project_orders. */
@@ -249,48 +197,65 @@ export type OrderSummary = {
   finance_reviewed_by: string | null;
   director_approved_by: string | null;
   issued_at: string | null;
+  cancel_requested: boolean;
   line_count: number;
   total: number;
+  budget_total: number;
   can_review: boolean;
   can_approve: boolean;
   can_issue: boolean;
   can_receive: boolean;
+  can_cancel: boolean;
+  can_approve_cancel: boolean;
 };
 
 /** A PO header from get_order. */
 export type OrderDetail = {
   id: string;
   po_number: string | null;
+  intent_id: string | null;
   vendor_name: string;
+  vendor_trade: string | null;
+  vendor_type: VendorType;
+  vendor_contact_name: string | null;
+  vendor_contact_phone: string | null;
+  vendor_contact_email: string | null;
   status: OrderStatus;
   notes: string | null;
   version_no: number;
   over_budget: boolean;
   po_file: string | null;
   acceptance_file: string | null;
+  support_file: string | null;
   finance_reviewed_by: string | null;
   finance_reviewed_name: string | null;
   director_approved_by: string | null;
   director_approved_name: string | null;
-  senior_bypass_by: string | null;
-  senior_bypass_name: string | null;
   issued_at: string | null;
+  cancel_reason: string | null;
+  cancel_requested_by: string | null;
+  cancel_requested_name: string | null;
+  cancelled_by: string | null;
+  cancelled_name: string | null;
   can_review: boolean;
   can_approve: boolean;
   can_issue: boolean;
   can_receive: boolean;
   can_amend: boolean;
-  can_bypass: boolean;
+  can_cancel: boolean;
+  can_approve_cancel: boolean;
 };
 
-/** A PO line from get_order_lines, with received-so-far. */
+/** A PO line from get_order_lines, with the budgeted rate and received-so-far. */
 export type OrderLine = {
   id: string;
   description: string;
   unit: string | null;
+  location: string | null;
   qty_ordered: number;
   rate: number;
   amount: number;
+  budget_rate: number | null;
   qty_received: number;
 };
 
@@ -321,26 +286,5 @@ export type BudgetImportPackage = {
 };
 export type BudgetImportPreview = {
   packages: BudgetImportPackage[];
-  warnings: string[];
-};
-
-export type ComparisonImportQuote = { vendor: string; rate: number; make: string | null };
-export type ComparisonImportLine = {
-  ref: string | null;
-  description: string;
-  unit: string | null;
-  qty: number;
-  quotes: ComparisonImportQuote[];
-};
-export type ComparisonImportPackage = {
-  name: string;
-  vendors: string[];
-  lines: ComparisonImportLine[];
-};
-/** A parsed vendor name matched (or not) to a directory vendor. */
-export type VendorMatch = { name: string; vendor_id: string | null };
-export type ComparisonImportPreview = {
-  packages: ComparisonImportPackage[];
-  vendorMatches: VendorMatch[];
   warnings: string[];
 };

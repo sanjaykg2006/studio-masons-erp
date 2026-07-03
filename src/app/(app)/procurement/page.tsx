@@ -15,7 +15,7 @@ import {
  * Procurement Department home — a hub of the department's internal work, mirroring
  * the Design hub. Tasks / People / Settings reuse the generic department routes;
  * the vendor directory is Procurement's own library. Per-project procurement work
- * (budget, intents, comparisons, orders) is reached from each project.
+ * (budget, intents, orders) is reached from each project.
  */
 export default async function ProcurementPage() {
   const [canVendors, myDepts] = await Promise.all([

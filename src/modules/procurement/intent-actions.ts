@@ -27,7 +27,11 @@ export async function raiseIntent(
     p_project: projectId,
     p_needed_by: neededBy || null,
     p_notes: notes,
-    p_lines: clean.map((l) => ({ budget_line_id: l.budget_line_id, qty: l.qty })),
+    p_lines: clean.map((l) => ({
+      budget_line_id: l.budget_line_id,
+      qty: l.qty,
+      location: l.location ?? "",
+    })),
   });
   if (error) return fail(error.message);
   await logAudit("procurement.intent.raise", "Raised a purchase intent", { projectId });

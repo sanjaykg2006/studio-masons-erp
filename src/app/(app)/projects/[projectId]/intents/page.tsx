@@ -22,10 +22,11 @@ export default async function ProjectIntentsPage({
     .maybeSingle();
   if (!project) notFound();
 
-  const [intents, releasedLines, canCreate] = await Promise.all([
+  const [intents, releasedLines, canCreate, canOrder] = await Promise.all([
     listProjectIntents(projectId),
     listReleasedBudgetLines(projectId),
     canOnProject(projectId, "procurement.intent", "create"),
+    canOnProject(projectId, "procurement.order", "issue"),
   ]);
 
   return (
@@ -35,6 +36,7 @@ export default async function ProjectIntentsPage({
       intents={intents}
       releasedLines={releasedLines}
       canCreate={canCreate}
+      canOrder={canOrder}
     />
   );
 }

@@ -49,12 +49,15 @@ export function Intents({
   intents,
   releasedLines,
   canCreate,
+  canOrder,
 }: {
   projectId: string;
   projectName: string;
   intents: Intent[];
   releasedLines: ReleasedBudgetLine[];
   canCreate: boolean;
+  /** Procurement Manager (procurement.order:issue) — may enter vendor rates. */
+  canOrder: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -161,6 +164,13 @@ export function Intents({
                   </div>
                 </button>
                 <div className="flex shrink-0 items-center gap-1">
+                  {it.status === "approved" && canOrder && (
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/projects/${projectId}/intents/${it.id}/order`}>
+                        Enter vendor rates
+                      </Link>
+                    </Button>
+                  )}
                   {it.status === "pending" && it.can_approve && (
                     <>
                       <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => approveIntent(projectId, it.id))}>
@@ -195,6 +205,7 @@ export function Intents({
                       <tr className="text-muted-foreground border-b text-left text-xs">
                         <th className="py-1 font-medium">Package</th>
                         <th className="py-1 font-medium">Line</th>
+                        <th className="py-1 font-medium">Location</th>
                         <th className="w-24 py-1 text-right font-medium">Budgeted</th>
                         <th className="w-24 py-1 text-right font-medium">Requested</th>
                         <th className="w-28 py-1 font-medium" />
@@ -208,6 +219,7 @@ export function Intents({
                             {l.ref ? `${l.ref} · ` : ""}
                             {l.description}
                           </td>
+                          <td className="text-muted-foreground py-1">{l.location ?? "—"}</td>
                           <td className="py-1 text-right">{fmt(l.budgeted_qty)} {l.unit ?? ""}</td>
                           <td className="py-1 text-right">{fmt(l.qty_requested)}</td>
                           <td className="py-1">
@@ -244,11 +256,11 @@ function RaiseIntentForm({
 }) {
   const [neededBy, setNeededBy] = useState("");
   const [notes, setNotes] = useState("");
-  const [rows, setRows] = useState<IntentLineDraft[]>([{ budget_line_id: "", qty: 0 }]);
+  const [rows, setRows] = useState<IntentLineDraft[]>([{ budget_line_id: "", qty: 0, location: "" }]);
 
   const setRow = (i: number, patch: Partial<IntentLineDraft>) =>
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
-  const addRow = () => setRows((rs) => [...rs, { budget_line_id: "", qty: 0 }]);
+  const addRow = () => setRows((rs) => [...rs, { budget_line_id: "", qty: 0, location: "" }]);
   const removeRow = (i: number) => setRows((rs) => rs.filter((_, idx) => idx !== i));
 
   const lineById = (id: string) => releasedLines.find((l) => l.budget_line_id === id);
@@ -325,8 +337,15 @@ function RaiseIntentForm({
                     placeholder="Qty"
                     value={row.qty || ""}
                     onChange={(e) => setRow(i, { qty: e.target.valueAsNumber || 0 })}
-                    className="sm:w-28"
+                    className="sm:w-24"
                     aria-label="Quantity"
+                  />
+                  <Input
+                    placeholder="Location (optional)"
+                    value={row.location}
+                    onChange={(e) => setRow(i, { location: e.target.value })}
+                    className="sm:w-40"
+                    aria-label="Location"
                   />
                   {over && (
                     <span className="text-xs text-red-600 dark:text-red-400">Over budget</span>

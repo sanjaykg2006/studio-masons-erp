@@ -4,17 +4,19 @@ import type { ModuleDefinition } from "@/core/modules/registry";
 
 /**
  * Procurement — the company's buying department. It runs its own internal work
- * (the vendor directory, budget BOQs, purchase intents, comparison, POs and
- * receipts) and reaches into projects to buy for them. Two-tier gating, mirroring
- * Design: the vendor directory is a GLOBAL library (has_permission); everything
- * project-tied is project-scoped (has_project_permission).
+ * (the vendor directory, budget BOQs, purchase intents, POs and receipts) and
+ * reaches into projects to buy for them. Two-tier gating, mirroring Design: the
+ * vendor directory is a GLOBAL library (has_permission); everything project-tied
+ * is project-scoped (has_project_permission).
  *
  * The global vendor directory (migration 0036) is a department-level library.
- * The per-project resources (procurement.budget / .intent / .comparison /
- * .order / .receipt, migrations 0037-0040) are project-scoped: their grants come
- * from a company-wide department role that reaches every project. Every verb
- * listed here mirrors what the migrations actually enforce in RLS / the RPCs, so
- * the access matrix shows a checkbox for each one.
+ * The per-project resources (procurement.budget / .intent / .order / .receipt,
+ * migrations 0037-0040) are project-scoped: their grants come from a company-wide
+ * department role that reaches every project. Once an intent is approved the
+ * Procurement Manager enters the chosen vendor's rate per line, which generates
+ * the POs (there is no separate comparison step). Every verb listed here mirrors
+ * what the migrations enforce in RLS / the RPCs, so the access matrix shows a
+ * checkbox for each one.
  */
 export const procurementModule: ModuleDefinition = {
   id: "procurement",
@@ -47,14 +49,6 @@ export const procurementModule: ModuleDefinition = {
       actions: ["read", "create", "approve"],
       projectRole: true,
       projectLink: { segment: "intents", icon: FileText },
-    },
-    {
-      id: "procurement.comparison",
-      label: "Procurement · Comparisons",
-      // approve = award the comparison (Director sign-off).
-      actions: ["read", "create", "approve"],
-      projectRole: true,
-      projectLink: { segment: "comparisons", icon: FileText },
     },
     {
       id: "procurement.order",

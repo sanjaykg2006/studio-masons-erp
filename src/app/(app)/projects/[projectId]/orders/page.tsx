@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { createClient } from "@/core/supabase/server";
-import { requireProjectPermission, canOnProject } from "@/core/rbac/can";
-import { listProjectComparisons } from "@/modules/procurement/comparison-data";
+import { requireProjectPermission } from "@/core/rbac/can";
 import { listProjectOrders } from "@/modules/procurement/order-data";
 import { OrdersList } from "@/modules/procurement/components/orders-list";
 
@@ -23,19 +22,9 @@ export default async function ProjectOrdersPage({
     .maybeSingle();
   if (!project) notFound();
 
-  const [orders, comparisons, canIssue] = await Promise.all([
-    listProjectOrders(projectId),
-    listProjectComparisons(projectId),
-    canOnProject(projectId, "procurement.order", "issue"),
-  ]);
+  const orders = await listProjectOrders(projectId);
 
   return (
-    <OrdersList
-      projectId={projectId}
-      projectName={project.name as string}
-      orders={orders}
-      awardedComparisons={comparisons.filter((c) => c.status === "awarded")}
-      canIssue={canIssue}
-    />
+    <OrdersList projectId={projectId} projectName={project.name as string} orders={orders} />
   );
 }

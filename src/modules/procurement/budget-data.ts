@@ -4,6 +4,7 @@ import { createClient } from "@/core/supabase/server";
 import type {
   BudgetDetail,
   BudgetPackage,
+  BudgetSpend,
   BudgetVersion,
   ProjectBudget,
 } from "@/modules/procurement/types";
@@ -99,4 +100,21 @@ export async function getProjectBudget(
   };
 
   return { versions, current };
+}
+
+/**
+ * The project-level headline: the latest released budget's total value against the
+ * value ordered on live purchase orders (issued + closed). RLS-gated by
+ * procurement.budget:read via the RPC. Both default to 0 when there's nothing yet.
+ */
+export async function getBudgetSpend(projectId: string): Promise<BudgetSpend> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("project_budget_vs_expenditure", {
+    p_project: projectId,
+  });
+  const row = ((data ?? []) as { budget_total: number; expenditure_total: number }[])[0];
+  return {
+    budgetTotal: Number(row?.budget_total ?? 0),
+    expenditureTotal: Number(row?.expenditure_total ?? 0),
+  };
 }

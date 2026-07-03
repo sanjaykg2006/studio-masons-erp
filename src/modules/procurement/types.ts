@@ -88,6 +88,12 @@ export type ProjectBudget = {
   current: BudgetDetail | null;
 };
 
+/** Project headline: released budget value vs value ordered on live POs. */
+export type BudgetSpend = {
+  budgetTotal: number;
+  expenditureTotal: number;
+};
+
 /** Editable fields on a budget line. */
 export type BudgetLineInput = {
   ref: string;

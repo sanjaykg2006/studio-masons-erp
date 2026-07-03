@@ -307,7 +307,7 @@ function RaiseIntentForm({
               return (
                 <div key={i} className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <select
-                    className={cn(field, "sm:flex-1")}
+                    className={cn(field, "min-w-0 sm:flex-1")}
                     value={row.budget_line_id}
                     onChange={(e) => setRow(i, { budget_line_id: e.target.value })}
                     aria-label="Budget line"

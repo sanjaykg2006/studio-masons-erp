@@ -88,6 +88,17 @@ export function AssetRegistry({
     run(() => deleteAsset(a.id));
   };
 
+  const retire = (a: Asset) => {
+    if (!confirm(`Retire "${a.name}"? It will no longer be available to place or transfer.`)) return;
+    run(() => setAssetStatus(a.id, "retired"));
+  };
+
+  const unassign = (a: Asset) => {
+    const where = a.current_project_name ? ` from ${a.current_project_name}` : "";
+    if (!confirm(`Unassign "${a.name}"${where} and mark it idle?`)) return;
+    run(() => assignAsset(a.id, null, null));
+  };
+
   return (
     <div className="space-y-4">
       {/* Totals strip -------------------------------------------------------- */}
@@ -325,7 +336,7 @@ export function AssetRegistry({
                                       size="sm"
                                       variant="outline"
                                       disabled={pending}
-                                      onClick={() => run(() => setAssetStatus(a.id, "retired"))}
+                                      onClick={() => retire(a)}
                                     >
                                       Retire
                                     </Button>
@@ -346,7 +357,7 @@ export function AssetRegistry({
                                       size="sm"
                                       variant="outline"
                                       disabled={pending}
-                                      onClick={() => run(() => assignAsset(a.id, null, null))}
+                                      onClick={() => unassign(a)}
                                       title="Remove from its current project (mark idle) — senior only"
                                     >
                                       Unassign
@@ -508,6 +519,9 @@ function AssignForm({
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!custodian) return;
+    const who = people.find((p) => p.id === custodian)?.name ?? "the chosen custodian";
+    const where = projects.find((p) => p.id === project)?.name ?? "no project (idle)";
+    if (!confirm(`Place "${asset.name}" with ${who} on ${where} now? This takes effect immediately, without their acceptance.`)) return;
     onSubmit(project || null, custodian || null);
   };
   return (

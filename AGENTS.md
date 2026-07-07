@@ -1,138 +1,48 @@
 # AGENTS.md
 
-## Rules
+## General Rules
 
-- Read relevant files before editing.
-- Make minimal changes.
-- Reuse existing code.
+- Read only the files and documentation relevant to the current task.
+- Make the smallest change that solves the problem.
+- Reuse existing code before introducing new abstractions.
 - Avoid duplication.
-- Use TypeScript strictly.
+- Do not modify unrelated files.
+- Remove unused imports, dead code, and obsolete comments when touching a file.
+
+## Coding Standards
+
+- Use strict TypeScript.
 - Avoid `any`.
 - Use functional React components.
 - Follow Next.js App Router conventions.
-- Use Tailwind for styling.
-- Remove unused imports and dead code.
-- Do not modify unrelated files.
+- Use Tailwind CSS for styling.
 
-## Before Finishing
+## Documentation
+
+Read additional documentation only when required.
+
+| Task | Documentation |
+|------|---------------|
+| Architecture changes | `docs/architecture.md` |
+| Authentication | `docs/auth.md` |
+| New feature modules | `docs/modules.md` |
+| Permissions / RBAC | `docs/permissions.md` |
+| Database migrations | `docs/migrations.md` |
+| Project-scoped permissions | `docs/project-access.md` |
+
+Do not read unrelated documentation.
+
+## Validation
+
+Before finishing:
 
 - Run lint.
 - Check TypeScript errors.
-- Verify build succeeds.
-- Summarize changes made.
+- Run a production build if changes affect routing, configuration, dependencies, or build behavior.
+- Summarize all changes made.
 
-## Architecture (Studio-Masons ERP)
+## Existing Code
 
-Strict layering — each layer has one job, never mix them:
+Before introducing a new pattern, search for an existing implementation and follow it.
 
-- `src/app/` — **routing only.** Thin pages/layouts that read data and delegate
-  to modules/components. Route groups: `(auth)` = public, `(app)` = protected.
-- `src/core/` — **shared, cross-cutting infrastructure.** Stable, reusable:
-  - `core/config/env.ts` — zod-validated PUBLIC env (`NEXT_PUBLIC_*`). Server-only
-    secrets go in `core/config/server-env.ts` (lazy, `server-only`).
-  - `core/supabase/{client,server,middleware}.ts` — the three request clients.
-    `core/supabase/admin.ts` — privileged service-role client; bypasses RLS, use
-    only inside permission-gated server actions.
-  - `core/auth/` — `actions.ts` (server actions), `get-user.ts` (`getUser`/`requireUser` guards), `types.ts` (the `AuthProvider` abstraction).
-  - `core/modules/registry.ts` — the feature registry + `ModuleDefinition` type.
-- `src/modules/<feature>/` — **feature modules** (where the ERP grows). Each has
-  an `index.ts` exporting a `ModuleDefinition` and a `components/` folder.
-- `src/components/ui/` — shadcn primitives. `src/components/layout/` — app shell.
-- `src/lib/` — generic helpers (`cn`).
-
-### Auth flow
-- `middleware.ts` refreshes the session and guards `(app)` routes (first line).
-- `app/(app)/layout.tsx` calls `requireUser()` (server-side guard, second line).
-- All auth goes through `core/auth`. Adding Microsoft Entra ID SSO = enable the
-  Azure provider in Supabase + add a `signInWithOAuth("azure")` button. No refactor.
-
-### How to add a feature module (the extension point)
-1. Create `src/modules/<feature>/index.ts` exporting a `ModuleDefinition`.
-2. Create the route `src/app/(app)/<feature>/page.tsx` (guard with `requireUser()`).
-3. Add the module to the `modules` array in `src/core/modules/registry.ts`.
-The sidebar nav updates automatically. Use `src/modules/dashboard/` as the template.
-
-### Make the module permission-aware (REQUIRED if it has its own data)
-The access-control matrix shows a checkbox for every `(module, action)` a module
-declares in `ModuleDefinition.actions`. **A checkbox does nothing on its own** — it
-just records a grant. The module must actually enforce it. Without these steps a
-ticked box is cosmetic. `src/modules/access/` is the worked reference.
-
-Do all of this for a new data module (`<id>` = the module id = the permission
-`resource`; pick from `create | read | update | delete`):
-
-1. **Declare the verbs.** Set `actions: [...]` in the `ModuleDefinition` so the
-   matrix renders those columns. Declaring a `read` action automatically hides the
-   sidebar link from any role without `<id>:read` — no `requires` needed. Set
-   `requires` only to gate by a *different* resource/action than `<id>:read`.
-2. **Enforce in the DB — this is the real boundary.** In the module's migration,
-   `enable row level security` on each table and add policies that call
-   `has_permission('<id>', '<action>')`:
-   - `for select using (has_permission('<id>','read'))`
-   - `for insert with check (has_permission('<id>','create'))`
-   - `for update using (...'update') with check (...'update')`
-   - `for delete using (has_permission('<id>','delete'))`
-   RLS is what stops a crafted request; never rely on app guards alone.
-3. **Guard pages/server actions.** Pages: start with
-   `await requirePermission('<id>','read')` — redirects to `/forbidden` with a
-   clear message. Server actions: `const denied = await authorize('<id>','<action>'); if (denied) return denied;`
-   — returns a readable "no permission" ActionResult the UI shows inline (never
-   redirect mid-click). Convenience layer; RLS is the real boundary.
-4. **Gate the UI.** Wrap action buttons in `<Can resource="<id>" action="...">` or
-   check `usePermissions()` so users don't see controls they can't use (cosmetic).
-5. **Departments.** New non-general modules are department-scoped: an admin must add
-   the module to a department under `/access` before that department's roles can be
-   granted it. Mark it general there only if every role should get it.
-
-### Who edits the matrix: admin vs department lead
-Two surfaces, one shared `roles`/`role_permissions` model:
-- **Central `/access` (admin, `access:*`)** — creates roles + departments, tags
-  each role to a department, picks each department's modules, marks "general",
-  invites people, and APPOINTS each department's lead (`department_leads`). It only
-  edits the GLOBAL/system roles' matrix.
-- **`/team` Team Access (a department lead)** — for the roles under THEIR department
-  only: ticks the permission matrix (their department's non-general modules),
-  flags a role department-wide, and assigns people into those roles.
-
-"Lead-ness" is membership in `public.department_leads`, not a matrix grant (mirrors
-project membership). The boundary is the DB, in `0010_department_leads.sql`:
-- `is_department_lead(dept)` / `leads_any_department()` / `my_lead_departments()` —
-  the lead-scoping primitives (parallel to `has_permission`).
-- Lead branches OR'd into the RLS on `roles`/`role_permissions`/`departments`/
-  `department_modules`/`module_settings` read, plus `role_permissions` insert/delete
-  gated by `lead_can_grant(role, resource)` (non-general module IN the role's
-  department the caller leads). A lead literally cannot touch another department,
-  the global roles, or general modules.
-- Role-scope and people-assignment go through SECURITY DEFINER RPCs
-  (`set_role_department_wide`, `set_member_department_role`,
-  `clear_member_department_role`) that re-check `is_department_lead`, so leads never
-  get a broad write policy. The sidebar link is shown via a `team.access:read` nav
-  hint injected in `app/(app)/layout.tsx` when `leads_any_department()`.
-
-Checklist before calling a module "done": actions declared ✓ · RLS policies on
-every table ✓ · `requirePermission` on page + each action ✓ · `<Can>`/`usePermissions`
-in the UI ✓ · migration applied (`npm run db:push`) ✓.
-
-### Access verbs
-Eight verbs exist: the CRUD core (`create`/`read`/`update`/`delete`, shown as
-View/Create/Edit/Delete) plus the governance verbs `review`/`approve`/`issue`/
-`manage` used by approval workflows. They're listed in `ACTIONS`
-(core/rbac/types.ts) and the DB `app_action` enum — keep the two in sync.
-
-### Modules with several gated resources
-A module that gates more than one object (e.g. a project + its briefs +
-templates + membership) sets `resources: [...]` on its `ModuleDefinition`
-instead of a single `actions`. Each entry is its own permission `resource` and
-its own matrix row, under one sidebar item. `src/modules/design/` is the
-reference. Sub-resources are dotted, e.g. `design.project`.
-
-### Project-scoped (per-project) access
-When access depends on which project a user belongs to (not just their global
-role), gate with the project-aware layer instead of the global one:
-- DB: RLS policies call `has_project_permission(project_id, resource, action)`
-  (true for a department-wide global role OR a per-project membership role).
-- Pages: `await requireProjectPermission(projectId, '<id>', '<action>')`.
-- Server actions: `const denied = await authorizeProject(projectId, '<id>', '<action>'); if (denied) return denied;`
-- UI gating: load `getProjectPermissions(projectId)` and pass the keys down.
-Register the module's sub-resources to a department (so the 0004 guard permits
-granting them) — see migration 0006 for the worked example.
+Prefer consistency over cleverness.

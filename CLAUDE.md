@@ -1,3 +1,5 @@
 # CLAUDE.md
 
-Follow AGENTS.md for all project instructions.
+Follow AGENTS.md.
+
+Load additional documentation only when the current task requires it.

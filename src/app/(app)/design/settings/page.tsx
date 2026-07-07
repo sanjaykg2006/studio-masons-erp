@@ -24,6 +24,7 @@ import {
   createProjectRole,
   deleteProjectRole,
   moveProjectRole,
+  setFolderAccess,
   setProjectRolePermission,
 } from "@/modules/design/actions";
 import { FolderAccessMatrix } from "@/modules/design/components/folder-access-matrix";
@@ -96,7 +97,7 @@ export default async function DesignSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Design&apos;s controlled folder access</CardTitle>
+          <CardTitle>Controlled folder access</CardTitle>
           <CardDescription>
             Who can do what in each of the 12 standard project folders, by Design
             role. Applies to Design&apos;s projects.
@@ -107,6 +108,7 @@ export default async function DesignSettingsPage() {
             folders={config.folders}
             roles={config.roles}
             access={config.access}
+            onSet={setFolderAccess}
           />
         </CardContent>
       </Card>

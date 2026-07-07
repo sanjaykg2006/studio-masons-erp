@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { cn } from "@/lib/utils";
-import { setFolderAccess } from "@/modules/design/actions";
 import type { DesignRole } from "@/modules/design/data";
 import {
   FOLDER_CAPABILITY_LABEL,
@@ -12,6 +11,8 @@ import {
   type DesignFolderType,
   type FolderCapability,
 } from "@/modules/design/types";
+
+type ActionResult = { ok: true } | { ok: false; error: string };
 
 const CELL_TONE: Record<FolderCapability, string> = {
   view: "bg-muted text-muted-foreground",
@@ -24,10 +25,17 @@ export function FolderAccessMatrix({
   folders,
   roles,
   access,
+  onSet,
 }: {
   folders: DesignFolderType[];
   roles: DesignRole[];
   access: Record<string, FolderCapability>;
+  /** Persist one cell: set a capability, or clear it when null. */
+  onSet: (
+    folderKey: string,
+    roleId: string,
+    capability: FolderCapability | null
+  ) => Promise<ActionResult>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -41,7 +49,7 @@ export function FolderAccessMatrix({
   const cycle = (folderKey: string, roleId: string, cap: FolderCapability | null) =>
     startTransition(async () => {
       setError(null);
-      const res = await setFolderAccess(folderKey, roleId, next(cap));
+      const res = await onSet(folderKey, roleId, next(cap));
       if (!res.ok) setError(res.error);
       else router.refresh();
     });

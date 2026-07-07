@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/core/supabase/server";
+import type { FolderCapability } from "@/modules/design/types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 const ok: ActionResult = { ok: true };
@@ -56,6 +57,27 @@ export async function setDeptRolePermission(
     p_resource: resource,
     p_action: action,
     p_grant: grant,
+  });
+  if (error) return fail(error.message);
+  refresh(deptId);
+  return ok;
+}
+
+/** Set (or clear, when capability is null) a department role's capability on a
+ *  controlled folder. The RPC re-checks the caller manages the department and
+ *  that the department actually holds the Controlled Folder Access module. */
+export async function setDeptFolderAccess(
+  deptId: string,
+  folderKey: string,
+  roleId: string,
+  capability: FolderCapability | null
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_department_folder_access", {
+    p_dept: deptId,
+    p_folder: folderKey,
+    p_role: roleId,
+    p_capability: capability,
   });
   if (error) return fail(error.message);
   refresh(deptId);

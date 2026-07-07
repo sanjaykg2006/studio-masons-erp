@@ -57,5 +57,17 @@ export const projectsModule: ModuleDefinition = {
       // The general template library is a shared, department-level capability.
       departmentLevel: true,
     },
+    {
+      id: "folder.access",
+      // The controlled-folder ACCESS grid (folder × role → View/Edit/Approve).
+      // Allottable to any department: allot it and that department's settings
+      // page grows its own folder-access grid, columns = its project roles. No
+      // projectRole/departmentLevel — it has its own dedicated grid, so it must
+      // NOT surface as a row in the Project-roles or People & Access matrices;
+      // it just needs to be a tickable department module. Enforcement is already
+      // role-based (has_folder_capability), so no per-department gate is needed.
+      label: "Controlled Folder Access",
+      actions: ["read", "manage"],
+    },
   ],
 };

@@ -3,7 +3,12 @@ import "server-only";
 import { createClient } from "@/core/supabase/server";
 import { resourcesForModules } from "@/core/modules/registry";
 import type { Action } from "@/core/rbac/types";
-import type { ProjectRoleRow } from "@/modules/design/data";
+import type { FolderAccessConfig, ProjectRoleRow } from "@/modules/design/data";
+import type {
+  DesignFolderAccess,
+  DesignFolderType,
+  FolderCapability,
+} from "@/modules/design/types";
 
 export type MyDepartment = {
   id: string;
@@ -98,5 +103,40 @@ export async function getDepartmentRolesConfig(
       resource: string;
       action: Action;
     }[],
+  };
+}
+
+/**
+ * A department's controlled-folder access grid: the shared folder catalogue
+ * (same 12 folders every department uses) × the department's own project roles →
+ * capability. Only meaningful when the department holds the `folder.access`
+ * module. Roles/grants come from SECURITY DEFINER RPCs gated on the caller being
+ * able to manage the department (its lead or an access admin), mirroring
+ * getDepartmentRolesConfig — so a lead reads it without global access:read.
+ */
+export async function getDepartmentFolderAccess(
+  deptId: string
+): Promise<FolderAccessConfig> {
+  const supabase = await createClient();
+  const [foldersRes, rolesRes, accessRes] = await Promise.all([
+    supabase
+      .from("design_folder_types")
+      .select("key, label, sort, description")
+      .order("sort"),
+    supabase.rpc("department_roles", { p_dept: deptId }),
+    supabase.rpc("department_folder_access", { p_dept: deptId }),
+  ]);
+
+  const access: Record<string, FolderCapability> = {};
+  for (const a of (accessRes.data ?? []) as DesignFolderAccess[]) {
+    access[`${a.folder_key}:${a.role_id}`] = a.capability;
+  }
+  return {
+    folders: (foldersRes.data ?? []) as DesignFolderType[],
+    roles: ((rolesRes.data ?? []) as { id: string; label: string }[]).map((r) => ({
+      id: r.id,
+      label: r.label,
+    })),
+    access,
   };
 }

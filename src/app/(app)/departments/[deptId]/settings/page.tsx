@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/card";
 import {
   getDepartment,
+  getDepartmentFolderAccess,
+  getDepartmentModuleIds,
   getDepartmentRoleResources,
   getDepartmentRolesConfig,
 } from "@/modules/departments/data";
@@ -18,8 +20,10 @@ import {
   createDeptRole,
   deleteDeptRole,
   moveDeptRole,
+  setDeptFolderAccess,
   setDeptRolePermission,
 } from "@/modules/departments/actions";
+import { FolderAccessMatrix } from "@/modules/design/components/folder-access-matrix";
 import { ProjectRolesEditor } from "@/modules/design/components/project-roles-editor";
 
 /** A department's roles + seniority order (generic; e.g. Project Management). */
@@ -33,10 +37,17 @@ export default async function DepartmentSettingsPage({
   if (!dept || !dept.can_manage) notFound();
 
   // Rows are whatever modules are allotted to this department — not a fixed list.
-  const [roleConfig, roleResources] = await Promise.all([
+  const [roleConfig, roleResources, moduleIds] = await Promise.all([
     getDepartmentRolesConfig(deptId),
     getDepartmentRoleResources(deptId),
+    getDepartmentModuleIds(deptId),
   ]);
+
+  // The controlled-folder access grid only appears once the department has been
+  // given the Controlled Folder Access module on the Access Control page.
+  const folderConfig = moduleIds.has("folder.access")
+    ? await getDepartmentFolderAccess(deptId)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -75,6 +86,27 @@ export default async function DepartmentSettingsPage({
           />
         </CardContent>
       </Card>
+
+      {folderConfig && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Controlled folder access</CardTitle>
+            <CardDescription>
+              Who can do what in each of the standard project folders, by{" "}
+              {dept.label} role. Applies to this department&apos;s work on every
+              project.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FolderAccessMatrix
+              folders={folderConfig.folders}
+              roles={folderConfig.roles}
+              access={folderConfig.access}
+              onSet={setDeptFolderAccess.bind(null, deptId)}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

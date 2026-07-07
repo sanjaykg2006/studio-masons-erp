@@ -61,6 +61,13 @@ ERP-Project-Tracker.xlsx
 # old parser — dead code kept locally for reference
 /Old Parser/
 
+# old finance module — kept locally for reference, not source
+/Old - Finance Module Files/
+
+# local working notes / drafts — not source
+/docs/finance-module-questions.md
+/docs/inventory-management-guide.md
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

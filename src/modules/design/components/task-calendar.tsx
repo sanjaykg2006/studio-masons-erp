@@ -168,17 +168,20 @@ export function TaskCalendar({ tasks }: { tasks: TaskRow[] }) {
                 const t = seg.task;
                 const time = shortTime(t.start_time);
                 const done = t.status === "done";
+                const paused = Boolean(t.paused_at);
                 return (
                   <div
                     key={t.id}
-                    title={`${t.title}${t.assignee_name ? " — " + t.assignee_name : ""}`}
+                    title={`${t.title}${t.assignee_name ? " — " + t.assignee_name : ""}${paused ? " (paused)" : ""}`}
                     className={cn(
                       "absolute overflow-hidden whitespace-nowrap px-1.5 text-[10px] leading-[17px]",
                       seg.startsHere ? "rounded-l" : "",
                       seg.endsHere ? "rounded-r" : "",
                       done
                         ? "bg-emerald-500/20 text-emerald-800 line-through dark:text-emerald-300"
-                        : "bg-indigo-500/25 text-indigo-900 dark:text-indigo-200"
+                        : paused
+                          ? "bg-amber-500/20 text-amber-800 dark:text-amber-300"
+                          : "bg-indigo-500/25 text-indigo-900 dark:text-indigo-200"
                     )}
                     style={{
                       left: `calc(${(seg.colStart / 7) * 100}% + 2px)`,
@@ -187,6 +190,7 @@ export function TaskCalendar({ tasks }: { tasks: TaskRow[] }) {
                       height: BAR_H,
                     }}
                   >
+                    {seg.startsHere && paused ? <span>⏸ </span> : null}
                     {seg.startsHere && time ? <span className="font-medium">{time} </span> : null}
                     <span className="font-medium">{t.title}</span>
                     {t.assignee_name ? <span className="opacity-80"> · {t.assignee_name}</span> : null}

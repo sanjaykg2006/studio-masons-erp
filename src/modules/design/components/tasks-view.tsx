@@ -3,17 +3,19 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState, useTransition } from "react";
-import { ArrowLeft, CalendarDays, LayoutList, Plus } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CalendarDays, LayoutList, Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import type {
-  TaskPerson,
-  TaskProjectRef,
-  TaskRow,
-  TaskSubteam,
+import {
+  findTaskClashes,
+  shortTime,
+  type TaskPerson,
+  type TaskProjectRef,
+  type TaskRow,
+  type TaskSubteam,
 } from "@/modules/design/task-types";
 import { createTask } from "@/modules/design/task-actions";
 import { TaskBoard } from "@/modules/design/components/task-board";
@@ -54,10 +56,17 @@ export function TasksView({
   const [view, setView] = useState<"board" | "calendar">("board");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  // Tasks the pending new one would double-book the same person on. When set, we
+  // hold off creating and show a warning the user can override.
+  const [clashes, setClashes] = useState<TaskRow[] | null>(null);
 
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!form.title.trim()) return;
+  // Editing the form dismisses any stale clash warning; the next Add re-checks.
+  const update = (patch: Partial<typeof emptyForm>) => {
+    setForm((f) => ({ ...f, ...patch }));
+    if (clashes) setClashes(null);
+  };
+
+  const create = () => {
     startTransition(async () => {
       setError(null);
       const res = await createTask({ departmentId, ...form });
@@ -66,9 +75,43 @@ export function TasksView({
         return;
       }
       setForm(emptyForm);
+      setClashes(null);
       setOpen(false);
       router.refresh();
     });
+  };
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim()) return;
+    const found = findTaskClashes(
+      {
+        assigneeId: form.assigneeId || null,
+        start_date: form.startDate || null,
+        start_time: form.startTime || null,
+        due_date: form.dueDate || null,
+        due_time: form.dueTime || null,
+      },
+      tasks
+    );
+    if (found.length > 0) {
+      setClashes(found);
+      return;
+    }
+    create();
+  };
+
+  const assigneeName =
+    people.find((p) => p.user_id === form.assigneeId)?.full_name ??
+    people.find((p) => p.user_id === form.assigneeId)?.email ??
+    "this person";
+
+  const whenLabel = (t: TaskRow) => {
+    const date = t.start_date ?? t.due_date;
+    if (!date) return "";
+    const time = shortTime(t.start_time) ?? shortTime(t.due_time);
+    const end = t.due_date && t.due_date !== t.start_date ? ` – ${t.due_date}` : "";
+    return `${date}${time ? " " + time : ""}${end}`;
   };
 
   return (
@@ -160,7 +203,7 @@ export function TasksView({
               <select
                 className={field}
                 value={form.assigneeId}
-                onChange={(e) => setForm({ ...form, assigneeId: e.target.value })}
+                onChange={(e) => update({ assigneeId: e.target.value })}
                 aria-label="Assign to"
               >
                 <option value="">Unassigned</option>
@@ -190,7 +233,7 @@ export function TasksView({
                     type="date"
                     className={field}
                     value={form.startDate}
-                    onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                    onChange={(e) => update({ startDate: e.target.value })}
                     aria-label="Start date"
                   />
                 </label>
@@ -200,7 +243,7 @@ export function TasksView({
                     type="time"
                     className={field}
                     value={form.startTime}
-                    onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                    onChange={(e) => update({ startTime: e.target.value })}
                     aria-label="Start time"
                   />
                 </label>
@@ -210,7 +253,7 @@ export function TasksView({
                     type="date"
                     className={field}
                     value={form.dueDate}
-                    onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+                    onChange={(e) => update({ dueDate: e.target.value })}
                     aria-label="Due date"
                   />
                 </label>
@@ -220,7 +263,7 @@ export function TasksView({
                     type="time"
                     className={field}
                     value={form.dueTime}
-                    onChange={(e) => setForm({ ...form, dueTime: e.target.value })}
+                    onChange={(e) => update({ dueTime: e.target.value })}
                     aria-label="Due time"
                   />
                 </label>
@@ -229,10 +272,38 @@ export function TasksView({
                 You can attach documents to the task after adding it (open the task
                 and use the paperclip).
               </p>
-              <div className="sm:col-span-2">
-                <Button type="submit" size="sm" disabled={pending}>
-                  Add task
-                </Button>
+              {clashes && clashes.length > 0 && (
+                <div className="border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-300 sm:col-span-2 space-y-2 rounded-md border px-4 py-3 text-sm">
+                  <p className="flex items-center gap-1.5 font-medium">
+                    <AlertTriangle className="size-4" />
+                    This clashes with {assigneeName}&apos;s calendar
+                  </p>
+                  <ul className="ml-5 list-disc space-y-0.5 text-xs">
+                    {clashes.map((c) => (
+                      <li key={c.id}>
+                        <span className="font-medium">{c.title}</span>
+                        {whenLabel(c) ? ` — ${whenLabel(c)}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs">Add it anyway, or change the dates/person above.</p>
+                </div>
+              )}
+              <div className="flex gap-2 sm:col-span-2">
+                {clashes && clashes.length > 0 ? (
+                  <>
+                    <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={create}>
+                      Add anyway
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" onClick={() => setClashes(null)}>
+                      Go back
+                    </Button>
+                  </>
+                ) : (
+                  <Button type="submit" size="sm" disabled={pending}>
+                    Add task
+                  </Button>
+                )}
               </div>
             </form>
           </CardContent>
@@ -245,6 +316,7 @@ export function TasksView({
           people={people}
           subteams={subteams}
           projects={projects}
+          canManage={canCreate}
           onError={setError}
         />
       ) : (

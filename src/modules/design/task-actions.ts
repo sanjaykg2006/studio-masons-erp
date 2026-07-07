@@ -114,6 +114,20 @@ export async function setTaskStatus(taskId: string, status: TaskStatus): Promise
   return ok;
 }
 
+/** Put a task on hold, or take it off hold. Only the assigner (the task's
+ * creator) or a department lead / admin may — enforced by the RPC. */
+export async function setTaskPaused(taskId: string, paused: boolean): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_task_paused", {
+    p_task: taskId,
+    p_paused: paused,
+  });
+  if (error) return fail(error.message);
+  await logAudit(paused ? "task.pause" : "task.resume", paused ? "Paused a task" : "Resumed a task", { taskId });
+  revalidatePath("/design/tasks");
+  return ok;
+}
+
 export async function deleteTask(taskId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("tasks").delete().eq("id", taskId);

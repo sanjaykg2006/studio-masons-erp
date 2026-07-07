@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
-import { Download, Paperclip, Pencil, Share2, Trash2, X } from "lucide-react";
+import { Download, Paperclip, Pause, Pencil, Play, Share2, Trash2, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ import {
   loadTaskAttachments,
   loadTaskInvites,
   setTaskInvite,
+  setTaskPaused,
   setTaskStatus,
   updateTask,
   uploadTaskAttachment,
@@ -46,6 +47,8 @@ type SharedProps = {
   people: TaskPerson[];
   subteams: TaskSubteam[];
   projects: TaskProjectRef[];
+  /** Whether the viewer may pause/resume tasks (the assigner: a lead / admin). */
+  canManage: boolean;
   onError: (msg: string | null) => void;
 };
 
@@ -79,7 +82,7 @@ export function TaskBoard({
   );
 }
 
-function TaskCard({ task: t, people, subteams, projects, onError }: { task: TaskRow } & SharedProps) {
+function TaskCard({ task: t, people, subteams, projects, canManage, onError }: { task: TaskRow } & SharedProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [mode, setMode] = useState<"view" | "edit">("view");
@@ -181,6 +184,9 @@ function TaskCard({ task: t, people, subteams, projects, onError }: { task: Task
       () => setDocs((cur) => (cur ?? []).filter((d) => d.id !== id))
     );
 
+  const paused = Boolean(t.paused_at);
+  const togglePause = () => run(() => setTaskPaused(t.id, !paused));
+
   const dueTone = (() => {
     if (!t.due_date || t.status === "done") return "text-muted-foreground";
     const today = new Date();
@@ -277,10 +283,22 @@ function TaskCard({ task: t, people, subteams, projects, onError }: { task: Task
   }
 
   return (
-    <div className={cn("space-y-2 rounded-md border-l-4 bg-card p-3 shadow-sm", COLUMN_TONE[t.status])}>
+    <div className={cn("space-y-2 rounded-md border-l-4 bg-card p-3 shadow-sm", COLUMN_TONE[t.status], paused && "opacity-70")}>
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium leading-snug">{t.title}</p>
         <div className="flex shrink-0 gap-1.5">
+          {canManage && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={togglePause}
+              className={cn("hover:text-foreground", paused ? "text-amber-600" : "text-muted-foreground")}
+              aria-label={paused ? "Resume task" : "Pause task"}
+              title={paused ? "Resume task" : "Pause task"}
+            >
+              {paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
+            </button>
+          )}
           <button type="button" disabled={pending} onClick={() => setMode("edit")} className="text-muted-foreground hover:text-foreground" aria-label="Edit task">
             <Pencil className="size-3.5" />
           </button>
@@ -307,6 +325,11 @@ function TaskCard({ task: t, people, subteams, projects, onError }: { task: Task
       {t.description && <p className="text-muted-foreground text-xs leading-snug">{t.description}</p>}
 
       <div className="flex flex-wrap items-center gap-1.5">
+        {paused && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+            <Pause className="size-2.5" /> Paused
+          </span>
+        )}
         {t.subteam_label && (
           <span className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-medium text-indigo-700 dark:text-indigo-400">
             {t.subteam_label}

@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Reference-only copies of the old app (not part of the build).
+    "Old Parser/**",
+    "Old - Finance Module Files/**",
   ]),
 ]);
 

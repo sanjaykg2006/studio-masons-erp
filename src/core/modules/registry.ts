@@ -8,6 +8,8 @@ import { projectsModule } from "@/modules/projects";
 import { designModule } from "@/modules/design";
 import { procurementModule } from "@/modules/procurement";
 import { inventoryModule } from "@/modules/inventory";
+import { financeModule } from "@/modules/finance";
+import { pettyCashModule } from "@/modules/pettycash";
 import { departmentsModule } from "@/modules/departments";
 import { teamAccessModule } from "@/modules/team-access";
 
@@ -139,6 +141,8 @@ export const modules: ModuleDefinition[] = [
   designModule,
   procurementModule,
   inventoryModule,
+  financeModule,
+  pettyCashModule,
   departmentsModule,
   teamAccessModule,
   accessModule,

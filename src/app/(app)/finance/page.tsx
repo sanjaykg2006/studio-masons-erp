@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BarChart3, Building2, CheckSquare, Settings, Users } from "lucide-react";
+import { ArrowLeft, BarChart3, Building2, CheckSquare, Settings, Users } from "lucide-react";
 
 import { can } from "@/core/rbac/can";
 import { getMyDepartments } from "@/modules/departments/data";
@@ -25,6 +25,13 @@ export default async function FinancePage() {
 
   return (
     <div className="space-y-6">
+      <Link
+        href="/departments"
+        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+      >
+        <ArrowLeft className="size-4" /> Departments
+      </Link>
+
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Finance</h1>
         <p className="text-muted-foreground">The money desk — invoices, payments, advances and retention.</p>

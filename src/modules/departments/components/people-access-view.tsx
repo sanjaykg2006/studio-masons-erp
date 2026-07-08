@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AccessResource } from "@/modules/access/components/permission-matrix";
+import { DEPARTMENT_HOME } from "@/modules/departments/home";
 import type { MyDepartment } from "@/modules/departments/data";
 import type {
   SubteamMembership,
@@ -100,7 +101,7 @@ export function PeopleAccessView({
   return (
     <div className="space-y-6">
       <Link
-        href={department.key === "design" ? "/design" : `/departments/${deptId}`}
+        href={DEPARTMENT_HOME[department.key] ?? `/departments/${deptId}`}
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
       >
         <ArrowLeft className="size-4" /> {department.label}

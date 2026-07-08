@@ -41,6 +41,9 @@ export function TasksView({
   subteams,
   projects,
   canCreate,
+  backHref,
+  backLabel,
+  subtitle,
 }: {
   departmentId: string;
   tasks: TaskRow[];
@@ -49,6 +52,13 @@ export function TasksView({
   projects: TaskProjectRef[];
   /** Only a department lead (or admin) may create tasks. */
   canCreate: boolean;
+  /** Where the back arrow returns to — this department's home. Required so a new
+   * caller can never silently fall back to some other department's page. */
+  backHref: string;
+  /** The back arrow's label — this department's name. */
+  backLabel: string;
+  /** The line under the "Tasks" heading, describing this department's board. */
+  subtitle: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -117,19 +127,16 @@ export function TasksView({
   return (
     <div className="space-y-6">
       <Link
-        href="/design"
+        href={backHref}
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
       >
-        <ArrowLeft className="size-4" /> Design Department
+        <ArrowLeft className="size-4" /> {backLabel}
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
-          <p className="text-muted-foreground text-sm">
-            The Design team&apos;s to-do board. Concept and Technical tasks stay
-            private to their own team.
-          </p>
+          <p className="text-muted-foreground text-sm">{subtitle}</p>
         </div>
         <div className="flex gap-2">
           <div className="flex rounded-md border p-0.5">

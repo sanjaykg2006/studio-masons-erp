@@ -17,6 +17,9 @@ export default async function DesignTasksPage() {
       subteams={data.subteams}
       projects={data.projects}
       canCreate={data.canCreate}
+      backHref="/design"
+      backLabel="Design Department"
+      subtitle="The Design team's to-do board. Concept and Technical tasks stay private to their own team."
     />
   );
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2 } from "lucide-react";
+import { ArrowLeft, Building2 } from "lucide-react";
 
 import { getMyDepartments } from "@/modules/departments/data";
 import { DEPARTMENT_HOME } from "@/modules/departments/home";
@@ -18,6 +18,13 @@ export default async function DepartmentsPage() {
 
   return (
     <div className="space-y-6">
+      <Link
+        href="/dashboard"
+        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+      >
+        <ArrowLeft className="size-4" /> Dashboard
+      </Link>
+
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Departments</h1>
         <p className="text-muted-foreground">

@@ -7,6 +7,13 @@ import { createAdminClient } from "@/core/supabase/admin";
 import { authorize, authorizeProject } from "@/core/rbac/can";
 import { logAudit } from "@/modules/audit/log";
 import type { TaxLine } from "@/modules/finance/types";
+import {
+  validateAccountsBooking,
+  validateAdvanceRequest,
+  validateBillingBranch,
+  validateInvoiceEntry,
+  validatePaymentRequest,
+} from "@/modules/finance/validation";
 
 const DOCS_BUCKET = "finance-docs";
 const MAX_DOC_BYTES = 25 * 1024 * 1024; // 25 MB
@@ -48,7 +55,9 @@ export async function createInvoice(projectId: string, formData: FormData): Prom
   } catch {
     return fail("Something went wrong reading the invoice lines.");
   }
-  if (!orderId) return fail("Choose the purchase order this invoice is against.");
+
+  const invalid = validateInvoiceEntry({ orderId, vendorInvoiceNo, vendorInvoiceDate, lines });
+  if (invalid) return fail(invalid);
 
   // Optional invoice document.
   let filePath: string | null = null;
@@ -110,6 +119,8 @@ export async function accountsApproveInvoice(
     remarks: string;
   }
 ): Promise<ActionResult> {
+  const invalid = validateAccountsBooking(input);
+  if (invalid) return fail(invalid);
   const supabase = await createClient();
   const { error } = await supabase.rpc("accounts_approve_invoice", {
     p_invoice: invoiceId,
@@ -175,7 +186,8 @@ export async function raisePaymentRequest(
 ): Promise<ActionResult> {
   const denied = await authorizeProject(projectId, "finance.payment", "create");
   if (denied) return denied;
-  if (!(amount > 0)) return fail("Enter an amount to pay.");
+  const invalid = validatePaymentRequest(amount);
+  if (invalid) return fail(invalid);
   const supabase = await createClient();
   const { error } = await supabase.rpc("raise_payment_request", {
     p_invoice: invoiceId,
@@ -274,7 +286,8 @@ export async function requestPoAdvance(
   amount: number,
   tdsPct: number
 ): Promise<ActionResult> {
-  if (!(amount > 0)) return fail("Enter an advance amount.");
+  const invalid = validateAdvanceRequest(amount, tdsPct);
+  if (invalid) return fail(invalid);
   const supabase = await createClient();
   const { error } = await supabase.rpc("request_po_advance", {
     p_order: orderId,
@@ -316,6 +329,8 @@ export async function saveBillingBranch(
 ): Promise<ActionResult> {
   const denied = await authorize("finance.settings", "manage");
   if (denied) return denied;
+  const invalid = validateBillingBranch(name);
+  if (invalid) return fail(invalid);
   const supabase = await createClient();
   const { error } = await supabase.rpc("upsert_billing_branch", {
     p_id: branchId,

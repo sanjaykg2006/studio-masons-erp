@@ -6,6 +6,7 @@ import { createClient } from "@/core/supabase/server";
 import { createAdminClient } from "@/core/supabase/admin";
 import { authorize } from "@/core/rbac/can";
 import { logAudit } from "@/modules/audit/log";
+import { validatePettyCash } from "@/modules/pettycash/validation";
 
 const DOCS_BUCKET = "pettycash-docs";
 const MAX_DOC_BYTES = 25 * 1024 * 1024;
@@ -19,10 +20,11 @@ const refresh = () => revalidatePath("/pettycash");
 /** Any authenticated employee logs a spend. FormData carries the optional voucher. */
 export async function createPettyCash(formData: FormData): Promise<ActionResult> {
   const amount = parseFloat(String(formData.get("amount") ?? "0"));
-  if (!(amount > 0)) return fail("Enter an amount.");
+  const kind = String(formData.get("kind") ?? "reimbursement");
+  const invalid = validatePettyCash({ amount, kind });
+  if (invalid) return fail(invalid);
   const projectId = String(formData.get("project_id") ?? "") || null;
   const categoryId = String(formData.get("category_id") ?? "") || null;
-  const kind = String(formData.get("kind") ?? "reimbursement");
   const description = String(formData.get("description") ?? "");
   const spentOn = String(formData.get("spent_on") ?? "");
 

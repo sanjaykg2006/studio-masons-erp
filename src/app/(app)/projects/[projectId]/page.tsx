@@ -9,9 +9,9 @@ import {
   getProjectFolders,
   getProjectProgress,
   getPublishableTemplates,
-} from "@/modules/design/data";
-import { getProjectRfis } from "@/modules/design/rfi-data";
-import { ProjectDetail } from "@/modules/design/components/project-detail";
+} from "@/modules/projects/data";
+import { getProjectRfis } from "@/modules/projects/rfi-data";
+import { ProjectDetail } from "@/modules/projects/components/project-detail";
 
 export default async function ProjectPage({
   params,

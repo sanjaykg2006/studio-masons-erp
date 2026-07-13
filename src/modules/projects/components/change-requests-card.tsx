@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import {
   decideChangeRequest,
   raiseChangeRequest,
-} from "@/modules/design/actions";
+} from "@/modules/projects/actions";
 import {
   CHANGE_STATUS_LABEL,
   type ChangeRequestStatus,

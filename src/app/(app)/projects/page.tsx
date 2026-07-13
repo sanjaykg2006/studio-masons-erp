@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 
 import { can } from "@/core/rbac/can";
 import { hasProjectAccess } from "@/core/rbac/permissions";
-import { listProjects } from "@/modules/design/data";
-import { ProjectsList } from "@/modules/design/components/projects-list";
+import { listProjects } from "@/modules/projects/data";
+import { ProjectsList } from "@/modules/projects/components/projects-list";
 
 /** Projects home — the company-wide project list (tagged by department). */
 export default async function ProjectsPage() {

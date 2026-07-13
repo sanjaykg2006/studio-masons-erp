@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/core/supabase/server";
-import type { DepartmentRef, RfiRow, RoleRef } from "@/modules/design/rfi-types";
+import type { DepartmentRef, RfiRow, RoleRef } from "@/modules/projects/rfi-types";
 
 export type ProjectRfis = {
   rfis: RfiRow[];

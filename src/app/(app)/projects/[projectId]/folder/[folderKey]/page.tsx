@@ -2,8 +2,8 @@ import { notFound } from "next/navigation";
 
 import { requireProjectPermission } from "@/core/rbac/can";
 import { createClient } from "@/core/supabase/server";
-import { getFolderFiles, getProjectFolders } from "@/modules/design/data";
-import { FolderDetail } from "@/modules/design/components/folder-detail";
+import { getFolderFiles, getProjectFolders } from "@/modules/projects/data";
+import { FolderDetail } from "@/modules/projects/components/folder-detail";
 
 export default async function FolderPage({
   params,

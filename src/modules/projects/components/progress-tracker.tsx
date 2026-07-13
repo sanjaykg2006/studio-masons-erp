@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { toggleProjectStep } from "@/modules/design/actions";
+import { toggleProjectStep } from "@/modules/projects/actions";
 import type { ProjectProgress } from "@/modules/projects/types";
 
 /** A thin filled bar; width is the percentage, with a gentle fill animation. */

@@ -6,7 +6,7 @@ import { createClient } from "@/core/supabase/server";
 import { createAdminClient } from "@/core/supabase/admin";
 import { getUser } from "@/core/auth/get-user";
 import { logAudit } from "@/modules/audit/log";
-import type { RfiAttachment, RfiMessage } from "@/modules/design/rfi-types";
+import type { RfiAttachment, RfiMessage } from "@/modules/projects/rfi-types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 const ok: ActionResult = { ok: true };

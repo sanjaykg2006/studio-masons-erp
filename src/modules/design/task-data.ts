@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@/core/supabase/server";
 import { can } from "@/core/rbac/can";
-import { listProjects } from "@/modules/design/data";
+import { listProjects } from "@/modules/projects/data";
 import type {
   TaskPerson,
   TaskProjectRef,

@@ -19,7 +19,7 @@ import {
   getFileDownloadUrl,
   issueFiles,
   uploadFile,
-} from "@/modules/design/actions";
+} from "@/modules/projects/actions";
 import type { DesignFile, ProjectFolder } from "@/modules/projects/types";
 
 function formatBytes(n: number | null): string {

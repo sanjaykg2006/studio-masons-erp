@@ -12,8 +12,10 @@ import type { ModuleDefinition } from "@/core/modules/registry";
  * project.brief / project.member. Department-internal work (the questionnaire
  * template library, folder/stage/role settings) stays in the Design module.
  *
- * NOTE: the implementation (data/actions/components) currently still lives under
- * src/modules/design; relocating it here is a follow-up tidy (Step 4).
+ * The implementation (data/actions/components + RFI + brief PDF) now lives here.
+ * The one deliberate dependency back into Design is the template version-tree
+ * loader (loadVersionTree/TemplateTree), since briefs are built from Design's
+ * questionnaire templates.
  */
 export const projectsModule: ModuleDefinition = {
   id: "project",

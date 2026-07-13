@@ -31,7 +31,7 @@ import {
   type RfiRow,
   type RfiStatus,
   type RoleRef,
-} from "@/modules/design/rfi-types";
+} from "@/modules/projects/rfi-types";
 import {
   closeRfi,
   deleteRfiAttachment,
@@ -40,7 +40,7 @@ import {
   loadRfiThread,
   postRfiMessage,
   raiseRfi,
-} from "@/modules/design/rfi-actions";
+} from "@/modules/projects/rfi-actions";
 
 const STATUS_TONE: Record<RfiStatus, string> = {
   open: "bg-amber-500/15 text-amber-700 dark:text-amber-400",

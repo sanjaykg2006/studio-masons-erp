@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { requireProjectPermission } from "@/core/rbac/can";
-import { getBriefDetail } from "@/modules/design/data";
-import { BriefForm } from "@/modules/design/components/brief-form";
+import { getBriefDetail } from "@/modules/projects/data";
+import { BriefForm } from "@/modules/projects/components/brief-form";
 
 export default async function BriefPage({
   params,

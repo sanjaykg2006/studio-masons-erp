@@ -13,7 +13,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { RevisionState, TemplateTree } from "@/modules/design/data";
+import type { RevisionState } from "@/modules/projects/data";
+// The questionnaire tree type comes from the Design template library the brief is built on.
+import type { TemplateTree } from "@/modules/design/data";
 import type { DesignBrief } from "@/modules/projects/types";
 import {
   approveBrief,
@@ -25,8 +27,8 @@ import {
   saveBriefAnswer,
   submitBriefForReview,
   submitBriefRevision,
-} from "@/modules/design/actions";
-import { BriefStatusBadge } from "@/modules/design/components/status-badge";
+} from "@/modules/projects/actions";
+import { BriefStatusBadge } from "@/modules/projects/components/status-badge";
 
 type Props = {
   projectId: string;

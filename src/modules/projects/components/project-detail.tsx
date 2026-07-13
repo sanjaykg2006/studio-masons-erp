@@ -20,7 +20,7 @@ import type {
   DesignRole,
   ProjectBriefRow,
   ProjectMemberView,
-} from "@/modules/design/data";
+} from "@/modules/projects/data";
 import type {
   DesignChangeRequest,
   DesignProject,
@@ -35,17 +35,17 @@ import {
   freezeProject,
   removeMember,
   unfreezeProject,
-} from "@/modules/design/actions";
+} from "@/modules/projects/actions";
 import {
   BriefStatusBadge,
   ProjectPhaseBadge,
   ProjectStatusBadge,
-} from "@/modules/design/components/status-badge";
-import { ProgressTracker } from "@/modules/design/components/progress-tracker";
-import { FoldersCard } from "@/modules/design/components/folders-card";
-import { ChangeRequestsCard } from "@/modules/design/components/change-requests-card";
-import { RfiCard } from "@/modules/design/components/rfi-card";
-import type { DepartmentRef, RfiRow, RoleRef } from "@/modules/design/rfi-types";
+} from "@/modules/projects/components/status-badge";
+import { ProgressTracker } from "@/modules/projects/components/progress-tracker";
+import { FoldersCard } from "@/modules/projects/components/folders-card";
+import { ChangeRequestsCard } from "@/modules/projects/components/change-requests-card";
+import { RfiCard } from "@/modules/projects/components/rfi-card";
+import type { DepartmentRef, RfiRow, RoleRef } from "@/modules/projects/rfi-types";
 
 type Props = {
   project: DesignProject;

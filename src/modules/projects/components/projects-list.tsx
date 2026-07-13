@@ -15,11 +15,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { DesignProject } from "@/modules/projects/types";
-import { createProject } from "@/modules/design/actions";
+import { createProject } from "@/modules/projects/actions";
 import {
   ProjectPhaseBadge,
   ProjectStatusBadge,
-} from "@/modules/design/components/status-badge";
+} from "@/modules/projects/components/status-badge";
 
 export function ProjectsList({
   projects,

@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { rankLabel, rankTone } from "@/modules/design/components/folder-detail";
+import { rankLabel, rankTone } from "@/modules/projects/components/folder-detail";
 import type { ProjectFolder } from "@/modules/projects/types";
 
 /** The controlled folder structure for a project — only folders the user can see. */

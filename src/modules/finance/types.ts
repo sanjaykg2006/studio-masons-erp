@@ -197,10 +197,14 @@ export type InvoiceAgeing = {
 
 // ── The money math (shared by the approve modal preview + display) ───────────
 
+/** Round to 2 decimals (paise), matching the DB's round(x, 2). */
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
 /**
  * Single source of truth for the accounts-approval maths. Mirrors the DB's
  * accounts_approve_invoice so the modal preview matches what the server stores.
- * Other charges sit inside the TDS base; retention is 5% of the post-TDS amount.
+ * TDS is charged on the work value (base + other charges), GST excluded;
+ * retention is 5% of the base (work) value. All amounts rounded to paise.
  */
 export function computeApproval(opts: {
   lines: TaxLine[];
@@ -212,16 +216,19 @@ export function computeApproval(opts: {
   advanceRemaining: number;
 }) {
   const baseSum = opts.lines.reduce((s, l) => s + l.base, 0);
-  const gstSum = opts.lines.reduce((s, l) => s + (l.base * (l.sgst + l.cgst + l.igst)) / 100, 0);
-  const total = baseSum + gstSum;
-  const subtotal = total + opts.otherCharges;
+  const gstSum = round2(opts.lines.reduce((s, l) => s + (l.base * (l.sgst + l.cgst + l.igst)) / 100, 0));
+  const other = round2(opts.otherCharges);
+  const total = round2(baseSum + gstSum);
+  const subtotal = round2(total + other); // the full bill: base + GST + other
   const deduct = opts.deductAdvance
     ? Math.min(opts.advanceAmount, subtotal, opts.advanceRemaining)
     : 0;
   const afterAdvance = Math.max(0, subtotal - deduct);
-  const tdsAmount = (afterAdvance * opts.tdsPct) / 100;
-  const retentionAmount = opts.holdRetention ? (afterAdvance - tdsAmount) * 0.05 : 0;
-  const payable = Math.max(0, afterAdvance - tdsAmount - retentionAmount);
+  // TDS on the work value (base + other), GST excluded.
+  const tdsAmount = round2(((baseSum + other) * opts.tdsPct) / 100);
+  // Retention is 5% of the base (work) value.
+  const retentionAmount = opts.holdRetention ? round2(baseSum * 0.05) : 0;
+  const payable = Math.max(0, round2(subtotal - deduct - tdsAmount - retentionAmount));
   return { baseSum, gstSum, total, subtotal, deduct, afterAdvance, tdsAmount, retentionAmount, payable };
 }
 

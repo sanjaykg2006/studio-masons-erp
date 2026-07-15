@@ -4,6 +4,7 @@ import type { Action } from "@/core/rbac/types";
 import { dashboardModule } from "@/modules/dashboard";
 import { accessModule } from "@/modules/access";
 import { auditModule } from "@/modules/audit";
+import { errorLogModule } from "@/modules/errorlog";
 import { projectsModule } from "@/modules/projects";
 import { designModule } from "@/modules/design";
 import { procurementModule } from "@/modules/procurement";
@@ -147,6 +148,7 @@ export const modules: ModuleDefinition[] = [
   teamAccessModule,
   accessModule,
   auditModule,
+  errorLogModule,
 ];
 
 /** Modules that should appear in the sidebar, in order. */

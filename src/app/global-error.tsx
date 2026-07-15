@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 
 import { logClientError } from "@/core/observability/log-error";
+import { reportClientError } from "@/modules/errorlog/actions";
 
 /**
  * Last-resort fallback: catches errors thrown in the root layout itself (before
@@ -19,6 +20,13 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     logClientError("global", error);
+    void reportClientError({
+      context: "global",
+      message: error.message,
+      digest: error.digest,
+      detail: error.stack,
+      path: typeof window !== "undefined" ? window.location.pathname : undefined,
+    }).catch(() => {});
   }, [error]);
 
   return (

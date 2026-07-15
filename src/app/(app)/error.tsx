@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 
 import { logClientError } from "@/core/observability/log-error";
+import { reportClientError } from "@/modules/errorlog/actions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,6 +29,14 @@ export default function AppError({
 }) {
   useEffect(() => {
     logClientError("app", error);
+    // Also persist to the in-app Error Log (best-effort; never rethrow).
+    void reportClientError({
+      context: "app",
+      message: error.message,
+      digest: error.digest,
+      detail: error.stack,
+      path: typeof window !== "undefined" ? window.location.pathname : undefined,
+    }).catch(() => {});
   }, [error]);
 
   return (

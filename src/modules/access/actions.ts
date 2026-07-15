@@ -189,10 +189,17 @@ export async function inviteUser(
 }
 
 /**
- * Permanently remove a user (their auth login and, by cascade, their profile).
- * Guards against deleting your own account by accident.
+ * Remove a person from the ERP.
+ *
+ * Every action in the app records who did it, so a user who has done anything
+ * cannot be hard-deleted without destroying that history — the database blocks
+ * it. So we try a clean delete first (this only succeeds for an account that is
+ * referenced nowhere, e.g. a mistyped invite that never did a thing); if the
+ * database refuses, we DEACTIVATE instead: block their login and flag the
+ * profile, keeping all their past work intact and correctly attributed.
+ * Reversible via reactivateUser.
  */
-export async function removeUser(userId: string): Promise<ActionResult> {
+export async function deactivateUser(userId: string): Promise<ActionResult> {
   const denied = await authorize("access", "delete");
   if (denied) return denied;
 
@@ -200,10 +207,53 @@ export async function removeUser(userId: string): Promise<ActionResult> {
   if (current?.id === userId) return fail("You can't remove your own account.");
 
   const admin = createAdminClient();
-  const { error } = await admin.auth.admin.deleteUser(userId);
 
-  if (error) return fail(error.message);
-  await logAudit("user.remove", "Removed a user", { userId });
+  // Try a clean delete for a never-used account. The audit-trail foreign keys
+  // block this for anyone with history — which is exactly the protection we want.
+  const { error: delErr } = await admin.auth.admin.deleteUser(userId);
+  if (!delErr) {
+    await logAudit("user.remove", "Removed a user", { userId });
+    revalidatePath("/access");
+    return ok;
+  }
+
+  // They have history: deactivate instead. Ban the login for ~100 years
+  // (effectively permanent, but reversible) and stamp the profile.
+  const { error: banErr } = await admin.auth.admin.updateUserById(userId, {
+    ban_duration: "876000h",
+  });
+  if (banErr) return fail(banErr.message);
+
+  const { error: flagErr } = await admin
+    .from("profiles")
+    .update({ deactivated_at: new Date().toISOString() })
+    .eq("id", userId);
+  if (flagErr) return fail(flagErr.message);
+
+  await logAudit("user.deactivate", "Deactivated a user", { userId });
+  revalidatePath("/access");
+  return ok;
+}
+
+/** Switch a deactivated user back on: lift the login ban and clear the flag. */
+export async function reactivateUser(userId: string): Promise<ActionResult> {
+  const denied = await authorize("access", "update");
+  if (denied) return denied;
+
+  const admin = createAdminClient();
+
+  const { error: unbanErr } = await admin.auth.admin.updateUserById(userId, {
+    ban_duration: "none",
+  });
+  if (unbanErr) return fail(unbanErr.message);
+
+  const { error: flagErr } = await admin
+    .from("profiles")
+    .update({ deactivated_at: null })
+    .eq("id", userId);
+  if (flagErr) return fail(flagErr.message);
+
+  await logAudit("user.reactivate", "Reactivated a user", { userId });
   revalidatePath("/access");
   return ok;
 }

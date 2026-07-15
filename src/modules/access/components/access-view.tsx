@@ -9,7 +9,9 @@ import {
   Plus,
   ShieldCheck,
   Trash2,
+  UserCheck,
   UserPlus,
+  UserX,
 } from "lucide-react";
 
 import {
@@ -41,8 +43,9 @@ import {
   createRole,
   deleteDepartment,
   deleteRole,
+  deactivateUser,
   inviteUser,
-  removeUser,
+  reactivateUser,
   setDepartmentLead,
   setDepartmentModule,
   setModuleGeneral,
@@ -626,13 +629,20 @@ export function AccessView({
               <tr className="text-muted-foreground border-b text-left">
                 <th className="py-2 font-medium">User</th>
                 <th className="py-2 font-medium">Role</th>
-                <th className="py-2 text-right font-medium">Remove</th>
+                <th className="py-2 text-right font-medium">Access</th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
                 <tr key={u.id} className="border-b last:border-0">
-                  <td className="py-2">{userLabel(u)}</td>
+                  <td className={cn("py-2", u.deactivated_at && "text-muted-foreground")}>
+                    {userLabel(u)}
+                    {u.deactivated_at && (
+                      <span className="text-muted-foreground bg-muted ml-2 rounded px-1.5 py-0.5 text-xs">
+                        Inactive
+                      </span>
+                    )}
+                  </td>
                   <td className="py-2">
                     <select
                       className="border-input bg-background h-8 rounded-md border px-2"
@@ -657,6 +667,16 @@ export function AccessView({
                   <td className="py-2 text-right">
                     {u.id === currentUserId ? (
                       <span className="text-muted-foreground/50 text-xs">you</span>
+                    ) : u.deactivated_at ? (
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => run(() => reactivateUser(u.id))}
+                        className="text-muted-foreground hover:text-emerald-600 inline-flex items-center gap-1 text-xs"
+                        aria-label={`Reactivate ${u.email ?? u.id}`}
+                      >
+                        <UserCheck className="size-3.5" /> Reactivate
+                      </button>
                     ) : (
                       <button
                         type="button"
@@ -664,16 +684,16 @@ export function AccessView({
                         onClick={() => {
                           if (
                             confirm(
-                              `Remove ${userLabel(u)}? This permanently deletes their account.`
+                              `Remove ${userLabel(u)}? They lose access immediately. Their past work is kept, and you can reactivate them later.`
                             )
                           ) {
-                            run(() => removeUser(u.id));
+                            run(() => deactivateUser(u.id));
                           }
                         }}
-                        className="text-muted-foreground hover:text-destructive"
+                        className="text-muted-foreground hover:text-destructive inline-flex items-center gap-1 text-xs"
                         aria-label={`Remove ${u.email ?? u.id}`}
                       >
-                        <Trash2 className="size-3.5" />
+                        <UserX className="size-3.5" /> Remove
                       </button>
                     )}
                   </td>

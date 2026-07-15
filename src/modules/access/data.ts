@@ -16,6 +16,7 @@ export type AccessUser = {
   email: string | null;
   full_name: string | null;
   role_id: string | null;
+  deactivated_at: string | null;
 };
 
 /**
@@ -52,7 +53,7 @@ export async function getAccessData(): Promise<{
     supabase.from("role_permissions").select("role_id, resource, action"),
     supabase
       .from("profiles")
-      .select("id, email, full_name, role_id")
+      .select("id, email, full_name, role_id, deactivated_at")
       .order("email"),
     supabase
       .from("departments")

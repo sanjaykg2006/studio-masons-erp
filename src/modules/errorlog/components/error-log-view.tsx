@@ -121,12 +121,23 @@ export function ErrorLogView({
                       {new Date(e.occurred_at).toLocaleString("en-GB")}
                     </span>
                     <span className="font-medium">{e.message}</span>
+                    {e.user_note && (
+                      <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-400">
+                        note
+                      </span>
+                    )}
                     <span className="text-muted-foreground ml-auto text-xs">
                       {e.context}
                     </span>
                   </summary>
 
                   <dl className="text-muted-foreground mt-2 grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1 text-xs">
+                    {e.user_note && (
+                      <>
+                        <dt>User said</dt>
+                        <dd className="text-foreground">“{e.user_note}”</dd>
+                      </>
+                    )}
                     <dt>Who</dt>
                     <dd>{errorActor(e.user_email)}</dd>
                     {e.path && (

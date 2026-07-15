@@ -1,6 +1,6 @@
 "use server";
 
-import { recordError } from "@/modules/errorlog/log";
+import { attachErrorNote, recordError } from "@/modules/errorlog/log";
 
 /**
  * Persist a crash caught by a React error boundary (client-side).
@@ -19,8 +19,8 @@ export async function reportClientError(input: {
   digest?: string;
   detail?: string;
   path?: string;
-}): Promise<void> {
-  await recordError({
+}): Promise<{ id: string | null }> {
+  const id = await recordError({
     source: "client",
     context: input.context,
     message: input.message,
@@ -28,4 +28,13 @@ export async function reportClientError(input: {
     detail: input.detail ?? null,
     path: input.path ?? null,
   });
+  return { id };
+}
+
+/**
+ * Attach the user's optional "what I was doing" note to a crash already logged
+ * by reportClientError. Best-effort — the crash screen never blocks on it.
+ */
+export async function reportErrorNote(id: string, note: string): Promise<void> {
+  await attachErrorNote(id, note);
 }

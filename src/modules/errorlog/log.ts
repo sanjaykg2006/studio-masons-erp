@@ -27,8 +27,10 @@ export type RecordErrorInput = {
  * have no INSERT rights on error_logs (that's what keeps the log trustworthy).
  * Deliberately best-effort: a logging failure must never break — or mask — the
  * thing it is recording, so errors here are swallowed to the server console.
+ * Returns the new row's id (or null on failure) so a caller can attach a
+ * follow-up, e.g. the user's note on the crash screen.
  */
-export async function recordError(input: RecordErrorInput): Promise<void> {
+export async function recordError(input: RecordErrorInput): Promise<string | null> {
   try {
     // Snapshot who hit it, when a session is available (crashes can be anonymous).
     let userId: string | null = null;
@@ -42,17 +44,39 @@ export async function recordError(input: RecordErrorInput): Promise<void> {
     }
 
     const admin = createAdminClient();
-    await admin.from("error_logs").insert({
-      source: input.source,
-      context: input.context.slice(0, 200),
-      message: (input.message || "Unknown error").slice(0, 2000),
-      digest: input.digest ?? null,
-      detail: input.detail ? input.detail.slice(0, 8000) : null,
-      path: input.path ?? null,
-      user_id: userId,
-      user_email: userEmail,
-    });
+    const { data } = await admin
+      .from("error_logs")
+      .insert({
+        source: input.source,
+        context: input.context.slice(0, 200),
+        message: (input.message || "Unknown error").slice(0, 2000),
+        digest: input.digest ?? null,
+        detail: input.detail ? input.detail.slice(0, 8000) : null,
+        path: input.path ?? null,
+        user_id: userId,
+        user_email: userEmail,
+      })
+      .select("id")
+      .maybeSingle();
+    return (data as { id: string } | null)?.id ?? null;
   } catch (err) {
     console.error("[errorlog] failed to record error", input.context, err);
+    return null;
+  }
+}
+
+/**
+ * Attach a user's "here's what I was doing" note to an existing error row.
+ * Best-effort and length-capped; writes via the service role like every other
+ * error_logs write.
+ */
+export async function attachErrorNote(id: string, note: string): Promise<void> {
+  try {
+    const trimmed = note.trim().slice(0, 1000);
+    if (!id || !trimmed) return;
+    const admin = createAdminClient();
+    await admin.from("error_logs").update({ user_note: trimmed }).eq("id", id);
+  } catch (err) {
+    console.error("[errorlog] failed to attach note", err);
   }
 }

@@ -14,6 +14,7 @@ export type ErrorEntry = {
   detail: string | null;
   path: string | null;
   user_email: string | null;
+  user_note: string | null;
 };
 
 /** A page of the log plus the total count (so every entry stays reachable). */
@@ -32,9 +33,10 @@ export async function getErrorLogs({
   const supabase = await createClient();
   let query = supabase
     .from("error_logs")
-    .select("id, occurred_at, source, context, message, digest, detail, path, user_email", {
-      count: "exact",
-    })
+    .select(
+      "id, occurred_at, source, context, message, digest, detail, path, user_email, user_note",
+      { count: "exact" }
+    )
     .order("occurred_at", { ascending: false });
 
   if (source) query = query.eq("source", source);

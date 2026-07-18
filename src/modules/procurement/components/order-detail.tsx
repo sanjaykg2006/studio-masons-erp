@@ -36,6 +36,7 @@ import {
   startAmendment,
   uploadOrderDocument,
 } from "@/modules/procurement/order-actions";
+import { PoDocumentPanel } from "@/modules/procurement/components/po-document-panel";
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -56,10 +57,12 @@ export function OrderDetailView({
   projectId,
   order,
   lines,
+  project,
 }: {
   projectId: string;
   order: OrderDetail;
   lines: OrderLine[];
+  project: { name: string; code: string | null; client: string | null; location: string | null } | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -319,6 +322,7 @@ export function OrderDetailView({
           <CardDescription>The supporting quote, the issued PO, and the vendor&apos;s acceptance letter.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
+          {order.po_number && <PoDocumentPanel order={order} lines={lines} project={project} />}
           <DocSlot
             label="Supporting document"
             hasFile={!!order.support_file}

@@ -10,6 +10,27 @@ export async function listProjectOrders(projectId: string): Promise<OrderSummary
   return (data ?? []) as OrderSummary[];
 }
 
+/** The minimal project details the generated PO document prints in its header.
+ *  RLS-gated: readable because the caller already has procurement.order:read here. */
+export type OrderProjectHeader = {
+  name: string;
+  code: string | null;
+  client: string | null;
+  location: string | null;
+};
+
+export async function getOrderProjectHeader(
+  projectId: string
+): Promise<OrderProjectHeader | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("projects")
+    .select("name, code, client, location")
+    .eq("id", projectId)
+    .maybeSingle();
+  return (data ?? null) as OrderProjectHeader | null;
+}
+
 /** One PO's header + its lines (with received-so-far). */
 export async function getOrder(
   orderId: string

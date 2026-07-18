@@ -30,5 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "Old Parser", "Old - Finance Module Files"]
+  "exclude": ["node_modules", "Old Parser", "Old - Finance Module Files", "Old - Procurement"]
 }

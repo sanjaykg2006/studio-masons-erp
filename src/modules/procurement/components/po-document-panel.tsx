@@ -52,8 +52,10 @@ export function PoDocumentPanel({
   const [subject, setSubject] = useState("");
   const [quotationRef, setQuotationRef] = useState("");
   const [quotationDate, setQuotationDate] = useState("");
-  const [vendorAddress, setVendorAddress] = useState("");
-  const [vendorGstin, setVendorGstin] = useState("");
+  // Pre-filled from the vendor directory (via get_order); still editable for a
+  // one-off override on a single document.
+  const [vendorAddress, setVendorAddress] = useState(order.vendor_address ?? "");
+  const [vendorGstin, setVendorGstin] = useState(order.vendor_gstin ?? "");
   const [commencement, setCommencement] = useState("");
   const [completion, setCompletion] = useState("");
   const [notes, setNotes] = useState<Record<string, string>>({ ...DEFAULT_NOTES });

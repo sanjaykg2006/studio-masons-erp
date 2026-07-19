@@ -24,6 +24,9 @@ export type Vendor = {
   contact_name: string | null;
   contact_phone: string | null;
   contact_email: string | null;
+  address: string | null;
+  gst: string | null;
+  pan: string | null;
   status: VendorStatus;
   approved_by: string | null;
   approved_by_name: string | null;
@@ -39,6 +42,9 @@ export type VendorInput = {
   contact_name: string;
   contact_phone: string;
   contact_email: string;
+  address: string;
+  gst: string;
+  pan: string;
 };
 
 // ── Budget BOQ ───────────────────────────────────────────────────────────────
@@ -226,6 +232,8 @@ export type OrderDetail = {
   vendor_contact_name: string | null;
   vendor_contact_phone: string | null;
   vendor_contact_email: string | null;
+  vendor_address: string | null;
+  vendor_gstin: string | null;
   status: OrderStatus;
   notes: string | null;
   version_no: number;

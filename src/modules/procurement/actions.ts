@@ -28,6 +28,9 @@ function vendorColumns(input: VendorInput) {
     contact_name: clean(input.contact_name),
     contact_phone: clean(input.contact_phone),
     contact_email: clean(input.contact_email),
+    address: clean(input.address),
+    gst: clean(input.gst),
+    pan: clean(input.pan),
   };
 }
 

@@ -44,6 +44,9 @@ const EMPTY: VendorInput = {
   contact_name: "",
   contact_phone: "",
   contact_email: "",
+  address: "",
+  gst: "",
+  pan: "",
 };
 
 const toInput = (v: Vendor): VendorInput => ({
@@ -53,6 +56,9 @@ const toInput = (v: Vendor): VendorInput => ({
   contact_name: v.contact_name ?? "",
   contact_phone: v.contact_phone ?? "",
   contact_email: v.contact_email ?? "",
+  address: v.address ?? "",
+  gst: v.gst ?? "",
+  pan: v.pan ?? "",
 });
 
 export function VendorDirectory({
@@ -337,6 +343,30 @@ function VendorForm({
               onChange={(e) => set({ contact_email: e.target.value })}
               className="sm:w-56"
               aria-label="Contact email"
+            />
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              placeholder="GSTIN"
+              value={form.gst}
+              onChange={(e) => set({ gst: e.target.value })}
+              className="sm:w-56"
+              aria-label="Vendor GSTIN"
+            />
+            <Input
+              placeholder="PAN"
+              value={form.pan}
+              onChange={(e) => set({ pan: e.target.value })}
+              className="sm:w-48"
+              aria-label="Vendor PAN"
+            />
+            <textarea
+              placeholder="Registered address"
+              value={form.address}
+              onChange={(e) => set({ address: e.target.value })}
+              rows={2}
+              className={cn(field, "h-auto resize-y py-2 sm:flex-1")}
+              aria-label="Vendor address"
             />
           </div>
           <div className="flex gap-2">

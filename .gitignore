@@ -71,6 +71,12 @@ ERP-Project-Tracker.xlsx
 /docs/finance-module-questions.md
 /docs/inventory-management-guide.md
 
+# internal review / remediation / leadership reports — keep OFF git (not source)
+/ERP-Remediation-Plan.txt
+/ERP-Review-Report.txt
+/docs/director-report-2026-06-30.md
+/ERP-Self-Hosting-Roadmap.docx
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

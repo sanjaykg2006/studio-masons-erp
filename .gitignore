@@ -70,6 +70,7 @@ ERP-Project-Tracker.xlsx
 # local working notes / drafts — not source
 /docs/finance-module-questions.md
 /docs/inventory-management-guide.md
+/docs/self-host-supabase.md
 
 # internal review / remediation / leadership reports — keep OFF git (not source)
 /ERP-Remediation-Plan.txt

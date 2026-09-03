@@ -160,8 +160,11 @@ export async function inviteUser(
   if (!isValidEmail(cleanEmail)) return fail("Enter a valid email address.");
 
   const admin = createAdminClient();
+  // `next` pins the destination even when the link comes back as a `?code=`
+  // exchange (which carries no `type=invite` for the callback to read). An
+  // invited account has no password yet, so choosing one is the first stop.
   const { data, error } = await admin.auth.admin.inviteUserByEmail(cleanEmail, {
-    redirectTo: `${await siteOrigin()}/auth/callback`,
+    redirectTo: `${await siteOrigin()}/auth/callback?next=/set-password`,
   });
 
   if (error) {

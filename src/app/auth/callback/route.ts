@@ -35,10 +35,16 @@ export async function GET(request: Request) {
     const isLocal = process.env.NODE_ENV === "development";
     const safeNext = next.startsWith("/") ? next : "/dashboard";
 
-    if (isLocal) return NextResponse.redirect(`${origin}${safeNext}`);
+    // An invite or recovery link signs the person in but leaves the account
+    // with NO password of their own — they'd be stuck on magic links forever.
+    // Send them to choose one before they reach the app.
+    const dest =
+      type === "invite" || type === "recovery" ? "/set-password" : safeNext;
+
+    if (isLocal) return NextResponse.redirect(`${origin}${dest}`);
     if (forwardedHost)
-      return NextResponse.redirect(`https://${forwardedHost}${safeNext}`);
-    return NextResponse.redirect(`${origin}${safeNext}`);
+      return NextResponse.redirect(`https://${forwardedHost}${dest}`);
+    return NextResponse.redirect(`${origin}${dest}`);
   }
 
   return NextResponse.redirect(`${origin}/error?reason=auth_callback`);

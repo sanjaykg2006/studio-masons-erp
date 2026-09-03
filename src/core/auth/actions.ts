@@ -60,6 +60,34 @@ export async function signInWithMagicLink(
   return { ok: true };
 }
 
+/**
+ * Set (or replace) the signed-in user's own password.
+ *
+ * An invite link signs the person in but leaves the account WITHOUT a password
+ * — so without this step they could only ever get back in via a magic link.
+ * /set-password is where the callback sends them, before they reach the app.
+ */
+export async function setPassword(
+  _prev: AuthResult | null,
+  formData: FormData
+): Promise<AuthResult> {
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+
+  if (password.length < 8)
+    return { ok: false, error: "Use at least 8 characters." };
+  if (password !== confirm)
+    return { ok: false, error: "The two passwords don't match." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  redirect("/dashboard");
+}
+
 /** Sign the current user out and return to the login page. */
 export async function signOut() {
   const supabase = await createClient();

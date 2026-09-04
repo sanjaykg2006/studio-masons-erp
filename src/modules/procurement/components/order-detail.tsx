@@ -37,6 +37,7 @@ import {
   uploadOrderDocument,
 } from "@/modules/procurement/order-actions";
 import { PoDocumentPanel } from "@/modules/procurement/components/po-document-panel";
+import type { BillingBranch } from "@/modules/finance/types";
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -58,11 +59,14 @@ export function OrderDetailView({
   order,
   lines,
   project,
+  branches,
 }: {
   projectId: string;
   order: OrderDetail;
   lines: OrderLine[];
   project: { name: string; code: string | null; client: string | null; location: string | null } | null;
+  /** Active billing branches from Finance, for the PO document's GST block. */
+  branches: BillingBranch[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -322,7 +326,9 @@ export function OrderDetailView({
           <CardDescription>The supporting quote, the issued PO, and the vendor&apos;s acceptance letter.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          {order.po_number && <PoDocumentPanel order={order} lines={lines} project={project} />}
+          {order.po_number && (
+            <PoDocumentPanel order={order} lines={lines} project={project} branches={branches} />
+          )}
           <DocSlot
             label="Supporting document"
             hasFile={!!order.support_file}

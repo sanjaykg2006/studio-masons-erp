@@ -325,7 +325,8 @@ export async function saveBillingBranch(
   branchId: string | null,
   name: string,
   gstin: string,
-  address: string
+  address: string,
+  placeOfSupply: string
 ): Promise<ActionResult> {
   const denied = await authorize("finance.settings", "manage");
   if (denied) return denied;
@@ -337,6 +338,7 @@ export async function saveBillingBranch(
     p_name: name,
     p_gstin: gstin,
     p_address: address,
+    p_place_of_supply: placeOfSupply,
   });
   if (error) return fail(error.message);
   await logAudit("finance.settings.branch", "Saved a billing branch", { branchId });

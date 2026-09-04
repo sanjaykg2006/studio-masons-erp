@@ -8,15 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { OrderDetail, OrderLine } from "@/modules/procurement/types";
 import {
-  BILLING_BRANCHES,
-  DEFAULT_BILLING_BRANCH_ID,
   DEFAULT_NOTES,
   DEFAULT_PAYMENT_TERMS,
   NOTE_LABELS,
   NOTE_ORDER,
-  billingBranch,
+  toBillingBranch,
   variableRemarkRows,
 } from "@/modules/procurement/po-terms";
+import type { BillingBranch as FinanceBranch } from "@/modules/finance/types";
 
 type ProjectHeader = {
   name: string;
@@ -42,13 +41,19 @@ export function PoDocumentPanel({
   order,
   lines,
   project,
+  branches,
 }: {
   order: OrderDetail;
   lines: OrderLine[];
   project: ProjectHeader;
+  /** Active billing branches, as maintained by Finance. */
+  branches: FinanceBranch[];
 }) {
   const [open, setOpen] = useState(false);
-  const [branchId, setBranchId] = useState(DEFAULT_BILLING_BRANCH_ID);
+  // Finance's list, in its own order; the first active branch is the default.
+  // (get_order doesn't return the order's stored billing_branch_id, so the
+  // document's branch and the one Finance recorded are still chosen separately.)
+  const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
   const [subject, setSubject] = useState("");
   const [quotationRef, setQuotationRef] = useState("");
   const [quotationDate, setQuotationDate] = useState("");
@@ -96,7 +101,8 @@ export function PoDocumentPanel({
     setGenerating(true);
     try {
       const { generatePoPdf } = await import("@/modules/procurement/po-document");
-      const branch = billingBranch(branchId);
+      const row = branches.find((b) => b.id === branchId) ?? branches[0];
+      const branch = row ? toBillingBranch(row) : null;
       const paymentTermsLines = paymentTerms
         .split(/\r?\n/)
         .map((s) => s.trim())
@@ -114,7 +120,7 @@ export function PoDocumentPanel({
         subject: subject.trim() || undefined,
         quotationRef: quotationRef.trim() || undefined,
         quotationDate: quotationDate || undefined,
-        billingLines: branch.billingLines,
+        billingLines: branch?.billingLines,
         notes,
         paymentTermsLines: paymentTermsLines.length ? paymentTermsLines : undefined,
         lines: lines.map((l) => ({
@@ -163,21 +169,30 @@ export function PoDocumentPanel({
 
       {open && (
         <div className="mt-3 space-y-3 border-t pt-3">
-          {/* Billing branch — the one field that affects the printed GSTIN. */}
+          {/* Billing branch — the one field that affects the printed GSTIN.
+              The list is Finance's (Finance -> Settings), not a copy in code. */}
           <div className="sm:w-2/3">
             <label className={labelCls}>Billing address (GST branch)</label>
-            <select
-              value={branchId}
-              onChange={(e) => setBranchId(e.target.value)}
-              className={fieldCls}
-              aria-label="Billing branch"
-            >
-              {BILLING_BRANCHES.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.label} · {b.gstin}
-                </option>
-              ))}
-            </select>
+            {branches.length === 0 ? (
+              <p className="text-destructive text-sm">
+                No billing branches have been set up. Finance adds them under
+                Finance → Settings; without one the PO prints no GST details.
+              </p>
+            ) : (
+              <select
+                value={branchId}
+                onChange={(e) => setBranchId(e.target.value)}
+                className={fieldCls}
+                aria-label="Billing branch"
+              >
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                    {b.gstin ? ` · ${b.gstin}` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* PO document details ------------------------------------------------ */}

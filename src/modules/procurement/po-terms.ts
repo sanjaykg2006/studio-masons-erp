@@ -18,10 +18,13 @@ export const STUDIO_MASONS = {
   ],
 };
 
-// Studio Masons' GST-registered branch addresses. The PO billing block can be
-// issued from any of these — the user picks one when generating the PO. Each
-// entry's billingLines mirror exactly how the block renders (address + GSTIN +
-// place of supply). Karnataka (Bangalore) is the default / head office.
+// Billing branches are NOT held here. They live in the `billing_branches` table
+// that Finance maintains (Finance -> Settings) and reach the PO screen through
+// list_billing_branches. They used to be a constant in this file, which meant a
+// GSTIN corrected by Finance could never reach a printed PO without a code
+// change — and a wrong GSTIN on a PO reaches a vendor's accounts team.
+
+/** A billing branch as the PO document needs it. */
 export interface BillingBranch {
   id: string;
   label: string;        // shown in the dropdown
@@ -29,130 +32,29 @@ export interface BillingBranch {
   billingLines: string[];
 }
 
-export const BILLING_BRANCHES: BillingBranch[] = [
-  {
-    id: "KA",
-    label: "Karnataka — Bangalore (Head Office)",
-    gstin: "29ABFCS4554A1ZE",
-    billingLines: [
-      "No. 699, 7th Main, 2nd Floor, HAL 2nd Stage",
-      "Indiranagar, Bangalore 560008",
-      "GSTIN : 29ABFCS4554A1ZE",
-      "Place of Supply: Karnataka",
-    ],
-  },
-  {
-    id: "UP",
-    label: "Uttar Pradesh — Noida",
-    gstin: "09ABFCS4554A1ZG",
-    billingLines: [
-      "Desk No WSA99, B-128",
-      "Red FM Road, Sector 2",
-      "Noida, Gautambuddha Nagar",
-      "Uttar Pradesh - 201301",
-      "GSTIN : 09ABFCS4554A1ZG",
-      "Place of Supply: Uttar Pradesh",
-    ],
-  },
-  {
-    id: "HR",
-    label: "Haryana — Gurugram",
-    gstin: "06ABFCS4554A1ZM",
-    billingLines: [
-      "Plot No 36, Udyog Vihar",
-      "Peer Baba Road, Phase 1",
-      "Gurugram",
-      "Haryana - 122016",
-      "GSTIN : 06ABFCS4554A1ZM",
-      "Place of Supply: Haryana",
-    ],
-  },
-  {
-    id: "KL",
-    label: "Kerala — Idukki",
-    gstin: "32ABFCS4554A1ZR",
-    billingLines: [
-      "No. 51, Ward No. 13",
-      "Puthenpurayil H K Chappath PO",
-      "Alady, Idukki",
-      "Kerala - 685505",
-      "GSTIN : 32ABFCS4554A1ZR",
-      "Place of Supply: Kerala",
-    ],
-  },
-  {
-    id: "DL",
-    label: "Delhi — New Delhi",
-    gstin: "07ABFCS4554A1ZK",
-    billingLines: [
-      "KH/Mustatli, No-154, Lilla No 19/2",
-      "Desk No: E2, 2nd Floor Back Side Office No 4",
-      "Master Space Plote NO -27, Najafgarh Dichaon Road",
-      "New Delhi, Delhi - 110043",
-      "GSTIN : 07ABFCS4554A1ZK",
-      "Place of Supply: Delhi",
-    ],
-  },
-  {
-    id: "AP",
-    label: "Andhra Pradesh — Visakhapatnam",
-    gstin: "37ABFCS4554A1ZH",
-    billingLines: [
-      "No 6-10-27, East Point Colony, Sri Ganga",
-      "Mandir Street, Pedda Waltair",
-      "Visakhapatnam",
-      "Andhra Pradesh - 530017",
-      "GSTIN : 37ABFCS4554A1ZH",
-      "Place of Supply: Andhra Pradesh",
-    ],
-  },
-  {
-    id: "TN",
-    label: "Tamil Nadu — Chennai",
-    gstin: "33ABFCS4554A1ZP",
-    billingLines: [
-      "Plot No. 33, Door No.155",
-      "Sapthagiri Nagar, Main Road",
-      "Sholinganallur, Chennai - 600119",
-      "GSTIN : 33ABFCS4554A1ZP",
-      "Place of Supply: Tamil Nadu",
-    ],
-  },
-  {
-    id: "TG",
-    label: "Telangana — Hyderabad",
-    gstin: "36ABFCS4554A1ZJ",
-    billingLines: [
-      "RAM SVR, Plot No 4/2, Sector 1, Rent A Desk",
-      "Madhapur, HUDA Techno Enclave",
-      "HITEC City, Hyderabad - 500081",
-      "GSTIN : 36ABFCS4554A1ZJ",
-      "Place of Supply: Telangana",
-    ],
-  },
-  {
-    id: "MH",
-    label: "Maharashtra — Raigad",
-    gstin: "27ABFCS4554A1ZI",
-    billingLines: [
-      "No. 1513 Room No 2, Pandwadevi Road",
-      "Alibag, Poynad, Ambepur, Raigad",
-      "Maharashtra - 402108",
-      "GSTIN : 27ABFCS4554A1ZI",
-      "Place of Supply: Maharashtra",
-    ],
-  },
-];
-
-export const DEFAULT_BILLING_BRANCH_ID = "KA";
-
-// Resolves a branch by id, falling back to the head office if unknown/missing.
-export function billingBranch(id?: string): BillingBranch {
-  return BILLING_BRANCHES.find((b) => b.id === id) ?? BILLING_BRANCHES[0];
+/** Finance's stored branch, as the PO billing block prints it: address lines,
+ * then GSTIN, then place of supply — the same shape the constant used to hold. */
+export function toBillingBranch(row: {
+  id: string;
+  name: string;
+  gstin: string | null;
+  address: string | null;
+  place_of_supply: string | null;
+}): BillingBranch {
+  const lines = (row.address ?? "")
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (row.gstin) lines.push(`GSTIN : ${row.gstin}`);
+  if (row.place_of_supply) lines.push(`Place of Supply: ${row.place_of_supply}`);
+  return {
+    id: row.id,
+    label: row.name,
+    gstin: row.gstin ?? "",
+    billingLines: lines,
+  };
 }
 
-// Default payment-term lines (the a/b/c sub-points of note 5). These prefill the
-// editable "Payment Terms" field — the user can change them per PO.
 export const DEFAULT_PAYMENT_TERMS = [
   "GST 18% Applicable",
   "100% Advance Payment Excluding GST will be released against acceptance of this PO in writing.",

@@ -11,8 +11,8 @@ import type { BillingBranch } from "@/modules/finance/types";
 import { saveBillingBranch, setBillingBranchActive } from "@/modules/finance/actions";
 
 type Result = { ok: true } | { ok: false; error: string };
-type Draft = { name: string; gstin: string; address: string };
-const EMPTY: Draft = { name: "", gstin: "", address: "" };
+type Draft = { name: string; gstin: string; address: string; placeOfSupply: string };
+const EMPTY: Draft = { name: "", gstin: "", address: "", placeOfSupply: "" };
 
 export function BillingBranches({
   branches,
@@ -67,7 +67,7 @@ export function BillingBranches({
           initial={EMPTY}
           pending={pending}
           onCancel={() => setAdding(false)}
-          onSubmit={(d) => run(() => saveBillingBranch(null, d.name, d.gstin, d.address), () => setAdding(false))}
+          onSubmit={(d) => run(() => saveBillingBranch(null, d.name, d.gstin, d.address, d.placeOfSupply), () => setAdding(false))}
         />
       )}
 
@@ -107,10 +107,10 @@ export function BillingBranches({
                     <div className="pb-3">
                       <BranchForm
                         title={`Edit ${b.name}`}
-                        initial={{ name: b.name, gstin: b.gstin ?? "", address: b.address ?? "" }}
+                        initial={{ name: b.name, gstin: b.gstin ?? "", address: b.address ?? "", placeOfSupply: b.place_of_supply ?? "" }}
                         pending={pending}
                         onCancel={() => setEditing(null)}
-                        onSubmit={(d) => run(() => saveBillingBranch(b.id, d.name, d.gstin, d.address), () => setEditing(null))}
+                        onSubmit={(d) => run(() => saveBillingBranch(b.id, d.name, d.gstin, d.address, d.placeOfSupply), () => setEditing(null))}
                       />
                     </div>
                   )}
@@ -156,6 +156,8 @@ function BranchForm({
             <Input placeholder="GSTIN" value={form.gstin} onChange={(e) => set({ gstin: e.target.value })} className="sm:w-56" aria-label="GSTIN" />
           </div>
           <Input placeholder="Address (optional)" value={form.address} onChange={(e) => set({ address: e.target.value })} aria-label="Address" />
+          {/* Both of these print on every PO issued from this branch. */}
+          <Input placeholder="Place of supply, e.g. Karnataka" value={form.placeOfSupply} onChange={(e) => set({ placeOfSupply: e.target.value })} aria-label="Place of supply" />
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={pending}>Save</Button>
             <Button type="button" size="sm" variant="outline" onClick={onCancel}>Cancel</Button>

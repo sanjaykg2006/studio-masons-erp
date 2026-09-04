@@ -159,6 +159,8 @@ export type BillingBranch = {
   name: string;
   gstin: string | null;
   address: string | null;
+  /** State printed as "Place of Supply" on the PO billing block. */
+  place_of_supply: string | null;
   active: boolean;
 };
 

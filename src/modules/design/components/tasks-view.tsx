@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState, useTransition } from "react";
 import { AlertTriangle, ArrowLeft, CalendarDays, LayoutList, Plus } from "lucide-react";
 
+import { useRealtimeRefresh } from "@/core/hooks/use-live-refresh";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,12 @@ export function TasksView({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+
+  // A shared board: someone else adding, moving, pausing or finishing a task on
+  // this department's board shows up here without anyone pressing reload.
+  useRealtimeRefresh(`tasks:${departmentId}`, [
+    { table: "tasks", filter: `department_id=eq.${departmentId}` },
+  ]);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"board" | "calendar">("board");
   const [open, setOpen] = useState(false);

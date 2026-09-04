@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { AppUser } from "@/core/auth/types";
 import { PermissionsProvider } from "@/core/rbac/can-client";
 import type { PermissionKey } from "@/core/rbac/types";
+import { AutoRefresh } from "@/components/layout/auto-refresh";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 
@@ -23,6 +24,7 @@ export function AppShell({
 }) {
   return (
     <PermissionsProvider permissions={permissions}>
+      <AutoRefresh />
       <div className="flex h-screen overflow-hidden">
         <Sidebar />
         <div className="flex flex-1 flex-col overflow-hidden">

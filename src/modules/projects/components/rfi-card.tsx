@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 
+import { useRealtimeRefresh } from "@/core/hooks/use-live-refresh";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -128,6 +129,23 @@ export function RfiCard({
       setThreads((t) => ({ ...t, [rfiId]: { messages: res.messages, attachments: res.attachments } }));
     } else setError(res.error);
   };
+
+  // Someone else raising, answering or closing an RFI should land here without
+  // a reload — a question-and-answer thread that needs refreshing isn't one.
+  // A page re-render covers the list; the open thread is client state, so it
+  // has to be pulled again by hand.
+  useRealtimeRefresh(
+    `rfi:${projectId}`,
+    [
+      { table: "rfis", filter: `project_id=eq.${projectId}` },
+      // rfi_messages carries no project column; RLS already limits the stream
+      // to threads on projects this person can see.
+      { table: "rfi_messages" },
+    ],
+    () => {
+      if (expanded) void reloadThread(expanded);
+    }
+  );
 
   const sendReply = (rfi: RfiRow, asAnswer: boolean) => {
     if (!reply.trim()) return;

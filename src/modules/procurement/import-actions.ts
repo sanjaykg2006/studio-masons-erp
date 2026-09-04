@@ -49,6 +49,10 @@ export async function commitBudgetImport(
         unit: l.unit,
         qty: l.qty,
         rate: l.rate,
+        supply_rate: l.supplyRate,
+        install_rate: l.installRate,
+        supply_amount: l.supplyAmount,
+        install_amount: l.installAmount,
       })),
     })),
   });

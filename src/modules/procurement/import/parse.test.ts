@@ -33,6 +33,51 @@ describe("parseBudgetWorkbook", () => {
     expect(pkg.reconcile).toEqual({ status: "ok", sheetTotal: 1500 });
   });
 
+  it("keeps the Supply/Installation rates and their own amounts alongside the combined figures", async () => {
+    const { packages } = await parse({
+      Electrical: [
+        ["S.L", "Description", "Unit", "Qty", "Supply Rate", "Supply Amount", "Installation Rate", "Installation Amount"],
+        ["1", "Cable tray", "Rmt", 10, 100, 1000, 50, 500],
+        ["", "Grand Total", "", "", "", 1000, "", 500],
+      ],
+    });
+    const line = packages[0].lines[0];
+    expect(line.supplyRate).toBeCloseTo(100, 5);
+    expect(line.installRate).toBeCloseTo(50, 5);
+    // Amounts are the sheet's own figures, not qty x rate recomputed.
+    expect(line.supplyAmount).toBeCloseTo(1000, 5);
+    expect(line.installAmount).toBeCloseTo(500, 5);
+    // The combined rate is unchanged, so everything downstream still adds up.
+    expect(line.rate).toBeCloseTo(150, 5);
+  });
+
+  it("takes split amounts verbatim even when the sheet's own rate x qty disagrees", async () => {
+    const { packages } = await parse({
+      Electrical: [
+        ["S.L", "Description", "Unit", "Qty", "Supply Rate", "Supply Amount", "Installation Rate", "Installation Amount"],
+        // 3 x 33.33 = 99.99, but the consultant printed 100.
+        ["1", "Junction box", "Nos", 3, 33.33, 100, 10, 30],
+      ],
+    });
+    const line = packages[0].lines[0];
+    expect(line.supplyAmount).toBe(100);
+    expect(line.installAmount).toBe(30);
+  });
+
+  it("leaves the breakdown null on a single-rate sheet", async () => {
+    const { packages } = await parse({
+      Civil: [
+        ["Sl.No", "Description", "Unit", "Qty", "Rate", "Amount"],
+        ["1", "Screed", "Sqm", 10, 100, 1000],
+      ],
+    });
+    const line = packages[0].lines[0];
+    expect(line.supplyRate).toBeNull();
+    expect(line.installRate).toBeNull();
+    expect(line.supplyAmount).toBeNull();
+    expect(line.installAmount).toBeNull();
+  });
+
   it("treats a bare 'TOTAL' column as the quantity (interior/furniture layout)", async () => {
     const { packages } = await parse({
       Modular: [

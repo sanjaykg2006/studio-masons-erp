@@ -212,6 +212,11 @@ export async function parseBudgetWorkbook(buffer: ArrayBuffer): Promise<BudgetIm
       const rate = split ? num(vals, supplyRateC) + num(vals, installRateC) : num(vals, singleRateC);
       const amount = rowAmount(vals, qty, rate);
       if (!qty && !rate && !amount) continue; // section heading / spec paragraph
+      // Keep the split the sheet actually stated, alongside the combined figures.
+      // Amounts are taken as printed rather than recomputed, so a package always
+      // ties back to the source document. Null (not 0) on an unsplit sheet, so a
+      // missing column stays distinguishable from a genuine nil quote.
+      const splitAmounts = supplyAmtC !== -1 && installAmtC !== -1;
       lines.push({
         ref: refC !== -1 ? cellText(vals[refC]) || null : null,
         description: item,
@@ -221,6 +226,10 @@ export async function parseBudgetWorkbook(buffer: ArrayBuffer): Promise<BudgetIm
         // reproduces the sheet's figure (and clubs installation). Falls back to the
         // combined rate for qty-less / lump-sum lines.
         rate: qty > 0 ? amount / qty : rate,
+        supplyRate: split ? num(vals, supplyRateC) : null,
+        installRate: split ? num(vals, installRateC) : null,
+        supplyAmount: splitAmounts ? num(vals, supplyAmtC) : null,
+        installAmount: splitAmounts ? num(vals, installAmtC) : null,
       });
     }
 

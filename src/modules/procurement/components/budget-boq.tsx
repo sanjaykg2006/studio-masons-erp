@@ -219,6 +219,11 @@ function PackageBlock({
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(pkg.name);
   const total = pkg.lines.reduce((s, l) => s + l.amount, 0);
+  // Show the breakdown only for a package that actually has one — a single-rate
+  // sheet keeps the plain three-column table rather than growing empty columns.
+  const split = pkg.lines.some((l) => l.supplyRate != null || l.installRate != null);
+  const supplyTotal = pkg.lines.reduce((s, l) => s + (l.supplyAmount ?? 0), 0);
+  const installTotal = pkg.lines.reduce((s, l) => s + (l.installAmount ?? 0), 0);
 
   return (
     <Card>
@@ -272,17 +277,51 @@ function PackageBlock({
           )}
         </div>
 
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-muted-foreground border-b text-left text-xs">
-              <th className="w-16 py-1 font-medium">Ref</th>
-              <th className="py-1 font-medium">Description</th>
-              <th className="w-16 py-1 font-medium">Unit</th>
-              <th className="w-20 py-1 text-right font-medium">Qty</th>
-              <th className="w-24 py-1 text-right font-medium">Rate</th>
-              <th className="w-28 py-1 text-right font-medium">Amount</th>
-              {editable && <th className="w-16 py-1" />}
-            </tr>
+            {split ? (
+              // Mirrors how the source BOQ prints it: Supply and Installation
+              // each with their own rate and amount, then the combined total.
+              <>
+                <tr className="text-muted-foreground text-left text-xs">
+                  <th className="py-1" colSpan={4} />
+                  <th className="border-b py-1 text-center font-medium" colSpan={2}>
+                    Supply
+                  </th>
+                  <th className="border-b py-1 text-center font-medium" colSpan={2}>
+                    Installation
+                  </th>
+                  <th className="border-b py-1 text-center font-medium" colSpan={2}>
+                    Total
+                  </th>
+                  {editable && <th className="py-1" />}
+                </tr>
+                <tr className="text-muted-foreground border-b text-left text-xs">
+                  <th className="w-16 py-1 font-medium">Ref</th>
+                  <th className="min-w-56 py-1 font-medium">Description</th>
+                  <th className="w-16 py-1 font-medium">Unit</th>
+                  <th className="w-20 py-1 text-right font-medium">Qty</th>
+                  <th className="w-24 py-1 text-right font-medium">Rate</th>
+                  <th className="w-28 py-1 text-right font-medium">Amount</th>
+                  <th className="w-24 py-1 text-right font-medium">Rate</th>
+                  <th className="w-28 py-1 text-right font-medium">Amount</th>
+                  <th className="w-24 py-1 text-right font-medium">Rate</th>
+                  <th className="w-28 py-1 text-right font-medium">Amount</th>
+                  {editable && <th className="w-16 py-1" />}
+                </tr>
+              </>
+            ) : (
+              <tr className="text-muted-foreground border-b text-left text-xs">
+                <th className="w-16 py-1 font-medium">Ref</th>
+                <th className="py-1 font-medium">Description</th>
+                <th className="w-16 py-1 font-medium">Unit</th>
+                <th className="w-20 py-1 text-right font-medium">Qty</th>
+                <th className="w-24 py-1 text-right font-medium">Rate</th>
+                <th className="w-28 py-1 text-right font-medium">Amount</th>
+                {editable && <th className="w-16 py-1" />}
+              </tr>
+            )}
           </thead>
           <tbody>
             {pkg.lines.map((line) => (
@@ -290,6 +329,7 @@ function PackageBlock({
                 key={line.id}
                 projectId={projectId}
                 line={line}
+                split={split}
                 editable={editable}
                 pending={pending}
                 run={run}
@@ -299,6 +339,7 @@ function PackageBlock({
               <AddLineRow
                 projectId={projectId}
                 packageId={pkg.id}
+                split={split}
                 pending={pending}
                 run={run}
               />
@@ -306,14 +347,25 @@ function PackageBlock({
           </tbody>
           <tfoot>
             <tr className="border-t font-medium">
-              <td colSpan={5} className="py-1 text-right">
+              <td colSpan={4} className="py-1 text-right">
                 Package total
               </td>
+              {split && (
+                <>
+                  <td />
+                  <td className="py-1 text-right">{fmt(supplyTotal)}</td>
+                  <td />
+                  <td className="py-1 text-right">{fmt(installTotal)}</td>
+                  <td />
+                </>
+              )}
+              {!split && <td />}
               <td className="py-1 text-right">{fmt(total)}</td>
               {editable && <td />}
             </tr>
           </tfoot>
         </table>
+        </div>
       </CardContent>
     </Card>
   );
@@ -322,12 +374,15 @@ function PackageBlock({
 function LineRow({
   projectId,
   line,
+  split,
   editable,
   pending,
   run,
 }: {
   projectId: string;
   line: BudgetLine;
+  /** The package prints a Supply / Installation breakdown. */
+  split: boolean;
   editable: boolean;
   pending: boolean;
   run: (fn: () => Promise<Result>) => void;
@@ -357,6 +412,17 @@ function LineRow({
         <td className="py-1 pr-1">
           <Input type="number" value={form.qty} onChange={(e) => set({ qty: e.target.valueAsNumber || 0 })} className="h-8 text-right" aria-label="Qty" />
         </td>
+        {split && (
+          // The breakdown comes from the source sheet, so it isn't hand-edited
+          // here. Changing qty or rate drops it rather than leaving a
+          // breakdown on screen that no longer adds up.
+          <>
+            <td className="text-muted-foreground py-1 text-right">{line.supplyRate == null ? "—" : fmt(line.supplyRate)}</td>
+            <td className="text-muted-foreground py-1 text-right">{line.supplyAmount == null ? "—" : fmt(line.supplyAmount)}</td>
+            <td className="text-muted-foreground py-1 text-right">{line.installRate == null ? "—" : fmt(line.installRate)}</td>
+            <td className="text-muted-foreground py-1 text-right">{line.installAmount == null ? "—" : fmt(line.installAmount)}</td>
+          </>
+        )}
         <td className="py-1 pr-1">
           <Input type="number" value={form.rate} onChange={(e) => set({ rate: e.target.valueAsNumber || 0 })} className="h-8 text-right" aria-label="Rate" />
         </td>
@@ -367,7 +433,14 @@ function LineRow({
               type="button"
               disabled={pending}
               onClick={() => {
-                run(() => updateLine(projectId, line.id, form));
+                run(() =>
+                  updateLine(
+                    projectId,
+                    line.id,
+                    form,
+                    form.qty !== line.qty || form.rate !== line.rate
+                  )
+                );
                 setEditing(false);
               }}
               className="text-muted-foreground hover:text-emerald-600"
@@ -395,6 +468,14 @@ function LineRow({
       <td className="py-1">{line.description}</td>
       <td className="text-muted-foreground py-1">{line.unit ?? "—"}</td>
       <td className="py-1 text-right">{fmt(line.qty)}</td>
+      {split && (
+        <>
+          <td className="py-1 text-right">{line.supplyRate == null ? "—" : fmt(line.supplyRate)}</td>
+          <td className="py-1 text-right">{line.supplyAmount == null ? "—" : fmt(line.supplyAmount)}</td>
+          <td className="py-1 text-right">{line.installRate == null ? "—" : fmt(line.installRate)}</td>
+          <td className="py-1 text-right">{line.installAmount == null ? "—" : fmt(line.installAmount)}</td>
+        </>
+      )}
       <td className="py-1 text-right">{fmt(line.rate)}</td>
       <td className="py-1 text-right">{fmt(line.amount)}</td>
       {editable && (
@@ -427,11 +508,14 @@ function LineRow({
 function AddLineRow({
   projectId,
   packageId,
+  split,
   pending,
   run,
 }: {
   projectId: string;
   packageId: string;
+  /** The package prints a Supply / Installation breakdown. */
+  split: boolean;
   pending: boolean;
   run: (fn: () => Promise<Result>) => void;
 }) {
@@ -458,6 +542,16 @@ function AddLineRow({
       <td className="py-1 pr-1">
         <Input type="number" value={form.qty || ""} onChange={(e) => set({ qty: e.target.valueAsNumber || 0 })} className="h-8 text-right" placeholder="0" aria-label="New line qty" />
       </td>
+      {/* A hand-added line has no source sheet to take a breakdown from, so it
+          carries only a combined rate. */}
+      {split && (
+        <>
+          <td className="text-muted-foreground py-1 text-right">—</td>
+          <td className="text-muted-foreground py-1 text-right">—</td>
+          <td className="text-muted-foreground py-1 text-right">—</td>
+          <td className="text-muted-foreground py-1 text-right">—</td>
+        </>
+      )}
       <td className="py-1 pr-1">
         <Input type="number" value={form.rate || ""} onChange={(e) => set({ rate: e.target.valueAsNumber || 0 })} className="h-8 text-right" placeholder="0" aria-label="New line rate" />
       </td>

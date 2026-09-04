@@ -17,6 +17,10 @@ type RawLine = {
   qty: number;
   rate: number;
   amount: number;
+  supply_rate: number | null;
+  install_rate: number | null;
+  supply_amount: number | null;
+  install_amount: number | null;
   sort: number;
 };
 type RawPackage = { id: string; name: string; sort: number; procurement_budget_lines: RawLine[] };
@@ -61,7 +65,7 @@ export async function getProjectBudget(
     .select(
       "id, version_no, status, released_at, created_at, notes, " +
         "procurement_budget_packages(id, name, sort, " +
-        "procurement_budget_lines(id, ref, description, unit, qty, rate, amount, sort))"
+        "procurement_budget_lines(id, ref, description, unit, qty, rate, amount, " + "supply_rate, install_rate, supply_amount, install_amount, sort))"
     )
     .eq("id", pick.id)
     .single();
@@ -83,6 +87,10 @@ export async function getProjectBudget(
           qty: Number(l.qty),
           rate: Number(l.rate),
           amount: Number(l.amount),
+          supplyRate: l.supply_rate == null ? null : Number(l.supply_rate),
+          installRate: l.install_rate == null ? null : Number(l.install_rate),
+          supplyAmount: l.supply_amount == null ? null : Number(l.supply_amount),
+          installAmount: l.install_amount == null ? null : Number(l.install_amount),
           sort: l.sort,
         }))
         .sort((a, b) => a.sort - b.sort || a.description.localeCompare(b.description)),

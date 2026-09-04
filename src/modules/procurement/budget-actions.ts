@@ -120,10 +120,17 @@ export async function addLine(
   return ok;
 }
 
+/**
+ * @param clearSplit the imported Supply/Installation breakdown described a
+ *   quantity and rate that no longer apply, so it is dropped rather than left
+ *   contradicting the figures on screen. Set by the caller when qty or rate was
+ *   actually changed — correcting a description keeps the breakdown.
+ */
 export async function updateLine(
   projectId: string,
   lineId: string,
-  input: BudgetLineInput
+  input: BudgetLineInput,
+  clearSplit = false
 ): Promise<ActionResult> {
   if (!input.description.trim()) return fail("Enter a line description.");
   const denied = await authorizeProject(projectId, "procurement.budget", "update");
@@ -131,7 +138,17 @@ export async function updateLine(
   const supabase = await createClient();
   const { error } = await supabase
     .from("procurement_budget_lines")
-    .update(lineColumns(input))
+    .update({
+      ...lineColumns(input),
+      ...(clearSplit
+        ? {
+            supply_rate: null,
+            install_rate: null,
+            supply_amount: null,
+            install_amount: null,
+          }
+        : {}),
+    })
     .eq("id", lineId);
   if (error) return fail(error.message);
   refresh(projectId);

@@ -64,6 +64,15 @@ export type BudgetLine = {
   qty: number;
   rate: number;
   amount: number;
+  /** Supply / installation split, when the source BOQ priced them separately.
+   * Null on a single-rate sheet — distinct from a genuine nil quote. Rates and
+   * amounts both come straight from the sheet, so a package ties back to the
+   * document even where the consultant's rate x qty doesn't equal their own
+   * printed amount. `rate`/`amount` stay the combined figures used downstream. */
+  supplyRate: number | null;
+  installRate: number | null;
+  supplyAmount: number | null;
+  installAmount: number | null;
   sort: number;
 };
 
@@ -288,6 +297,11 @@ export type BudgetImportLine = {
   unit: string | null;
   qty: number;
   rate: number;
+  /** Set only when the sheet split supply from installation. */
+  supplyRate: number | null;
+  installRate: number | null;
+  supplyAmount: number | null;
+  installAmount: number | null;
 };
 /** Self-check of a sheet: does the parsed line sum match the sheet's own stated
  * total? "ok" = matches (within 0.5%), "warn" = differs (sheetTotal shown so the

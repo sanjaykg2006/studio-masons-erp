@@ -407,3 +407,27 @@ export async function getProjectChangeRequests(
 }
 
 export type { ProjectStatus, BriefStatus };
+
+// --- Concept-phase visibility matrix -----------------------------------------
+
+export type ConceptVisibility = {
+  departments: { id: string; label: string }[];
+  /** "<ownerId>:<viewerId>" for each allowed pair. */
+  allowed: Set<string>;
+};
+
+/** The owner x viewer grid behind "who sees a project before the Design Freeze".
+ * Null when the caller may not administer access, so the card simply isn't shown. */
+export async function getConceptVisibility(): Promise<ConceptVisibility | null> {
+  const supabase = await createClient();
+  const [{ data: depts }, { data: rows }] = await Promise.all([
+    supabase.from("departments").select("id, label").order("label"),
+    supabase.rpc("list_concept_visibility"),
+  ]);
+  if (!depts || !rows) return null;
+  const pairs = rows as { owner_department_id: string; viewer_department_id: string }[];
+  return {
+    departments: depts as { id: string; label: string }[],
+    allowed: new Set(pairs.map((p) => `${p.owner_department_id}:${p.viewer_department_id}`)),
+  };
+}

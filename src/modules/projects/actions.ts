@@ -801,3 +801,37 @@ export async function decideChangeRequest(
   revalidatePath(`/projects/${cr.project_id}`);
   return ok;
 }
+
+// ===================== CONCEPT-PHASE VISIBILITY ==============================
+
+/**
+ * Allow (or stop) one department seeing another's projects while they are still
+ * in Concept. Replaces the rule that used to be hardcoded in can_view_project.
+ *
+ * The RPC re-checks access:update and refuses to remove a department's view of
+ * its own projects, so neither is enforced here alone.
+ */
+export async function setConceptVisibility(
+  ownerDepartmentId: string,
+  viewerDepartmentId: string,
+  allowed: boolean
+): Promise<ActionResult> {
+  const denied = await authorize("access", "update");
+  if (denied) return denied;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_concept_visibility", {
+    p_owner: ownerDepartmentId,
+    p_viewer: viewerDepartmentId,
+    p_allowed: allowed,
+  });
+  if (error) return fail(error.message);
+
+  await logAudit(
+    "project.concept_visibility",
+    `${allowed ? "Allowed" : "Stopped"} a department seeing another's projects during Concept`,
+    { ownerDepartmentId, viewerDepartmentId, allowed }
+  );
+  revalidatePath("/projects");
+  return ok;
+}

@@ -199,6 +199,29 @@ export async function startAmendment(
   return ok;
 }
 
+/**
+ * Withdraw an amendment opened by mistake.
+ *
+ * Puts the PO back exactly as it was — line edits undone, the Finance and
+ * Director sign-offs the amendment cleared restored, status back to issued.
+ * The amendment row is kept and stamped cancelled, so the trail still shows it
+ * was opened and withdrawn.
+ */
+export async function cancelAmendment(
+  projectId: string,
+  orderId: string
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cancel_amendment", { p_order: orderId });
+  if (error) return fail(error.message);
+  await logAudit("procurement.order.amend_cancel", "Cancelled a PO amendment", {
+    projectId,
+    orderId,
+  });
+  refreshOne(projectId, orderId);
+  return ok;
+}
+
 /** Edit a line's quantity/rate during an amendment. */
 export async function amendOrderLine(
   projectId: string,
@@ -255,7 +278,11 @@ export async function recordReceipt(
   orderId: string,
   receivedOn: string,
   notes: string,
-  lines: ReceiptLineDraft[]
+  lines: ReceiptLineDraft[],
+  /** A booked Finance invoice for this PO, when there is one. */
+  invoiceId?: string | null,
+  /** The vendor's bill number, for goods that arrive before it is booked. */
+  invoiceNo?: string | null
 ): Promise<ActionResult> {
   const clean = lines.filter((l) => l.qty > 0);
   if (clean.length === 0) return fail("Enter at least one received quantity.");
@@ -265,6 +292,8 @@ export async function recordReceipt(
     p_received_on: receivedOn || null,
     p_notes: notes,
     p_lines: clean.map((l) => ({ order_line_id: l.order_line_id, qty: l.qty })),
+    p_invoice: invoiceId || null,
+    p_invoice_no: invoiceNo?.trim() || null,
   });
   if (error) return fail(error.message);
   await logAudit("procurement.receipt.record", "Recorded a goods receipt", { projectId, orderId });

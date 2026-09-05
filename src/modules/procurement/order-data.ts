@@ -44,3 +44,35 @@ export async function getOrder(
   if (!order) return null;
   return { order, lines: (lines ?? []) as OrderLine[] };
 }
+
+/** One goods receipt on a PO, with what arrived and the bill it was under. */
+export type OrderReceipt = {
+  id: string;
+  received_on: string;
+  notes: string | null;
+  recorded_by: string | null;
+  recorded_name: string | null;
+  created_at: string;
+  /** A booked Finance invoice, when the receipt was linked to one. */
+  invoice_id: string | null;
+  invoice_ref: string | null;
+  /** A bill number typed in when the invoice was not yet booked. */
+  invoice_no: string | null;
+  lines: { description: string; unit: string | null; qty_received: number }[];
+};
+
+/** The full receipt history for a PO, newest first. */
+export async function listOrderReceipts(orderId: string): Promise<OrderReceipt[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("list_order_receipts", { p_order: orderId });
+  return (data ?? []) as OrderReceipt[];
+}
+
+/** Invoices already booked against this PO, for the receipt's invoice picker. */
+export async function listOrderInvoices(
+  orderId: string
+): Promise<{ id: string; label: string; vendor_invoice_date: string }[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("list_order_invoices", { p_order: orderId });
+  return (data ?? []) as { id: string; label: string; vendor_invoice_date: string }[];
+}

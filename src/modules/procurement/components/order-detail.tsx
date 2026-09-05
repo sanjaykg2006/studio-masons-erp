@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ChangeEvent, useRef, useState, useTransition } from "react";
-import { ArrowLeft, Check, Download, Upload } from "lucide-react";
+import { ArrowLeft, Check, Download, Undo2, Upload } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -33,11 +33,13 @@ import {
   requestOrderCancel,
   reviewOrder,
   seniorBypassOrder,
+  cancelAmendment,
   startAmendment,
   uploadOrderDocument,
 } from "@/modules/procurement/order-actions";
 import { PoDocumentPanel } from "@/modules/procurement/components/po-document-panel";
 import type { BillingBranch } from "@/modules/finance/types";
+import type { OrderReceipt } from "@/modules/procurement/order-data";
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -60,6 +62,8 @@ export function OrderDetailView({
   lines,
   project,
   branches,
+  receipts,
+  invoices,
 }: {
   projectId: string;
   order: OrderDetail;
@@ -67,6 +71,10 @@ export function OrderDetailView({
   project: { name: string; code: string | null; client: string | null; location: string | null } | null;
   /** Active billing branches from Finance, for the PO document's GST block. */
   branches: BillingBranch[];
+  /** Every goods receipt recorded against this PO, newest first. */
+  receipts: OrderReceipt[];
+  /** Invoices already booked against this PO, for the receipt picker. */
+  invoices: { id: string; label: string; vendor_invoice_date: string }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -75,6 +83,9 @@ export function OrderDetailView({
   const [receivedOn, setReceivedOn] = useState("");
   const [notes, setNotes] = useState("");
   const [qtys, setQtys] = useState<Record<string, number>>({});
+  // Either a booked invoice or, when the goods beat the paperwork, its number.
+  const [invoiceId, setInvoiceId] = useState("");
+  const [invoiceNo, setInvoiceNo] = useState("");
   const [edits, setEdits] = useState<Record<string, { qty: number; rate: number }>>({});
 
   const run = (fn: () => Promise<Result>, after?: () => void) =>
@@ -96,8 +107,21 @@ export function OrderDetailView({
   const cancelRequested = order.status === "issued" && !!order.cancel_requested_by;
 
   const amend = () => {
-    const note = window.prompt("What is changing in this amendment? (optional)") ?? "";
+    // Cancelling the prompt returns null - that means "don't", not "no note".
+    // It used to fall through to ?? "" and open the amendment anyway.
+    const note = window.prompt("What is changing in this amendment? (optional)");
+    if (note === null) return;
     run(() => startAmendment(projectId, order.id, note));
+  };
+
+  const undoAmendment = () => {
+    if (
+      confirm(
+        "Cancel this amendment? The PO goes back to how it was, with its original sign-offs, and any line edits are undone."
+      )
+    ) {
+      run(() => cancelAmendment(projectId, order.id));
+    }
   };
 
   const requestCancel = () => {
@@ -123,12 +147,23 @@ export function OrderDetailView({
       .filter(([, q]) => q > 0)
       .map(([order_line_id, qty]) => ({ order_line_id, qty }));
     run(
-      () => recordReceipt(projectId, order.id, receivedOn, notes, drafts),
+      () =>
+        recordReceipt(
+          projectId,
+          order.id,
+          receivedOn,
+          notes,
+          drafts,
+          invoiceId,
+          invoiceNo
+        ),
       () => {
         setReceiving(false);
         setReceivedOn("");
         setNotes("");
         setQtys({});
+        setInvoiceId("");
+        setInvoiceNo("");
       }
     );
   };
@@ -269,11 +304,27 @@ export function OrderDetailView({
       {/* Sign-off + release ------------------------------------------------- */}
       {isEditable && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              {isAmending ? "Re-sign-off (amendment)" : "Sign-off"}
-            </CardTitle>
-            <CardDescription>Both sign-offs are needed before the PO can be released.</CardDescription>
+          <CardHeader className="flex flex-row items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">
+                {isAmending ? "Re-sign-off (amendment)" : "Sign-off"}
+              </CardTitle>
+              <CardDescription>
+                {isAmending
+                  ? "Opened by mistake? Cancelling puts the PO back as it was, with its original sign-offs."
+                  : "Both sign-offs are needed before the PO can be released."}
+              </CardDescription>
+            </div>
+            {isAmending && order.can_amend && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={undoAmendment}
+              >
+                <Undo2 className="size-4" /> Cancel amendment
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="flex flex-wrap items-center gap-4 text-sm">
             <SignRow
@@ -333,7 +384,6 @@ export function OrderDetailView({
             label="Supporting document"
             hasFile={!!order.support_file}
             canUpload={false}
-            pending={pending}
             onDownload={() => download("support")}
             onPick={() => {}}
           />
@@ -341,7 +391,6 @@ export function OrderDetailView({
             label="Purchase order"
             hasFile={!!order.po_file}
             canUpload={order.can_issue}
-            pending={pending}
             onDownload={() => download("po")}
             onPick={(f) => upload("po", f)}
           />
@@ -349,7 +398,6 @@ export function OrderDetailView({
             label="Acceptance letter"
             hasFile={!!order.acceptance_file}
             canUpload={order.can_issue}
-            pending={pending}
             onDownload={() => download("acceptance")}
             onPick={(f) => upload("acceptance", f)}
           />
@@ -488,6 +536,36 @@ export function OrderDetailView({
                   aria-label="Received on"
                 />
               </label>
+              {/* The bill this delivery is against. Pick a booked invoice when
+                  there is one; otherwise type the number, since goods usually
+                  arrive before Finance has entered it. */}
+              {invoices.length > 0 && (
+                <label className="text-muted-foreground flex items-center gap-2 text-sm">
+                  Invoice
+                  <select
+                    value={invoiceId}
+                    onChange={(e) => setInvoiceId(e.target.value)}
+                    className={field}
+                    aria-label="Booked invoice"
+                  >
+                    <option value="">Not booked yet</option>
+                    {invoices.map((iv) => (
+                      <option key={iv.id} value={iv.id}>
+                        {iv.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {!invoiceId && (
+                <Input
+                  placeholder="Vendor invoice no. (optional)"
+                  value={invoiceNo}
+                  onChange={(e) => setInvoiceNo(e.target.value)}
+                  className="sm:w-52"
+                  aria-label="Vendor invoice number"
+                />
+              )}
               <Input
                 placeholder="Notes (optional)"
                 value={notes}
@@ -503,8 +581,46 @@ export function OrderDetailView({
               </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </CardContent>      </Card>
+
+      {/* Goods receipt history ------------------------------------------- */}
+      {receipts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Goods received</CardTitle>
+            <CardDescription>
+              Every delivery recorded against this PO, newest first.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {receipts.map((r) => (
+              <div key={r.id} className="border-b pb-3 last:border-0 last:pb-0">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="font-medium">{r.received_on}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {r.recorded_name ?? "—"}
+                    {/* A linked invoice wins over a typed number: it is the one
+                        that can actually be reconciled against Finance. */}
+                    {r.invoice_ref
+                      ? ` · Invoice ${r.invoice_ref}`
+                      : r.invoice_no
+                        ? ` · Invoice ${r.invoice_no} (not booked)`
+                        : " · No invoice reference"}
+                  </span>
+                </div>
+                <ul className="text-muted-foreground mt-1 space-y-0.5 text-xs">
+                  {r.lines.map((l, n) => (
+                    <li key={n}>
+                      {l.description} — {fmt(l.qty_received)} {l.unit ?? ""}
+                    </li>
+                  ))}
+                </ul>
+                {r.notes && <p className="mt-1 text-xs italic">{r.notes}</p>}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -544,21 +660,26 @@ function DocSlot({
   label,
   hasFile,
   canUpload,
-  pending,
   onDownload,
   onPick,
 }: {
   label: string;
   hasFile: boolean;
   canUpload: boolean;
-  pending: boolean;
   onDownload: () => void;
   onPick: (file: File) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
   const onChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) onPick(file);
+    if (file) {
+      setBusy(true);
+      onPick(file);
+      // The parent re-renders on success; this only stops a double-click
+      // landing two uploads while the first is in flight.
+      window.setTimeout(() => setBusy(false), 1500);
+    }
     if (inputRef.current) inputRef.current.value = "";
   };
   return (
@@ -579,7 +700,17 @@ function DocSlot({
         {canUpload && (
           <>
             <input ref={inputRef} type="file" className="hidden" onChange={onChange} aria-label={`Upload ${label}`} />
-            <Button size="sm" variant="outline" disabled={pending} onClick={() => inputRef.current?.click()}>
+            {/* Deliberately NOT disabled by the screen-wide `pending`: that flag
+                stays true for the whole of any action plus the router refresh
+                that follows it, so opening an amendment left every file picker
+                dead until the page was reloaded by hand. Only this slot's own
+                upload disables it. */}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => inputRef.current?.click()}
+            >
               <Upload className="size-4" /> {hasFile ? "Replace" : "Upload"}
             </Button>
           </>

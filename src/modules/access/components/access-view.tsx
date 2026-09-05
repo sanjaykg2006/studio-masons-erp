@@ -44,6 +44,7 @@ import {
   deleteDepartment,
   deleteRole,
   deactivateUser,
+  getUserDeleteBlockers,
   inviteUser,
   reactivateUser,
   setDepartmentLead,
@@ -51,6 +52,7 @@ import {
   setModuleGeneral,
   setPermission,
 } from "@/modules/access/actions";
+import type { DeleteBlocker } from "@/modules/access/actions";
 
 export type { AccessResource };
 
@@ -69,6 +71,38 @@ type Props = {
 /** Sentinel for the Back Office (department-less) roles bucket (department_id = null). */
 const GLOBAL = "__global__";
 
+/** Plain-English names for the tables that can hold a person in place. */
+const BLOCKER_LABEL: Record<string, string> = {
+  audit_log: "activity log entries",
+  error_logs: "error reports",
+  projects: "projects created",
+  project_members: "project memberships",
+  project_briefs: "briefs",
+  project_files: "uploaded files",
+  project_change_requests: "change requests",
+  tasks: "tasks",
+  task_attachments: "task attachments",
+  task_invites: "task invitations",
+  rfis: "RFIs raised",
+  rfi_messages: "RFI replies",
+  rfi_attachments: "RFI attachments",
+  procurement_budgets: "budgets",
+  procurement_intents: "purchase intents",
+  procurement_orders: "purchase orders",
+  procurement_receipts: "goods receipts",
+  procurement_vendors: "vendors added",
+  inventory_assets: "company assets held",
+  inventory_asset_transfers: "asset transfers",
+  inventory_consumption: "material consumption records",
+  finance_invoices: "invoices",
+  finance_payment_requests: "payment requests",
+  pettycash_entries: "petty cash entries",
+  team_members: "department team memberships",
+  department_leads: "department lead appointments",
+};
+
+const blockerLabel = (t: string) =>
+  BLOCKER_LABEL[t] ?? t.replace(/_/g, " ");
 export function AccessView({
   roles,
   permissions,
@@ -94,6 +128,13 @@ export function AccessView({
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
   const [inviteRole, setInviteRole] = useState("");
+  // What is still attached to a person we are being asked to remove, so the
+  // answer to "why can this only be deactivated?" is on screen rather than a 500.
+  const [removing, setRemoving] = useState<{
+    id: string;
+    label: string;
+    blockers: DeleteBlocker[];
+  } | null>(null);
 
   const isGlobal = deptId === GLOBAL;
   const generalSet = useMemo(() => new Set(generalModules), [generalModules]);
@@ -681,14 +722,19 @@ export function AccessView({
                       <button
                         type="button"
                         disabled={pending}
-                        onClick={() => {
-                          if (
-                            confirm(
-                              `Remove ${userLabel(u)}? They lose access immediately. Their past work is kept, and you can reactivate them later.`
-                            )
-                          ) {
-                            run(() => deactivateUser(u.id));
+                        onClick={async () => {
+                          // Ask the database what is holding them BEFORE
+                          // offering a choice, so the reason is specific.
+                          const res = await getUserDeleteBlockers(u.id);
+                          if (!res.ok) {
+                            setError(res.error);
+                            return;
                           }
+                          setRemoving({
+                            id: u.id,
+                            label: userLabel(u),
+                            blockers: res.blockers,
+                          });
                         }}
                         className="text-muted-foreground hover:text-destructive inline-flex items-center gap-1 text-xs"
                         aria-label={`Remove ${u.email ?? u.id}`}
@@ -703,6 +749,68 @@ export function AccessView({
           </table>
         </CardContent>
       </Card>
+      {/* Why this person can only be deactivated ------------------------- */}
+      {removing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <Card className="max-h-[80vh] w-full max-w-lg overflow-y-auto">
+            <CardHeader>
+              <CardTitle className="text-base">Remove {removing.label}</CardTitle>
+              <CardDescription>
+                {removing.blockers.length === 0
+                  ? "Nothing is attached to this person, so they can be deleted outright."
+                  : "Their name is still on the records below, so the database will not delete them. Deactivating blocks their login and keeps the history intact."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {removing.blockers.length > 0 && (
+                <ul className="space-y-1 text-sm">
+                  {removing.blockers.map((b) => (
+                    <li
+                      key={`${b.table_name}.${b.column_name}`}
+                      className="flex items-center justify-between gap-4 border-b pb-1 last:border-0"
+                    >
+                      <span>{blockerLabel(b.table_name)}</span>
+                      <span className="text-muted-foreground tabular-nums">
+                        {b.row_count}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {removing.blockers.length > 0 && (
+                <p className="text-muted-foreground text-xs">
+                  Clear these and the delete will go through. Be deliberate about
+                  it: reassigning is fine, but removing approvals or log entries
+                  rewrites what actually happened.
+                </p>
+              )}
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRemoving(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={pending}
+                  onClick={() => {
+                    const id = removing.id;
+                    setRemoving(null);
+                    run(() => deactivateUser(id));
+                  }}
+                >
+                  {removing.blockers.length === 0
+                    ? "Delete permanently"
+                    : "Deactivate instead"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

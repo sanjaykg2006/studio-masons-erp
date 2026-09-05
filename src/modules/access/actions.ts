@@ -191,6 +191,34 @@ export async function inviteUser(
   return ok;
 }
 
+/** One thing standing between a person and being deleted outright. */
+export type DeleteBlocker = {
+  table_name: string;
+  column_name: string;
+  row_count: number;
+};
+
+/**
+ * What is still attached to this person, and therefore why the database will
+ * not let them be deleted.
+ *
+ * The dashboard reports this as a bare 500. Naming the records lets an admin
+ * decide whether to clear them and delete properly, or just deactivate.
+ */
+export async function getUserDeleteBlockers(
+  userId: string
+): Promise<{ ok: true; blockers: DeleteBlocker[] } | { ok: false; error: string }> {
+  const denied = await authorize("access", "delete");
+  if (denied) return { ok: false, error: denied.error };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("user_delete_blockers", {
+    p_user: userId,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, blockers: (data ?? []) as DeleteBlocker[] };
+}
+
 /**
  * Remove a person from the ERP.
  *

@@ -102,7 +102,15 @@ export function PoDocumentPanel({
     try {
       const { generatePoPdf } = await import("@/modules/procurement/po-document");
       const row = branches.find((b) => b.id === branchId) ?? branches[0];
-      const branch = row ? toBillingBranch(row) : null;
+      if (!row) {
+        // Refuse rather than print a stale address from code: this document
+        // goes to a vendor and its GSTIN has to be the one Finance maintains.
+        setError(
+          "No billing branch is set up. Finance adds them under Finance -> Settings."
+        );
+        return;
+      }
+      const branch = toBillingBranch(row);
       const paymentTermsLines = paymentTerms
         .split(/\r?\n/)
         .map((s) => s.trim())
@@ -120,7 +128,7 @@ export function PoDocumentPanel({
         subject: subject.trim() || undefined,
         quotationRef: quotationRef.trim() || undefined,
         quotationDate: quotationDate || undefined,
-        billingLines: branch?.billingLines,
+        billingLines: branch.billingLines,
         notes,
         paymentTermsLines: paymentTermsLines.length ? paymentTermsLines : undefined,
         lines: lines.map((l) => ({

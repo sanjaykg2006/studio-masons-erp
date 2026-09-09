@@ -208,6 +208,18 @@ const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
  * TDS is charged on the work value (base + other charges), GST excluded;
  * retention is 5% of the base (work) value. All amounts rounded to paise.
  */
+/**
+ * The invoice money math, for the live preview shown before approval.
+ *
+ * MIRRORED BY the database function accounts_approve_invoice (migration 0063),
+ * which is what actually gets saved. Neither can call the other: the preview
+ * must run in the browser with no round trip, and the database must not trust a
+ * figure the browser sent it. So the two are kept in step BY HAND -- change one
+ * and you must change the other, then check money.test.ts still passes.
+ *
+ * One difference exists today and is harmless: this rounds the base+GST
+ * subtotal before adding other charges, where SQL rounds the whole sum once.
+ */
 export function computeApproval(opts: {
   lines: TaxLine[];
   otherCharges: number;

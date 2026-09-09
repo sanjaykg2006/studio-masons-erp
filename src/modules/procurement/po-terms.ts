@@ -2,14 +2,11 @@
 // notes and the multi-page Annexure of terms & conditions. Kept here so the PDF
 // generator stays focused on layout. Text is transcribed from the company's PO format.
 
+// The company's identity on the PO. The BILLING address is deliberately NOT
+// here: it lives in the `billing_branches` table Finance maintains, because a
+// GSTIN copied into code outlives every correction made to the real one.
 export const STUDIO_MASONS = {
   name: "Studio Masons Private Limited",
-  billingLines: [
-    "No. 699, 7th Main, 2nd Floor, HAL 2nd Stage",
-    "Indiranagar, Bangalore 560008",
-    "GSTIN : 29ABFCS4554A1ZE",
-    "Place of Supply: Karnataka",
-  ],
   footerLines: [
     "Registered Address : No.699, 2nd Floor, 7th Main Road, HAL 2nd Stage, Indiranagar, Bangalore-560008",
     "Communication Address: First Floor, 1074/B, 11th Main Rd, Indiranagar, Bangalore - 560038",

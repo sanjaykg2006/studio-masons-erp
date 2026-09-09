@@ -173,9 +173,10 @@ export type FolderAccessConfig = {
 };
 
 /** The folder catalogue + design roles + current access grants, for the editor.
- * Roles come from design_settings_roles() — the SAME list (and same
- * design.folder:manage gate) as the Project Roles editor — so every role you
- * create shows up here as a new matrix column automatically. */
+ * Roles come from design_settings_roles(), which is now a thin wrapper over the
+ * generic department_roles() — the SAME list, and the same gate as every other
+ * department (lead of Design, or access:update). So every role you create shows
+ * up here as a new matrix column automatically. */
 export async function getFolderAccessConfig(): Promise<FolderAccessConfig> {
   const supabase = await createClient();
   const [foldersRes, rolesRes, accessRes] = await Promise.all([
@@ -220,8 +221,9 @@ export type ProjectRolesConfig = {
 /**
  * The Design department's project roles + their grants, for the self-service
  * "Project roles" matrix on the settings page. Backed by SECURITY DEFINER RPCs
- * gated on design.folder:manage, so a Design manager can read them without the
- * global access:read permission.
+ * that now delegate to the generic department_* functions, so Design has no
+ * private copy of the rules and the gate matches every other department: a lead
+ * of Design, or access:update.
  */
 export async function getProjectRolesConfig(): Promise<ProjectRolesConfig> {
   const supabase = await createClient();

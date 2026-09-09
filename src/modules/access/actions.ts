@@ -191,6 +191,52 @@ export async function inviteUser(
   return ok;
 }
 
+/** Everything that decides one person's access, read from the four places it
+ * actually lives. Display only — nothing here is consulted when access is
+ * enforced, and every screen that edits it stays where it was. */
+export type AccessSummary = {
+  profile: { id: string; email: string | null; full_name: string | null; deactivated_at: string | null } | null;
+  role: {
+    label: string;
+    is_system: boolean;
+    department: string | null;
+    permissions: { resource: string; action: string }[];
+  } | null;
+  teams: {
+    department: string;
+    all_projects: boolean;
+    all_projects_role: string | null;
+    is_lead: boolean;
+    permissions: { resource: string; action: string }[];
+  }[];
+  projects: {
+    id: string;
+    name: string;
+    code: string | null;
+    phase: string;
+    owner_department: string | null;
+    role: string;
+    role_department: string | null;
+  }[];
+  effective: { resource: string; action: string; via: string }[];
+};
+
+/** Read one person's whole access picture for the Access Control panel. */
+export async function getUserAccessSummary(
+  userId: string
+): Promise<{ ok: true; summary: AccessSummary } | { ok: false; error: string }> {
+  const denied = await authorize("access", "read");
+  if (denied) return { ok: false, error: denied.error };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("user_access_summary", {
+    p_user: userId,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Not allowed to read this." };
+  return { ok: true, summary: data as AccessSummary };
+}
+
 /** One thing standing between a person and being deleted outright. */
 export type DeleteBlocker = {
   table_name: string;

@@ -44,6 +44,7 @@ import {
   deleteDepartment,
   deleteRole,
   deactivateUser,
+  getUserAccessSummary,
   getUserDeleteBlockers,
   inviteUser,
   reactivateUser,
@@ -52,7 +53,7 @@ import {
   setModuleGeneral,
   setPermission,
 } from "@/modules/access/actions";
-import type { DeleteBlocker } from "@/modules/access/actions";
+import type { AccessSummary, DeleteBlocker } from "@/modules/access/actions";
 
 export type { AccessResource };
 
@@ -134,6 +135,12 @@ export function AccessView({
     id: string;
     label: string;
     blockers: DeleteBlocker[];
+  } | null>(null);
+  // The whole access picture for one person, gathered from the four places it
+  // lives. Read-only: every section links to the screen that edits it.
+  const [viewing, setViewing] = useState<{
+    label: string;
+    summary: AccessSummary;
   } | null>(null);
 
   const isGlobal = deptId === GLOBAL;
@@ -706,6 +713,21 @@ export function AccessView({
                     </select>
                   </td>
                   <td className="py-2 text-right">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const res = await getUserAccessSummary(u.id);
+                        if (!res.ok) {
+                          setError(res.error);
+                          return;
+                        }
+                        setViewing({ label: userLabel(u), summary: res.summary });
+                      }}
+                      className="text-muted-foreground hover:text-foreground mr-3 inline-flex items-center gap-1 text-xs"
+                      aria-label={`View access for ${u.email ?? u.id}`}
+                    >
+                      <ShieldCheck className="size-3.5" /> View access
+                    </button>
                     {u.id === currentUserId ? (
                       <span className="text-muted-foreground/50 text-xs">you</span>
                     ) : u.deactivated_at ? (
@@ -749,6 +771,128 @@ export function AccessView({
           </table>
         </CardContent>
       </Card>
+
+      {/* One person's whole access, gathered from the four places it lives --- */}
+      {viewing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <Card className="max-h-[85vh] w-full max-w-2xl overflow-y-auto">
+            <CardHeader>
+              <CardTitle className="text-base">Access · {viewing.label}</CardTitle>
+              <CardDescription>
+                Everything that decides what this person can do. Read-only —
+                each part is changed on the screen that owns it, so there is only
+                ever one copy of a rule.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5 text-sm">
+              {/* Plane 1 ------------------------------------------------- */}
+              <section>
+                <h4 className="mb-1 font-medium">Job title</h4>
+                {viewing.summary.role ? (
+                  <p className="text-muted-foreground">
+                    {viewing.summary.role.label}
+                    {viewing.summary.role.is_system && " · system role"}
+                    {" · "}
+                    {viewing.summary.role.permissions.length} grant
+                    {viewing.summary.role.permissions.length === 1 ? "" : "s"}
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground">
+                    No job title — no company-wide access at all.
+                  </p>
+                )}
+              </section>
+
+              {/* Plane 2 ------------------------------------------------- */}
+              <section>
+                <h4 className="mb-1 font-medium">Department teams</h4>
+                {viewing.summary.teams.length === 0 ? (
+                  <p className="text-muted-foreground">On no department team.</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {viewing.summary.teams.map((t) => (
+                      <li key={t.department} className="text-muted-foreground">
+                        <span className="text-foreground">{t.department}</span>
+                        {t.is_lead && " · lead"}
+                        {" · "}
+                        {t.permissions.length} grant
+                        {t.permissions.length === 1 ? "" : "s"}
+                        {t.all_projects && (
+                          <span className="text-foreground">
+                            {" · works on all projects as "}
+                            {t.all_projects_role ?? "(no role set)"}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              {/* Plane 3 ------------------------------------------------- */}
+              <section>
+                <h4 className="mb-1 font-medium">Projects</h4>
+                {viewing.summary.projects.length === 0 ? (
+                  <p className="text-muted-foreground">
+                    Not a member of any project.
+                    {viewing.summary.teams.some((t) => t.all_projects)
+                      ? " The all-projects switch above reaches them instead."
+                      : ""}
+                  </p>
+                ) : (
+                  <ul className="space-y-1">
+                    {viewing.summary.projects.map((pr) => (
+                      <li key={pr.id} className="text-muted-foreground">
+                        <span className="text-foreground">{pr.name}</span>
+                        {pr.code ? ` (${pr.code})` : ""} · as {pr.role}
+                        {" · owned by "}
+                        {pr.owner_department ?? "—"}
+                        {pr.phase === "concept" && " · still in Concept"}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              {/* The union the app enforces company-wide ----------------- */}
+              <section>
+                <h4 className="mb-1 font-medium">
+                  Company-wide permissions ({viewing.summary.effective.length})
+                </h4>
+                <p className="text-muted-foreground mb-2 text-xs">
+                  Job title and team grants combined — the same union the
+                  database checks. Project work is granted per project above.
+                </p>
+                {viewing.summary.effective.length === 0 ? (
+                  <p className="text-muted-foreground">None.</p>
+                ) : (
+                  <div className="max-h-56 overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <tbody>
+                        {viewing.summary.effective.map((e, n) => (
+                          <tr key={n} className="border-b last:border-0">
+                            <td className="py-1 font-mono">{e.resource}</td>
+                            <td className="py-1">{e.action}</td>
+                            <td className="text-muted-foreground py-1 text-right">
+                              {e.via}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+
+              <div className="flex justify-end">
+                <Button size="sm" variant="outline" onClick={() => setViewing(null)}>
+                  Close
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
       {/* Why this person can only be deactivated ------------------------- */}
       {removing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

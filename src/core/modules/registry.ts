@@ -21,6 +21,9 @@ import { teamAccessModule } from "@/modules/team-access";
  * folder under src/modules and exposes one ModuleDefinition. The app shell and
  * sidebar are generated from the registry below — they never hard-code routes.
  */
+/** Where a resource is set: a job title, People & Access, or Project roles. */
+export type ModuleHome = "company" | "department" | "project";
+
 /** One gated resource shown as a row (with verb columns) in the access matrix. */
 export type ModuleResource = {
   /** Permission `resource` id, e.g. "access" or "design.project". */
@@ -30,20 +33,19 @@ export type ModuleResource = {
   /** Verbs this resource supports (which checkboxes render). */
   actions: Action[];
   /**
-   * Used only inside the department (its tasks, settings, template library,
-   * vendor list…) — granted PER PERSON on the People & Access page. Default false.
-   *
-   * Every resource has exactly ONE home: `departmentLevel` (People & Access),
-   * `projectRole` (Settings → Project roles), or neither — a company-wide screen
-   * given with the job title in Access Control. Never set both.
+   * The places this resource MAY be set — only those its screens actually
+   * check, so a tick there always does something. The first is its default.
+   * Which one is chosen is stored in module_settings.home and edited on Access
+   * Control ("Where each module is set"); see `effectiveHome`.
+   *   company    — given with the job title (Access Control)
+   *   department — ticked per person on a department's People & Access
+   *   project    — ticked per role on a department's Settings → Project roles
+   * Omit for a resource with no matrix row (e.g. folder.access, its own grid).
    */
-  departmentLevel?: boolean;
-  /**
-   * Per-project capability — granted PER ROLE on a department's "Project roles"
-   * matrix (what a role can do ON a project: view/edit the project, briefs,
-   * membership, budget, orders…).
-   */
-  projectRole?: boolean;
+  homes?: ModuleHome[];
+  /** Why a place left out of `homes` is off-limits, where the generic reason
+   * shown on Access Control would be wrong. */
+  whyNot?: Partial<Record<ModuleHome, string>>;
   /**
    * Built into every department (its tasks, settings and people), so it needs no
    * module allotting and never appears on Access Control. Mirrors
@@ -101,6 +103,20 @@ export function moduleResources(): ModuleResource[] {
         ? [{ id: m.id, label: m.label, actions: m.actions }]
         : []
   );
+}
+
+/**
+ * Where a resource is set: the stored choice when it is one the resource
+ * allows, otherwise its default. The built-in department abilities always live
+ * on People & Access; a resource with no `homes` has no matrix row (null).
+ */
+export function effectiveHome(
+  r: ModuleResource,
+  stored?: ModuleHome | null
+): ModuleHome | null {
+  if (r.everyDepartment) return "department";
+  if (!r.homes?.length) return null;
+  return stored && r.homes.includes(stored) ? stored : r.homes[0];
 }
 
 /**

@@ -8,7 +8,7 @@ import type { ModuleDefinition } from "@/core/modules/registry";
  * appear only for people granted the "errorlog" resource (top admins get it via
  * their '*' wildcard). Entries are written by the crash boundaries and by the
  * server error hook (instrumentation), never created here. Given on the IT
- * department's People & Access page (0085).
+ * department's People & Access page by default (0085).
  */
 export const errorLogModule: ModuleDefinition = {
   id: "errorlog",
@@ -17,7 +17,7 @@ export const errorLogModule: ModuleDefinition = {
   icon: Bug,
   nav: true,
   resources: [
-    { id: "errorlog", label: "Error Log", actions: ["read"], departmentLevel: true },
+    { id: "errorlog", label: "Error Log", actions: ["read"], homes: ["department", "company"] },
   ],
   requires: { resource: "errorlog", action: "read" },
 };

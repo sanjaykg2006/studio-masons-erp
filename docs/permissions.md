@@ -36,14 +36,18 @@ department before that department's roles can be granted it. A module marked
 
 ## Access matrix
 
-Three screens hand out access. **Every resource has exactly one home**, declared by
-its flags in the module registry (`registry.test.ts` fails if a resource has two):
+Three screens hand out access. **Every resource has exactly one home at a time.**
+Which one is a setting — `module_settings.home`, edited on Access Control → "Where
+each module is set" (0086). The registry's `homes` lists the places a resource MAY
+be set (only those its screens actually check; the first is the default), and
+`effectiveHome()` resolves the stored choice. `is_general` is kept equal to
+`home = 'company'` by a trigger; moving a module clears ticks in its old place.
 
-| Screen | Who edits it | What it grants | Registry flag |
+| Screen | Who edits it | What it grants | `home` |
 |---|---|---|---|
-| Access Control `/access` (also Departments → IT) | Anyone holding Access Control — itself an IT People & Access tick that only a full-access Administrator can hand out (0085) | Job titles → company-wide screens (general modules, incl. Petty Cash). Also creates departments, allots their modules, appoints leads, invites people. | neither |
-| People & Access `/departments/<id>/people` | The lead, or anyone given People & Access | Per person, the department's own work: Tasks, Settings, People & Access (`everyDepartment`, built into every department) plus the tools allotted to it (Design's template library, vendor list, company assets, billing branches). | `departmentLevel` |
-| Settings → Project roles `/departments/<id>/settings` (Design: `/design/settings`) | The lead, or anyone given Settings | Per project role, what it can do on a project. Two rows aren't tied to one project and apply wherever the role is held (any project, or every project): Projects · Create ("may start new projects") and Project · Templates (the shared library + default checklist). The app checks these with `canAnywhere` / `requireAnywhere` / `authorizeAnywhere`; the DB with `has_permission_anywhere()`. | `projectRole` |
+| Access Control `/access` (also Departments → IT) | Anyone holding Access Control — itself an IT People & Access tick that only a full-access Administrator can hand out (0085) | Job titles → company-wide screens (general modules, incl. Petty Cash). Also creates departments, allots their modules, appoints leads, invites people. | `company` |
+| People & Access `/departments/<id>/people` | The lead, or anyone given People & Access | Per person, the department's own work: Tasks, Settings, People & Access (`everyDepartment`, built into every department) plus the tools allotted to it (Design's template library, vendor list, company assets, billing branches). | `department` |
+| Settings → Project roles `/departments/<id>/settings` (Design: `/design/settings`) | The lead, or anyone given Settings | Per project role, what it can do on a project. Two rows aren't tied to one project and apply wherever the role is held (any project, or every project): Projects · Create ("may start new projects") and Project · Templates (the shared library + default checklist). The app checks these with `canAnywhere` / `requireAnywhere` / `authorizeAnywhere`; the DB with `has_permission_anywhere()`. | `project` |
 
 ## Department leads
 

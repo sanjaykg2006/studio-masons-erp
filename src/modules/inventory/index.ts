@@ -32,14 +32,14 @@ export const inventoryModule: ModuleDefinition = {
       id: "inventory.stock",
       label: "Inventory · Project material",
       actions: ["read", "create", "update"],
-      projectRole: true,
+      homes: ["project", "department"],
       projectLink: { segment: "inventory", icon: Boxes },
     },
     {
       id: "inventory.asset",
       label: "Inventory · Company assets",
       actions: ["read", "create", "update", "delete"],
-      departmentLevel: true,
+      homes: ["department", "company"],
     },
   ],
 };

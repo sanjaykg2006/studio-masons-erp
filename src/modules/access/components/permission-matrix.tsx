@@ -6,15 +6,20 @@ import {
   type Action,
   type Role,
 } from "@/core/rbac/types";
+import type { ModuleHome } from "@/core/modules/registry";
 
 /** A gated resource (module) shown as a row in the permission matrix. */
 export type AccessResource = {
   id: string;
   label: string;
   actions: Action[];
-  /** Where it is set once allotted to a department: Settings → Project roles,
-   * People & Access, or no department screen. Set by the Access Control page. */
-  home?: "settings" | "people" | "other";
+  /** Where it is set now (stored choice, else its default); null = no matrix
+   * row of its own (e.g. Controlled Folder Access). Set by the Access page. */
+  home?: ModuleHome | null;
+  /** The places it may be set — only those its screens check. */
+  homes?: ModuleHome[];
+  /** Why an excluded place is off-limits, where the generic reason is wrong. */
+  whyNot?: Partial<Record<ModuleHome, string>>;
 };
 
 export const grantKey = (roleId: string, resource: string, action: Action) =>

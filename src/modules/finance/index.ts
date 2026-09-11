@@ -7,11 +7,12 @@ import type { ModuleDefinition } from "@/core/modules/registry";
  * orders and runs everything that happens after a vendor has a PO: vendor invoices,
  * payment requests, advances, retention, and the billing-branch list.
  *
- * Everything project-tied is project-scoped (has_project_permission); the finance
- * team gets all-projects visibility via department-wide roles. Billing branches are
- * a company-wide setting (has_permission). Reached through the Departments hub (the
- * /finance dashboard) and through each project (the `finance.invoice` projectLink
- * surfaces a "Finance" card). Every verb here mirrors what migration 0060 enforces.
+ * Everything project-tied is project-scoped (has_project_permission): set per
+ * project role, or per person on People & Access (then on every project).
+ * Billing branches are a company-wide setting (has_permission). Reached through
+ * the Departments hub (the /finance dashboard) and through each project (the
+ * `finance.invoice` projectLink surfaces a "Finance" card). Every verb here
+ * mirrors what migration 0060 enforces.
  *
  *   finance.invoice   create → PM · approve → Project Director · review → Accounts
  *                     (books it) · manage → PD/MD (PO-cap override)
@@ -35,32 +36,32 @@ export const financeModule: ModuleDefinition = {
       id: "finance.invoice",
       label: "Finance · Vendor invoices",
       actions: ["read", "create", "approve", "review", "manage", "delete"],
-      projectRole: true,
+      homes: ["project", "department"],
       projectLink: { segment: "finance", icon: Receipt },
     },
     {
       id: "finance.payment",
       label: "Finance · Payment requests",
       actions: ["read", "create", "approve", "issue"],
-      projectRole: true,
+      homes: ["project", "department"],
     },
     {
       id: "finance.retention",
       label: "Finance · Retention",
       actions: ["read", "update", "issue", "manage"],
-      projectRole: true,
+      homes: ["project", "department"],
     },
     {
       id: "finance.advance",
       label: "Finance · Advances & PO terms",
       actions: ["read", "update", "approve", "issue"],
-      projectRole: true,
+      homes: ["project", "department"],
     },
     {
       id: "finance.settings",
       label: "Finance · Billing branches",
       actions: ["read", "manage"],
-      departmentLevel: true,
+      homes: ["department", "company"],
     },
   ],
 };

@@ -23,6 +23,7 @@ import {
   type Role,
   type RolePermission,
 } from "@/core/rbac/types";
+import type { ModuleHome } from "@/core/modules/registry";
 import {
   Card,
   CardContent,
@@ -53,7 +54,7 @@ import {
   reactivateUser,
   setDepartmentLead,
   setDepartmentModule,
-  setModuleGeneral,
+  setModuleHome,
   setPermission,
   setSkipsSeniorApproval,
 } from "@/modules/access/actions";
@@ -109,24 +110,47 @@ const BLOCKER_LABEL: Record<string, string> = {
 const blockerLabel = (t: string) =>
   BLOCKER_LABEL[t] ?? t.replace(/_/g, " ");
 
-/** The "Modules in …" card's groups: where a ticked module shows up. */
-const MODULE_GROUPS: { home: NonNullable<AccessResource["home"]>; title: string; hint: string }[] = [
+/** The three places a module can be set, as columns of "Where each module is
+ * set", with the generic reason a module can't go there. */
+const HOME_CHOICES: { home: ModuleHome; label: string; whyNot: string }[] = [
   {
-    home: "settings",
+    home: "company",
+    label: "Job title",
+    whyNot: "Project work isn't given with a job title.",
+  },
+  {
+    home: "department",
+    label: "People & Access",
+    whyNot: "This module can't be ticked per person.",
+  },
+  {
+    home: "project",
+    label: "Project roles",
+    whyNot: "Its screens don't check project roles, so a tick there would do nothing.",
+  },
+];
+
+/** The "Modules in …" card's groups: where a ticked module shows up. */
+type ModuleGroup = "project" | "department" | "fixed";
+const MODULE_GROUPS: { group: ModuleGroup; title: string; hint: string }[] = [
+  {
+    group: "project",
     title: "Project work",
     hint: "Shows on the department's Settings → Project roles, ticked per role.",
   },
   {
-    home: "people",
+    group: "department",
     title: "Department tools",
     hint: "Shows on the department's People & Access, ticked per person.",
   },
   {
-    home: "other",
-    title: "Other",
-    hint: "Not set on a department screen.",
+    group: "fixed",
+    title: "Settings grids",
+    hint: "Adds its own grid to the department's Settings page.",
   },
 ];
+const groupOf = (r: AccessResource): ModuleGroup | null =>
+  r.home === "project" || r.home === "department" ? r.home : r.home === null ? "fixed" : null;
 export function AccessView({
   roles,
   permissions,
@@ -283,33 +307,74 @@ export function AccessView({
         </div>
       )}
 
-      {/* Back office modules --------------------------------------------- */}
+      {/* Where each module is set ----------------------------------------- */}
       <Card>
         <CardHeader>
-          <CardTitle>Back office modules</CardTitle>
+          <CardTitle>Where each module is set</CardTitle>
           <CardDescription>
-            The company-wide screens that aren&apos;t tied to any project (e.g.
-            Dashboard, Activity Log). Tick a module here to make it a back-office
-            screen — these are the only screens a Back Office job title can be
-            given. Everything else is granted per department.
+            <strong>Job title</strong>: given company-wide, in the Back Office
+            below. <strong>People &amp; Access</strong>: ticked per person on a
+            department&apos;s People &amp; Access (for project work, that
+            person then has it on every project). <strong>Project roles</strong>:
+            ticked per role on a department&apos;s Settings, and applies on the
+            projects where someone holds the role. Only the places a
+            module&apos;s screens actually check can be picked — hover a greyed
+            one to see why. Moving a module clears the ticks given in its old
+            place.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
-            {resources.map((res) => (
-              <label key={res.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="size-4 accent-primary"
-                  checked={generalSet.has(res.id)}
-                  disabled={pending}
-                  onChange={(e) =>
-                    run(() => setModuleGeneral(res.id, e.target.checked))
-                  }
-                />
-                {res.label}
-              </label>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-muted-foreground border-b text-left">
+                  <th className="py-2 font-medium">Module</th>
+                  {HOME_CHOICES.map((c) => (
+                    <th key={c.home} className="px-2 py-2 text-center font-medium">
+                      {c.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {resources
+                  .filter((r) => r.homes?.length)
+                  .map((res) => (
+                    <tr key={res.id} className="border-b last:border-0">
+                      <td className="py-2">{res.label}</td>
+                      {HOME_CHOICES.map((c) => {
+                        const allowed = res.homes!.includes(c.home);
+                        return (
+                          <td key={c.home} className="px-2 py-2 text-center">
+                            <span
+                              title={
+                                allowed ? undefined : res.whyNot?.[c.home] ?? c.whyNot
+                              }
+                            >
+                              <input
+                                type="radio"
+                                name={`home-${res.id}`}
+                                className="size-4 accent-primary disabled:opacity-30"
+                                checked={res.home === c.home}
+                                disabled={pending || !allowed}
+                                aria-label={`Set ${res.label} on ${c.label}`}
+                                onChange={() => {
+                                  if (
+                                    confirm(
+                                      `Set "${res.label}" on ${c.label}? Ticks given in its current place will be cleared.`
+                                    )
+                                  )
+                                    run(() => setModuleHome(res.id, c.home));
+                                }}
+                              />
+                            </span>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>
@@ -491,11 +556,11 @@ export function AccessView({
                   ) : (
                     MODULE_GROUPS.map((group) => {
                       const inGroup = resources.filter(
-                        (r) => !generalSet.has(r.id) && (r.home ?? "other") === group.home
+                        (r) => !generalSet.has(r.id) && groupOf(r) === group.group
                       );
                       if (inGroup.length === 0) return null;
                       return (
-                        <div key={group.home} className="space-y-2">
+                        <div key={group.group} className="space-y-2">
                           <div>
                             <p className="text-sm font-medium">{group.title}</p>
                             <p className="text-muted-foreground text-xs">{group.hint}</p>

@@ -11,6 +11,7 @@ import { getUser } from "@/core/auth/get-user";
 import { isValidEmail } from "@/modules/access/validation";
 import { logAudit } from "@/modules/audit/log";
 import type { Action } from "@/core/rbac/types";
+import { moduleResources, type ModuleHome } from "@/core/modules/registry";
 
 /** Uniform result for the Access Control forms. */
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -550,24 +551,39 @@ export async function setDepartmentModule(
   return ok;
 }
 
-/** Flag (or unflag) a module as "general" — shown in every role's matrix. */
-export async function setModuleGeneral(
+const HOME_LABEL: Record<ModuleHome, string> = {
+  company: "job titles",
+  department: "People & Access",
+  project: "Project roles",
+};
+
+/**
+ * Choose where a module is set: with the job title, per person on a
+ * department's People & Access, or per role on its Project roles. Only places
+ * the module's screens actually check are accepted (its `homes`); ticks left in
+ * the old place are cleared by set_module_home, so none linger unseen.
+ */
+export async function setModuleHome(
   moduleId: string,
-  isGeneral: boolean
+  home: ModuleHome
 ): Promise<ActionResult> {
   const denied = await authorize("access", "update");
   if (denied) return denied;
+  const resource = moduleResources().find((r) => r.id === moduleId);
+  if (!resource?.homes?.includes(home)) {
+    return fail(`${resource?.label ?? "That module"} can't be set on ${HOME_LABEL[home]}.`);
+  }
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("module_settings")
-    .upsert({ module_id: moduleId, is_general: isGeneral });
-
+  const { error } = await supabase.rpc("set_module_home", {
+    p_module: moduleId,
+    p_home: home,
+  });
   if (error) return fail(error.message);
   await logAudit(
-    "module.general",
-    `${isGeneral ? "Marked" : "Unmarked"} module "${moduleId}" as general`,
-    { moduleId, isGeneral }
+    "module.home",
+    `"${resource.label}" is now set on ${HOME_LABEL[home]}`,
+    { moduleId, home }
   );
   revalidatePath("/access");
   return ok;

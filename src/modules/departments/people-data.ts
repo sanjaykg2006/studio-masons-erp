@@ -1,7 +1,8 @@
 import "server-only";
 
 import { createClient } from "@/core/supabase/server";
-import { moduleResources } from "@/core/modules/registry";
+import { effectiveHome, moduleResources } from "@/core/modules/registry";
+import { getStoredHomes } from "@/core/modules/homes";
 import type { AccessUser } from "@/modules/access/data";
 import type { AccessResource } from "@/modules/access/components/permission-matrix";
 import type { TeamGrant, TeamMember, TeamRole } from "@/modules/team-access/data";
@@ -43,6 +44,7 @@ export async function getDepartmentPeopleData(
     subteamsRes,
     subMembersRes,
     deptModsRes,
+    homes,
   ] = await Promise.all([
     supabase
       .from("team_members")
@@ -65,12 +67,13 @@ export async function getDepartmentPeopleData(
     supabase.rpc("list_department_subteams", { p_dept: deptId }),
     supabase.rpc("list_subteam_members", { p_dept: deptId }),
     supabase.from("department_modules").select("module_id").eq("department_id", deptId),
+    getStoredHomes(),
   ]);
 
   // Only the department's own work belongs here: the abilities every department
-  // has (tasks, settings, people) first, then the department-level tools it was
-  // allotted. Company-wide screens are given with the job title (Access
-  // Control) and project work per project role (Settings), so neither shows.
+  // has (tasks, settings, people) first, then the allotted modules set on People
+  // & Access (Access Control → Where each module is set). Company-wide modules
+  // come with the job title and project work is set per project role.
   const allotted = new Set(
     ((deptModsRes.data ?? []) as { module_id: string }[]).map((m) => m.module_id)
   );
@@ -84,7 +87,11 @@ export async function getDepartmentPeopleData(
     // Plain {id,label,actions} — the registry rows also carry a projectLink icon
     // (a component) that can't cross into the client PeopleAccessView.
     resources: moduleResources()
-      .filter((r) => r.departmentLevel && (r.everyDepartment || allotted.has(r.id)))
+      .filter(
+        (r) =>
+          r.everyDepartment ||
+          (allotted.has(r.id) && effectiveHome(r, homes.get(r.id)) === "department")
+      )
       .sort((a, b) => Number(Boolean(b.everyDepartment)) - Number(Boolean(a.everyDepartment)))
       .map((r) => ({ id: r.id, label: r.label, actions: r.actions })),
     subteams: (subteamsRes.data ?? []) as SubteamRef[],

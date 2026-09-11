@@ -9,14 +9,10 @@ import type { ModuleDefinition } from "@/core/modules/registry";
  * vendor directory is a GLOBAL library (has_permission); everything project-tied
  * is project-scoped (has_project_permission).
  *
- * The global vendor directory (migration 0036) is a department-level library.
- * The per-project resources (procurement.budget / .intent / .order / .receipt,
- * migrations 0037-0040) are project-scoped: their grants come from a company-wide
- * department role that reaches every project. Once an intent is approved the
- * Procurement Manager enters the chosen vendor's rate per line, which generates
- * the POs (there is no separate comparison step). Every verb listed here mirrors
- * what the migrations enforce in RLS / the RPCs, so the access matrix shows a
- * checkbox for each one.
+ * Project-scoped resources may be set per project role or per person on People
+ * & Access (a per-person tick then applies on every project). The vendor list
+ * only checks job titles and People & Access, never project roles. Every verb
+ * listed here mirrors what the migrations enforce in RLS / the RPCs.
  */
 export const procurementModule: ModuleDefinition = {
   id: "procurement",
@@ -31,15 +27,14 @@ export const procurementModule: ModuleDefinition = {
       id: "procurement.vendor",
       label: "Procurement · Vendors",
       actions: ["read", "create", "update", "approve", "delete"],
-      // The vendor directory is a shared, department-level library (Team Access).
-      departmentLevel: true,
+      homes: ["department", "company"],
     },
     {
       id: "procurement.budget",
       label: "Procurement · Budget BOQ",
       // approve = re-version a released budget (Director sign-off).
       actions: ["read", "create", "update", "approve", "delete"],
-      projectRole: true,
+      homes: ["project", "department"],
       projectLink: { segment: "budget", icon: ShoppingCart },
     },
     {
@@ -47,7 +42,7 @@ export const procurementModule: ModuleDefinition = {
       label: "Procurement · Purchase intents",
       // approve = the Director's sign-off on a raised intent.
       actions: ["read", "create", "approve"],
-      projectRole: true,
+      homes: ["project", "department"],
       projectLink: { segment: "intents", icon: FileText },
     },
     {
@@ -56,14 +51,14 @@ export const procurementModule: ModuleDefinition = {
       // issue = record/release a PO; review = Finance; approve = Director;
       // manage = the senior sign-off that clears an over-budget PO for release.
       actions: ["read", "update", "review", "approve", "issue", "manage"],
-      projectRole: true,
+      homes: ["project", "department"],
       projectLink: { segment: "orders", icon: ShoppingCart },
     },
     {
       id: "procurement.receipt",
       label: "Procurement · Receipts",
       actions: ["read", "create", "update"],
-      projectRole: true,
+      homes: ["project", "department"],
     },
   ],
 };

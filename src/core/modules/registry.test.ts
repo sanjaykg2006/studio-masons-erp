@@ -1,15 +1,21 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  effectiveHome,
   moduleResources,
   projectLinkModules,
   resourcesForModules,
 } from "@/core/modules/registry";
 
-describe("moduleResources", () => {
-  const resources = moduleResources();
-  const byId = new Map(resources.map((r) => [r.id, r]));
+const all = moduleResources();
+const byId = new Map(all.map((r) => [r.id, r]));
+const get = (id: string) => {
+  const r = byId.get(id);
+  if (!r) throw new Error(`no resource ${id}`);
+  return r;
+};
 
+describe("moduleResources", () => {
   it("flattens multi-resource modules into one row per sub-resource", () => {
     // Projects (project/brief/member) and Design (template/folder) each declare
     // several sub-resources; every one must appear as its own row.
@@ -25,16 +31,84 @@ describe("moduleResources", () => {
   });
 
   it("keeps Access Control as one row with its four verbs", () => {
-    const access = byId.get("access");
-    expect(access?.actions).toEqual(["create", "read", "update", "delete"]);
+    expect(get("access").actions).toEqual(["create", "read", "update", "delete"]);
   });
 
   it("exposes the enforced governance verbs on the brief resource", () => {
-    const brief = byId.get("project.brief");
-    expect(brief?.actions).toContain("review");
-    expect(brief?.actions).toContain("approve");
+    const brief = get("project.brief");
+    expect(brief.actions).toContain("review");
+    expect(brief.actions).toContain("approve");
     // "issue" was removed — it was declared but never checked anywhere.
-    expect(brief?.actions).not.toContain("issue");
+    expect(brief.actions).not.toContain("issue");
+  });
+});
+
+describe("where each module is set", () => {
+  it("defaults every resource to a place it allows, or none when it has its own grid", () => {
+    for (const r of all) {
+      const home = effectiveHome(r);
+      if (r.everyDepartment) expect(home).toBe("department");
+      else if (!r.homes?.length) expect(home).toBeNull();
+      else expect(r.homes).toContain(home);
+    }
+    expect(effectiveHome(get("folder.access"))).toBeNull();
+  });
+
+  it("uses a stored choice only when the resource allows it", () => {
+    const vendor = get("procurement.vendor");
+    expect(effectiveHome(vendor, "company")).toBe("company");
+    // The vendor list only checks job titles and team ticks: a Project-roles
+    // home would be a dead tick, so it falls back to the default.
+    expect(effectiveHome(vendor, "project")).toBe("department");
+  });
+
+  it("starts where each module lived before it became a setting", () => {
+    expect(effectiveHome(get("procurement.order"))).toBe("project");
+    expect(effectiveHome(get("finance.invoice"))).toBe("project");
+    expect(effectiveHome(get("project.template"))).toBe("project");
+    expect(effectiveHome(get("procurement.vendor"))).toBe("department");
+    expect(effectiveHome(get("inventory.asset"))).toBe("department");
+    expect(effectiveHome(get("audit"))).toBe("department");
+    expect(effectiveHome(get("dashboard"))).toBe("company");
+    expect(effectiveHome(get("pettycash.senior"))).toBe("company");
+  });
+
+  it("keeps project visibility on project roles only", () => {
+    // Membership decides who sees a project; a per-person or job-title tick
+    // would open every project.
+    for (const id of ["project", "project.brief", "project.member"]) {
+      expect(get(id).homes).toEqual(["project"]);
+    }
+  });
+
+  it("never lets Access Control be given with a job title or a project role", () => {
+    expect(get("access").homes).toEqual(["department"]);
+  });
+
+  it("never offers Project roles for a screen that doesn't check them", () => {
+    // These are checked with has_permission, which reads job titles and team
+    // ticks only. (project.template uses has_permission_anywhere, so it may.)
+    for (const id of [
+      "procurement.vendor",
+      "inventory.asset",
+      "finance.settings",
+      "design.template",
+      "pettycash.billing",
+      "pettycash.pay",
+      "audit",
+      "errorlog",
+    ]) {
+      expect(get(id).homes).not.toContain("project");
+    }
+  });
+
+  it("gives every department its tasks, settings and people abilities", () => {
+    // These need no module allotting and never show on Access Control; the
+    // database mirrors the list in is_department_ability().
+    const built = all.filter((r) => r.everyDepartment);
+    expect(new Set(built.map((r) => r.id))).toEqual(
+      new Set(["department.tasks", "department.settings", "department.people"])
+    );
   });
 });
 
@@ -42,18 +116,8 @@ describe("resourcesForModules", () => {
   const idsOf = (ids: string[]) => resourcesForModules(ids).map((r) => r.id);
 
   it("returns exactly the resources whose module id is allotted — no more", () => {
-    // A department that was allotted a Procurement order module sees that row and
-    // nothing it wasn't given; this is what makes the role matrix data-driven.
     expect(idsOf(["procurement.order"])).toEqual(["procurement.order"]);
     expect(idsOf(["design.folder"])).not.toContain("project");
-  });
-
-  it("keeps the departmentLevel flag so the two matrices can split on it", () => {
-    // People & Access shows department-level rows; the role matrix shows the rest.
-    const [vendor] = resourcesForModules(["procurement.vendor"]);
-    const [order] = resourcesForModules(["procurement.order"]);
-    expect(vendor.departmentLevel).toBe(true);
-    expect(order.departmentLevel).toBeFalsy();
   });
 
   it("ignores unknown module ids and an empty allotment", () => {
@@ -61,87 +125,10 @@ describe("resourcesForModules", () => {
     expect(resourcesForModules([])).toEqual([]);
   });
 
-  it("splits department-wide vs per-project abilities so matrices don't mix", () => {
-    // Mirrors Design's department_modules (see the access screens): its own
-    // project + design modules, an allotted Procurement order, and the always-on
-    // general modules. Each matrix must pull only what belongs to it.
-    const designAllotted = [
-      "project",
-      "project.brief",
-      "project.member",
-      "project.template",
-      "design.template",
-      "design.folder",
-      "procurement.order",
-      // the one general module left, always available:
-      "dashboard",
-    ];
-    const scoped = resourcesForModules(designAllotted);
-
-    // "Project roles" matrix = per-project work only.
-    const roleRows = scoped.filter((r) => r.projectRole).map((r) => r.id);
-    expect(new Set(roleRows)).toEqual(
-      new Set([
-        "project",
-        "project.brief",
-        "project.member",
-        "project.template",
-        "procurement.order",
-      ])
-    );
-    // The bug report's offenders must be gone from the role matrix:
-    for (const gone of ["access", "audit", "dashboard", "design.template"]) {
-      expect(roleRows).not.toContain(gone);
-    }
-
-    // "People & Access" matrix = department-wide abilities only.
-    const deptRows = scoped.filter((r) => r.departmentLevel).map((r) => r.id);
-    expect(deptRows).not.toContain("project.template");
-    expect(deptRows).toContain("design.template");
-    expect(deptRows).not.toContain("access");
-    expect(deptRows).not.toContain("procurement.order");
-    expect(deptRows).not.toContain("project");
-  });
-
-  it("gives every resource at most one home", () => {
-    // A row on both department screens is what made them look like copies of
-    // each other (Projects sat on People & Access AND on Project roles).
-    for (const r of moduleResources()) {
-      expect(Boolean(r.departmentLevel && r.projectRole)).toBe(false);
-    }
-    // Projects lives on project roles, where Create = may start new projects.
-    const [project] = resourcesForModules(["project"]);
-    expect(project.projectRole).toBe(true);
-    expect(project.departmentLevel).toBeFalsy();
-    expect(project.actions).toContain("create");
-  });
-
-  it("puts Access Control and the two logs on a department's People & Access", () => {
-    // They belong to the IT department (0085), which is allotted all three; the
-    // database also keeps Access Control to IT and to administrators' hands.
-    const rows = resourcesForModules(["access", "audit", "errorlog"]);
-    expect(rows.map((r) => r.id)).toEqual(["access", "audit", "errorlog"]);
-    for (const r of rows) {
-      expect(r.departmentLevel).toBe(true);
-      expect(r.projectRole).toBeFalsy();
-    }
-  });
-
-  it("gives every department its tasks, settings and people abilities", () => {
-    // These need no module allotting and never show on Access Control; the
-    // database mirrors the list in is_department_ability().
-    const built = moduleResources().filter((r) => r.everyDepartment);
-    expect(new Set(built.map((r) => r.id))).toEqual(
-      new Set(["department.tasks", "department.settings", "department.people"])
-    );
-    for (const r of built) expect(r.departmentLevel).toBe(true);
-  });
-
   it("only surfaces resources that opt in via projectLink, with a segment + icon", () => {
     // The project page renders these; declaring projectLink is all it takes for a
     // new module's page to appear there — nothing is listed in the page itself.
-    const groups = projectLinkModules();
-    const linked = groups.flatMap((g) => g.resources);
+    const linked = projectLinkModules().flatMap((g) => g.resources);
     expect(linked.length).toBeGreaterThan(0);
     for (const r of linked) {
       expect(r.projectLink?.segment).toBeTruthy();
@@ -153,14 +140,7 @@ describe("resourcesForModules", () => {
   });
 
   it("resolves a real allotment (Design's modules) to their registry rows", () => {
-    // Mirrors department_modules for Design: project.* + design.* + an allotted
-    // Procurement order — every one should surface, nothing hardcoded per dept.
-    const got = idsOf([
-      "project",
-      "project.brief",
-      "design.folder",
-      "procurement.order",
-    ]);
+    const got = idsOf(["project", "project.brief", "design.folder", "procurement.order"]);
     expect(new Set(got)).toEqual(
       new Set(["project", "project.brief", "design.folder", "procurement.order"])
     );

@@ -22,7 +22,11 @@ export const accessModule: ModuleDefinition = {
       id: "access",
       label: "Access Control",
       actions: ["create", "read", "update", "delete"],
-      departmentLevel: true,
+      homes: ["department"],
+      whyNot: {
+        company: "Access Control is only handed out through IT, by an Administrator.",
+        project: "Access Control is only handed out through IT, by an Administrator.",
+      },
     },
   ],
   requires: { resource: "access", action: "read" },

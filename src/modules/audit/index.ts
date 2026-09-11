@@ -7,7 +7,7 @@ import type { ModuleDefinition } from "@/core/modules/registry";
  * `audit:read`, so the sidebar link and page appear only for people granted the
  * "audit" resource (admins get it via their '*' wildcard). Entries are written
  * by server actions, never created here. Given on the IT department's People &
- * Access page (0085).
+ * Access page by default (0085).
  */
 export const auditModule: ModuleDefinition = {
   id: "audit",
@@ -16,7 +16,7 @@ export const auditModule: ModuleDefinition = {
   icon: History,
   nav: true,
   resources: [
-    { id: "audit", label: "Activity Log", actions: ["read"], departmentLevel: true },
+    { id: "audit", label: "Activity Log", actions: ["read"], homes: ["department", "company"] },
   ],
   requires: { resource: "audit", action: "read" },
 };

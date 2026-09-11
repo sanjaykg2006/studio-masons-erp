@@ -12,8 +12,11 @@ export const dashboardModule: ModuleDefinition = {
   href: "/dashboard",
   icon: LayoutDashboard,
   nav: true,
-  // Declares a `read` action, so the sidebar hides the link from any role
-  // without `dashboard:read` (it's a seeded general module, grantable to all).
-  // The page itself stays unguarded as the post-redirect safe home.
-  actions: ["read"],
+  // The sidebar hides the link from anyone without `dashboard:read` (it's a
+  // seeded general module, grantable to all). The page itself stays unguarded
+  // as the post-redirect safe home.
+  requires: { resource: "dashboard", action: "read" },
+  resources: [
+    { id: "dashboard", label: "Dashboard", actions: ["read"], homes: ["company"] },
+  ],
 };

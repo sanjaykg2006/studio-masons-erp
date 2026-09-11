@@ -10,9 +10,9 @@ import type { ModuleDefinition } from "@/core/modules/registry";
  * department check.
  *
  * Its resources are the abilities EVERY department has without allotting a
- * module. The lead holds them automatically; People & Access ticks them for
- * others (is_department_ability / can_create_task / can_manage_department_roles /
- * can_manage_team in 0078).
+ * module, always ticked on People & Access. The lead holds them automatically;
+ * People & Access ticks them for others (is_department_ability /
+ * can_create_task / can_manage_department_roles / can_manage_team in 0078).
  */
 export const departmentsModule: ModuleDefinition = {
   id: "departments",
@@ -27,7 +27,6 @@ export const departmentsModule: ModuleDefinition = {
       label: "Tasks",
       // create = set tasks · update = edit or pause anyone's task · delete = remove any task
       actions: ["create", "update", "delete"],
-      departmentLevel: true,
       everyDepartment: true,
     },
     {
@@ -35,7 +34,6 @@ export const departmentsModule: ModuleDefinition = {
       label: "Settings",
       // Project roles, their permissions and folder access.
       actions: ["manage"],
-      departmentLevel: true,
       everyDepartment: true,
     },
     {
@@ -43,7 +41,6 @@ export const departmentsModule: ModuleDefinition = {
       label: "People & Access",
       // Add/remove teammates, sub-teams, every-project role and these ticks.
       actions: ["manage"],
-      departmentLevel: true,
       everyDepartment: true,
     },
   ],

@@ -1,7 +1,8 @@
 import "server-only";
 
 import { createClient } from "@/core/supabase/server";
-import { resourcesForModules } from "@/core/modules/registry";
+import { effectiveHome, resourcesForModules } from "@/core/modules/registry";
+import { getStoredHomes } from "@/core/modules/homes";
 import type { Action } from "@/core/rbac/types";
 import type { FolderAccessConfig, ProjectRoleRow } from "@/modules/design/data";
 import type {
@@ -67,17 +68,17 @@ export async function getDepartmentModuleIds(deptId: string): Promise<Set<string
 export type MatrixResource = { id: string; label: string; actions: Action[]; note?: string };
 
 /**
- * The rows for a department's "Project roles" matrix: the PER-PROJECT abilities
- * (`projectRole`) of the modules allotted to it — what a role can do on a project.
- * Company-wide modules and department libraries are excluded (they aren't
- * projectRole), so only project work shows here. Data-driven: allot a project
- * module → its rows appear; nothing is hardcoded per department. The leading
- * "Word · " label prefix is dropped for a cleaner column header.
+ * The rows for a department's "Project roles" matrix: the allotted modules set
+ * per project role (Access Control → Where each module is set) — what a role can
+ * do on a project. Company-wide modules and department tools live elsewhere.
+ * Data-driven: allot a module → its rows appear; nothing is hardcoded per
+ * department. The leading "Word · " label prefix is dropped for a cleaner
+ * column header.
  */
 export async function getDepartmentRoleResources(deptId: string): Promise<MatrixResource[]> {
-  const ids = await getDepartmentModuleIds(deptId);
+  const [ids, homes] = await Promise.all([getDepartmentModuleIds(deptId), getStoredHomes()]);
   return resourcesForModules(ids)
-    .filter((r) => r.projectRole)
+    .filter((r) => effectiveHome(r, homes.get(r.id)) === "project")
     .map((r) => ({
       id: r.id,
       label: r.label.replace(/^\w+ ·\s*/, ""),
@@ -92,9 +93,9 @@ export async function getDepartmentRoleResources(deptId: string): Promise<Matrix
  * the Settings page names them so an allotted module is never "missing".
  */
 export async function getDepartmentToolLabels(deptId: string): Promise<string[]> {
-  const ids = await getDepartmentModuleIds(deptId);
+  const [ids, homes] = await Promise.all([getDepartmentModuleIds(deptId), getStoredHomes()]);
   return resourcesForModules(ids)
-    .filter((r) => r.departmentLevel && !r.everyDepartment)
+    .filter((r) => !r.everyDepartment && effectiveHome(r, homes.get(r.id)) === "department")
     .map((r) => r.label);
 }
 

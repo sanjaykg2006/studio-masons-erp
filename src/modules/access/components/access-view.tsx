@@ -55,6 +55,7 @@ import {
   setDepartmentModule,
   setModuleGeneral,
   setPermission,
+  setSkipsSeniorApproval,
 } from "@/modules/access/actions";
 import type { AccessSummary, DeleteBlocker } from "@/modules/access/actions";
 
@@ -616,7 +617,31 @@ export function AccessView({
                   (★) access is managed in the database, not here.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {selectedRole && (
+                  <label className="bg-accent/30 flex items-start gap-2 rounded-md border p-3 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 size-4 accent-primary"
+                      checked={selectedRole.skips_senior_approval}
+                      disabled={pending}
+                      onChange={(e) =>
+                        run(() => setSkipsSeniorApproval(selectedRole.id, e.target.checked))
+                      }
+                    />
+                    <span>
+                      <span className="font-medium">
+                        Petty cash claims skip senior approval
+                      </span>
+                      <span className="text-muted-foreground block text-xs">
+                        Claims from this job title go from the Billing check
+                        straight to Accounts — for the top of the order (e.g.
+                        Managing Director, Co-Founder), who have no one above
+                        them to approve.
+                      </span>
+                    </span>
+                  </label>
+                )}
                 {!selectedRole ? (
                   <p className="text-muted-foreground text-sm">Select a role.</p>
                 ) : matrixResources.length === 0 ? (

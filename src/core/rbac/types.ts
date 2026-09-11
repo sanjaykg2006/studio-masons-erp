@@ -90,6 +90,9 @@ export type Role = {
    * member of). Project-scoped roles reach a project only via membership.
    */
   is_department_wide: boolean;
+  /** Seniority within its ladder (a department's roles, or the job titles);
+   * 1 = most senior. */
+  rank: number;
 };
 
 /** A single granted permission as stored in `public.role_permissions`. */

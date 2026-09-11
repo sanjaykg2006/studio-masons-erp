@@ -43,9 +43,22 @@ export async function createRole(
   if (!trimmed || !key) return fail("Enter a role name.");
 
   const supabase = await createClient();
+  // A new job title joins the bottom of the company order; Access Control's
+  // arrows move it from there.
+  let rank: number | undefined;
+  if (!departmentId) {
+    const { data: last } = await supabase
+      .from("roles")
+      .select("rank")
+      .is("department_id", null)
+      .order("rank", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    rank = ((last as { rank: number } | null)?.rank ?? 0) + 1;
+  }
   const { error } = await supabase
     .from("roles")
-    .insert({ key, label: trimmed, department_id: departmentId });
+    .insert({ key, label: trimmed, department_id: departmentId, ...(rank ? { rank } : {}) });
 
   if (error) {
     return fail(
@@ -101,6 +114,19 @@ export async function deleteRole(roleId: string): Promise<ActionResult> {
  * Grant or revoke a single (resource, action) on a role — one matrix cell.
  * Granting inserts the row; revoking deletes it (deny-by-default).
  */
+/** Move a job title one place up (more senior) or down in the company order.
+ * The order decides approvals such as Petty Cash senior approval. */
+export async function moveJobTitle(roleId: string, up: boolean): Promise<ActionResult> {
+  const denied = await authorize("access", "update");
+  if (denied) return denied;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("move_job_title", { p_role: roleId, p_up: up });
+  if (error) return fail(error.message);
+  await logAudit("role.move", `Moved a job title ${up ? "up" : "down"}`, { roleId });
+  revalidatePath("/access");
+  return ok;
+}
+
 export async function setPermission(
   roleId: string,
   resource: string,

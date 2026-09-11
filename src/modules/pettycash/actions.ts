@@ -82,7 +82,7 @@ export async function mdApprovePettyCash(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("md_approve_pettycash", { p_id: id });
   if (error) return fail(error.message);
-  await logAudit("pettycash.md", "MD approved petty cash", { id });
+  await logAudit("pettycash.senior", "Senior approval given on petty cash", { id });
   refresh();
   return ok;
 }

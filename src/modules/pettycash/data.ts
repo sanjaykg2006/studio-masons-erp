@@ -16,7 +16,7 @@ export async function canSeeAllPettyCash(): Promise<boolean> {
   const checks = await Promise.all([
     can("pettycash.entry", "read"),
     can("pettycash.billing", "approve"),
-    can("pettycash.md", "approve"),
+    can("pettycash.senior", "approve"),
     can("pettycash.pay", "issue"),
   ]);
   return checks.some(Boolean);

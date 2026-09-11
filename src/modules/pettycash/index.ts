@@ -7,11 +7,12 @@ import type { ModuleDefinition } from "@/core/modules/registry";
  * claim/settle it. Unlike the rest of Finance it is not project-gated to create: it
  * shows in the sidebar for everyone (the module declares `resources`, not a top-level
  * `read` action, so the nav never hides it). An entry then runs a fixed chain —
- * Billing check → MD approval → Accounts pays — regardless of amount.
+ * Billing check → senior approval → Accounts pays — regardless of amount.
  *
  * Each step is its own row, one verb each, held by the people who own it (0082):
  *   pettycash.billing  Billing department's People & Access
- *   pettycash.md       job title (Access Control)
+ *   pettycash.senior   job title (Access Control) — and only for claims from
+ *                      someone BELOW the approver in the job-title order (0083)
  *   pettycash.pay      Finance department's People & Access
  *   pettycash.entry    job title — see everyone's claims (step owners see them too)
  *   pettycash.category Billing department's People & Access — the category list
@@ -31,8 +32,8 @@ export const pettyCashModule: ModuleDefinition = {
       departmentLevel: true,
     },
     {
-      id: "pettycash.md",
-      label: "Petty Cash · MD approval",
+      id: "pettycash.senior",
+      label: "Petty Cash · Senior approval",
       actions: ["approve"],
     },
     {

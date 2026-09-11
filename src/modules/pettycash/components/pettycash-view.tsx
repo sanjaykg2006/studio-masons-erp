@@ -119,7 +119,8 @@ export function PettyCashView({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Petty Cash</h1>
           <p className="text-muted-foreground">
-            Log a small spend and claim it. Billing → MD → Accounts approve and pay.
+            Log a small spend and claim it. Billing checks it, someone senior to
+            you approves it, and Accounts pays.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -233,7 +234,7 @@ export function PettyCashView({
                             )}
                             {e.status === "pending_md" && e.can_md && (
                               <Button size="sm" disabled={pending} onClick={() => run(() => mdApprovePettyCash(e.id))}>
-                                <Check className="size-4" /> MD
+                                <Check className="size-4" /> Approve
                               </Button>
                             )}
                             {e.status === "pending_accounts" && e.can_pay && (

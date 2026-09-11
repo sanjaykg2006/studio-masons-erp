@@ -5,6 +5,8 @@ import { type FormEvent, useMemo, useState, useTransition } from "react";
 import {
   Briefcase,
   Building2,
+  ChevronDown,
+  ChevronUp,
   Lock,
   Plus,
   ShieldCheck,
@@ -47,6 +49,7 @@ import {
   getUserAccessSummary,
   getUserDeleteBlockers,
   inviteUser,
+  moveJobTitle,
   reactivateUser,
   setDepartmentLead,
   setDepartmentModule,
@@ -514,14 +517,16 @@ export function AccessView({
               <CardHeader>
                 <CardTitle>Job titles</CardTitle>
                 <CardDescription>
-                  Back office job titles — assign one to each employee.
+                  Back office job titles — assign one to each employee. Top =
+                  most senior; the order decides who can approve whose claims
+                  (e.g. Petty Cash senior approval).
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-1">
                 {rolesInScope.length === 0 && (
                   <p className="text-muted-foreground text-sm">No roles yet.</p>
                 )}
-                {rolesInScope.map((role) => (
+                {rolesInScope.map((role, i) => (
                   <div
                     key={role.id}
                     className={cn(
@@ -531,6 +536,26 @@ export function AccessView({
                         : "hover:bg-accent/50"
                     )}
                   >
+                    <div className="flex flex-col">
+                      <button
+                        type="button"
+                        disabled={pending || i === 0}
+                        onClick={() => run(() => moveJobTitle(role.id, true))}
+                        className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        aria-label={`Move ${role.label} up`}
+                      >
+                        <ChevronUp className="size-3" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending || i === rolesInScope.length - 1}
+                        onClick={() => run(() => moveJobTitle(role.id, false))}
+                        className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        aria-label={`Move ${role.label} down`}
+                      >
+                        <ChevronDown className="size-3" />
+                      </button>
+                    </div>
                     <button
                       type="button"
                       onClick={() => setRoleId(role.id)}

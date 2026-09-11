@@ -11,7 +11,9 @@ export type PettyCashKind = "reimbursement" | "float";
 
 export const PETTYCASH_STATUS_LABEL: Record<PettyCashStatus, string> = {
   pending_billing: "Awaiting Billing",
-  pending_md: "Awaiting MD",
+  // The value is still 'pending_md'; since 0083 the step is approval by anyone
+  // senior to the claimant (a Director, or the MD for a Director's claim).
+  pending_md: "Awaiting senior approval",
   pending_accounts: "Awaiting Accounts",
   paid: "Paid",
   rejected: "Rejected",

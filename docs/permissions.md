@@ -36,33 +36,39 @@ department before that department's roles can be granted it. A module marked
 
 ## Access matrix
 
-Two surfaces edit the same `roles` / `role_permissions` model:
+Three screens hand out access. **Every resource has exactly one home**, declared by
+its flags in the module registry (`registry.test.ts` fails if a resource has two):
 
-- **Central `/access` (admin, `access:*`)** — creates roles + departments, tags each
-  role to a department, picks each department's modules, marks "general", invites
-  people, and appoints each department's lead. Edits only the global/system roles'
-  matrix.
-- **`/team` Team Access (a department lead)** — for the roles under THEIR department
-  only: ticks the permission matrix (their department's non-general modules), flags a
-  role department-wide, and assigns people into those roles.
+| Screen | Who edits it | What it grants | Registry flag |
+|---|---|---|---|
+| Access Control `/access` | HR / admin (`access:*`) | Job titles → company-wide screens (general modules, incl. Petty Cash). Also creates departments, allots their modules, appoints leads, invites people. | neither |
+| People & Access `/departments/<id>/people` | The lead, or anyone given People & Access | Per person, the department's own work: Tasks, Settings, People & Access (`everyDepartment`, built into every department) plus the tools allotted to it (template libraries, vendor list, company assets, billing branches). | `departmentLevel` |
+| Settings → Project roles `/departments/<id>/settings` (Design: `/design/settings`) | The lead, or anyone given Settings | Per project role, what it can do on a project. Projects · Create means "may start new projects". | `projectRole` |
 
 ## Department leads
 
 "Lead-ness" is membership in `public.department_leads`, not a matrix grant (mirrors
-project membership). The boundary is enforced in the DB, in
-`0010_department_leads.sql`:
+project membership). A lead holds Tasks, Settings and People & Access automatically
+and can tick them for others on People & Access; only the lead (or HR) can hand out
+Settings or People & Access, so a delegate cannot pass on more than they were given.
 
-- `is_department_lead(dept)` / `leads_any_department()` / `my_lead_departments()` —
-  the lead-scoping primitives (parallel to `has_permission`).
-- Lead branches are OR'd into the RLS on `roles` / `role_permissions` / `departments`
-  / `department_modules` / `module_settings` reads, plus `role_permissions`
-  insert/delete gated by `lead_can_grant(role, resource)`. A lead literally cannot
-  touch another department, the global roles, or general modules.
-- Role-scope and people-assignment go through SECURITY DEFINER RPCs
-  (`set_role_department_wide`, `set_member_department_role`,
-  `clear_member_department_role`) that re-check `is_department_lead`, so leads never
-  get a broad write policy. The sidebar link shows via a `team.access:read` nav hint
-  injected in `app/(app)/layout.tsx` when `leads_any_department()`.
+The DB primitives (`0010_department_leads.sql`, widened in
+`0078_one_home_per_permission.sql`):
+
+- `is_department_lead(dept)` / `leads_any_department()` — lead-ness itself.
+- `has_team_permission(dept, resource, action)` — one person's tick in ONE
+  department. `has_permission()` unions team grants across every department, so
+  department-scoped abilities must use this instead.
+- `can_manage_team(dept)` (People & Access), `can_manage_department_roles(dept)`
+  (Settings), `can_create_task(dept)` / `can_manage_department_tasks(dept)` (Tasks) —
+  each is lead OR HR OR the matching tick.
+- `manages_department(dept)` / `manages_any_department()` — who may READ a
+  department's roles, modules, team and sub-teams; OR'd into those tables' RLS.
+- `can_create_project()` — job title, or a project role with Projects · Create held
+  on any project or on every project. Used by the `projects` insert policy.
+- Writes go through SECURITY DEFINER RPCs that re-check the rule
+  (`set_team_member_permission`, `set_department_role_permission`, …), so nobody
+  gets a broad write policy.
 
 ## Enforcement helpers
 

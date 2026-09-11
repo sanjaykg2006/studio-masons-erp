@@ -30,6 +30,7 @@ export default async function DepartmentTasksPage({
       subteams={data.subteams}
       projects={data.projects}
       canCreate={data.canCreate}
+      canManage={data.canManage}
       backHref={backHref}
       backLabel={dept.label}
       subtitle={`The ${dept.label} team's to-do board and calendar.`}

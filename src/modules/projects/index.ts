@@ -29,14 +29,12 @@ export const projectsModule: ModuleDefinition = {
       id: "project",
       label: "Projects",
       actions: ["read", "create", "update", "approve", "delete"],
-      // Creating projects is a department-wide capability (People & Access);
-      // viewing/editing a project is a per-project-role ability.
-      departmentLevel: true,
+      // Everything about a project is set per project role (Settings). "Create"
+      // is the one verb not tied to a single project: holding a role with it — on
+      // any project, or on every project — lets that person start new ones
+      // (can_create_project in 0078).
       projectRole: true,
-      // Only "create" may be granted department-wide. View/edit/approve/delete a
-      // project come from project MEMBERSHIP — a department-wide project:read tick
-      // would silently expose every project ("membership decides visibility").
-      departmentActions: ["create"],
+      note: "Create = can start new projects",
     },
     {
       id: "project.brief",

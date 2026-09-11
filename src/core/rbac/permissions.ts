@@ -71,6 +71,19 @@ export async function hasProjectAccess(): Promise<boolean> {
 }
 
 /**
+ * Whether the user may start a new project: their job title allows it, or they
+ * hold a project role with Projects · Create — on any project, or on every
+ * project. Backed by can_create_project(), the rule the projects insert policy
+ * itself uses (a project role's grants are not in my_permissions, so can()
+ * cannot answer this).
+ */
+export async function canCreateProject(): Promise<boolean> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("can_create_project");
+  return !error && data === true;
+}
+
+/**
  * Whether the user can reach the Design department's own screens (template
  * library + folder/stage/role settings). Backed by has_design_access().
  */

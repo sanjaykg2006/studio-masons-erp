@@ -1,9 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-import { redirect } from "next/navigation";
-
-import { createClient } from "@/core/supabase/server";
 import {
   Card,
   CardContent,
@@ -11,50 +9,37 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getFolderAccessConfig } from "@/modules/design/data";
+import { setFolderAccess } from "@/modules/design/actions";
 import {
-  getFolderAccessConfig,
-  getProjectRolesConfig,
-  getSubteamsConfig,
-} from "@/modules/design/data";
-import {
+  getDepartment,
   getDepartmentIdByKey,
   getDepartmentRoleResources,
-  type MatrixResource,
+  getDepartmentRolesConfig,
 } from "@/modules/departments/data";
 import {
-  createProjectRole,
-  deleteProjectRole,
-  moveProjectRole,
-  setFolderAccess,
-  setProjectRolePermission,
-} from "@/modules/design/actions";
+  createDeptRole,
+  deleteDeptRole,
+  moveDeptRole,
+  setDeptRolePermission,
+} from "@/modules/departments/actions";
 import { FolderAccessMatrix } from "@/modules/design/components/folder-access-matrix";
 import { ProjectRolesEditor } from "@/modules/design/components/project-roles-editor";
-import { SubteamsEditor } from "@/modules/design/components/subteams-editor";
 
-/** Design configuration: project roles + folder access + sub-teams. */
+/** Design configuration: project roles + folder access. */
 export default async function DesignSettingsPage() {
-  // The role-matrix rows are whatever modules are allotted to Design - driven
-  // by department_modules, so allotting a new module surfaces it here.
+  // The same gate and the same role code as every other department's Settings:
+  // a lead of Design, HR, or someone given Design's "Settings" ability.
   const designId = await getDepartmentIdByKey("design");
+  const dept = designId ? await getDepartment(designId) : null;
+  if (!designId || !dept?.can_manage_settings) {
+    redirect("/forbidden?resource=department.settings&action=manage");
+  }
 
-  // Guard on exactly what the cards below need. Since 0075 they read through
-  // the generic department_* functions, so the page must ask the same question
-  // they do - a lead of Design, or access:update - rather than
-  // design.folder:manage, which would let someone in to two matrices that then
-  // came back empty.
-  const supabase = await createClient();
-  const { data: canManage } = designId
-    ? await supabase.rpc("can_manage_department_roles", { p_dept: designId })
-    : { data: false };
-  if (!canManage) redirect("/forbidden?resource=access&action=update");
-  const [roleConfig, config, subteams, roleResources] = await Promise.all([
-    getProjectRolesConfig(),
+  const [roleConfig, roleResources, folderConfig] = await Promise.all([
+    getDepartmentRolesConfig(designId),
+    getDepartmentRoleResources(designId),
     getFolderAccessConfig(),
-    getSubteamsConfig(),
-    designId
-      ? getDepartmentRoleResources(designId)
-      : Promise.resolve([] as MatrixResource[]),
   ]);
 
   return (
@@ -68,16 +53,24 @@ export default async function DesignSettingsPage() {
 
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          Design settings — how Design runs its projects
+          Design settings — how Design works on projects
         </h1>
         <p className="text-muted-foreground text-sm">
-          This is the Design department&apos;s own rulebook. The projects
-          themselves live under{" "}
+          The roles Design gives people on a project and what each can do there.
+          The projects themselves live under{" "}
           <Link href="/projects" className="underline">
             Projects
           </Link>
-          ; the rules below decide how Design works on them and apply to every
-          Design project immediately.
+          . Who is on the team, their Concept or Technical sub-team, and what they
+          can do inside Design is set in{" "}
+          {dept.can_manage_people ? (
+            <Link href={`/departments/${designId}/people`} className="underline">
+              People &amp; Access
+            </Link>
+          ) : (
+            "People & Access"
+          )}
+          .
         </p>
       </div>
 
@@ -95,10 +88,10 @@ export default async function DesignSettingsPage() {
             roles={roleConfig.roles}
             permissions={roleConfig.permissions}
             resources={roleResources}
-            onCreate={createProjectRole}
-            onDelete={deleteProjectRole}
-            onMove={moveProjectRole}
-            onSetPermission={setProjectRolePermission}
+            onCreate={createDeptRole.bind(null, designId)}
+            onDelete={deleteDeptRole.bind(null, designId)}
+            onMove={moveDeptRole.bind(null, designId)}
+            onSetPermission={setDeptRolePermission.bind(null, designId)}
           />
         </CardContent>
       </Card>
@@ -113,33 +106,13 @@ export default async function DesignSettingsPage() {
         </CardHeader>
         <CardContent>
           <FolderAccessMatrix
-            folders={config.folders}
-            roles={config.roles}
-            access={config.access}
+            folders={folderConfig.folders}
+            roles={folderConfig.roles}
+            access={folderConfig.access}
             onSet={setFolderAccess}
           />
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Concept &amp; Technical teams</CardTitle>
-          <CardDescription>
-            Split the Design team into Concept (early design, up to the Design
-            Freeze) and Technical (detailed work after it). This sets who belongs
-            where; keeping each team&apos;s tasks private from the other comes
-            with the task board.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SubteamsEditor
-            subteams={subteams.subteams}
-            members={subteams.members}
-            membership={subteams.membership}
-          />
-        </CardContent>
-      </Card>
-
     </div>
   );
 }

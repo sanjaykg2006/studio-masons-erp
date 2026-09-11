@@ -15,21 +15,20 @@ import {
 /**
  * Design Department home — the department's internal work. Projects moved to the
  * company-wide Projects module (Step 2); what stays here is the questionnaire
- * template library and the folder/stage/role settings.
+ * template library and the role / folder-access settings.
  */
 export default async function DesignPage() {
-  const [canTemplates, canSettings, canTasks, myDepts] = await Promise.all([
+  const [canTemplates, canTasks, myDepts] = await Promise.all([
     can("design.template", "read"),
-    can("design.folder", "manage"),
     hasDesignTeamAccess(),
     getMyDepartments(),
   ]);
+  const designDept = myDepts.find((d) => d.key === "design");
+  const canPeople = designDept?.can_manage_people ?? false;
+  const canSettings = designDept?.can_manage_settings ?? false;
   if (!canTemplates && !canSettings && !canTasks && !(await hasDesignAccess())) {
     redirect("/forbidden?resource=design.template&action=read");
   }
-
-  const designDept = myDepts.find((d) => d.key === "design");
-  const canPeople = designDept?.can_manage ?? false;
 
   return (
     <div className="space-y-6">
@@ -77,8 +76,8 @@ export default async function DesignPage() {
                   <Users className="size-4" /> People &amp; Access
                 </CardTitle>
                 <CardDescription>
-                  Add teammates and set each person&apos;s role, sub-team and
-                  abilities.
+                  Add teammates and set each person&apos;s sub-team and what they
+                  can do in Design.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -106,8 +105,8 @@ export default async function DesignPage() {
                   <Settings className="size-4" /> Settings
                 </CardTitle>
                 <CardDescription>
-                  How Design runs its projects: its roles, folder access and stage
-                  checklist.
+                  How Design works on projects: its project roles and folder
+                  access.
                 </CardDescription>
               </CardHeader>
             </Card>

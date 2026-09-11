@@ -15,7 +15,10 @@ export type MyDepartment = {
   key: string;
   label: string;
   is_lead: boolean;
-  can_manage: boolean;
+  /** May open People & Access: the lead, HR, or someone given it. */
+  can_manage_people: boolean;
+  /** May open Settings (project roles, folder access): the lead, HR, or a delegate. */
+  can_manage_settings: boolean;
 };
 
 /** The departments the caller belongs to (team member, lead, or admin). */
@@ -61,7 +64,7 @@ export async function getDepartmentModuleIds(deptId: string): Promise<Set<string
 }
 
 /** A matrix row: a resource id, a clean label and the verbs it supports. */
-export type MatrixResource = { id: string; label: string; actions: Action[] };
+export type MatrixResource = { id: string; label: string; actions: Action[]; note?: string };
 
 /**
  * The rows for a department's "Project roles" matrix: the PER-PROJECT abilities
@@ -79,6 +82,7 @@ export async function getDepartmentRoleResources(deptId: string): Promise<Matrix
       id: r.id,
       label: r.label.replace(/^\w+ ·\s*/, ""),
       actions: r.actions,
+      ...(r.note ? { note: r.note } : {}),
     }));
 }
 

@@ -96,16 +96,30 @@ describe("resourcesForModules", () => {
     expect(deptRows).toContain("design.template");
     expect(deptRows).not.toContain("access");
     expect(deptRows).not.toContain("procurement.order");
+    expect(deptRows).not.toContain("project");
   });
 
-  it("only lets `project` be granted department-wide for create (not all-projects view)", () => {
-    // Membership decides visibility: a department-wide project:read tick would
-    // expose every project, so People & Access may only grant `create`.
+  it("gives every resource at most one home", () => {
+    // A row on both department screens is what made them look like copies of
+    // each other (Projects sat on People & Access AND on Project roles).
+    for (const r of moduleResources()) {
+      expect(Boolean(r.departmentLevel && r.projectRole)).toBe(false);
+    }
+    // Projects lives on project roles, where Create = may start new projects.
     const [project] = resourcesForModules(["project"]);
-    const deptActions = project.departmentActions ?? project.actions;
-    expect(deptActions).toEqual(["create"]);
-    // The full verb set still exists for per-project roles / central /access.
-    expect(project.actions).toEqual(["read", "create", "update", "approve", "delete"]);
+    expect(project.projectRole).toBe(true);
+    expect(project.departmentLevel).toBeFalsy();
+    expect(project.actions).toContain("create");
+  });
+
+  it("gives every department its tasks, settings and people abilities", () => {
+    // These need no module allotting and never show on Access Control; the
+    // database mirrors the list in is_department_ability().
+    const built = moduleResources().filter((r) => r.everyDepartment);
+    expect(new Set(built.map((r) => r.id))).toEqual(
+      new Set(["department.tasks", "department.settings", "department.people"])
+    );
+    for (const r of built) expect(r.departmentLevel).toBe(true);
   });
 
   it("only surfaces resources that opt in via projectLink, with a segment + icon", () => {

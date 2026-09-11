@@ -110,9 +110,10 @@ export function PeopleAccessView({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">People &amp; Access</h1>
         <p className="text-muted-foreground text-sm">
-          Everyone in {department.label}. Pick a person to set the role they hold
-          across the department, put them in a sub-team, and tick any extra
-          abilities. Access to a single project is given inside that project.
+          Everyone in {department.label}. Pick a person to put them in a sub-team,
+          give them a role on every project, and tick what they can do inside the
+          department. What a role can do on a project is set in Settings → Project
+          roles; company-wide screens come with the job title in Access Control.
         </p>
       </div>
 
@@ -308,12 +309,18 @@ export function PeopleAccessView({
                   </div>
                 )}
 
-                {/* Extra department abilities ----------------------------- */}
+                {/* What they can do inside the department ----------------- */}
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Extra abilities</p>
+                  <p className="text-sm font-medium">
+                    What they can do in {department.label}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    The lead can always do all of this. Only the lead can hand out
+                    Settings or People &amp; Access.
+                  </p>
                   {resources.length === 0 ? (
                     <p className="text-muted-foreground text-sm">
-                      No department-level abilities to grant yet.
+                      Nothing to grant yet.
                     </p>
                   ) : (
                     <div className="overflow-x-auto">

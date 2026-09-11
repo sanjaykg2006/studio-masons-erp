@@ -1,7 +1,6 @@
 import "server-only";
 
 import { createClient } from "@/core/supabase/server";
-import { can } from "@/core/rbac/can";
 import { listProjects } from "@/modules/projects/data";
 import type {
   TaskPerson,
@@ -16,8 +15,10 @@ export type TasksPageData = {
   people: TaskPerson[];
   subteams: TaskSubteam[];
   projects: TaskProjectRef[];
-  /** Only a department lead (or admin) may create tasks. */
+  /** May set new tasks: the lead, HR, or someone given Tasks · Create. */
   canCreate: boolean;
+  /** May edit or pause anyone's task: the lead, HR, or someone given Tasks · Edit. */
+  canManage: boolean;
 };
 
 /**
@@ -36,14 +37,15 @@ export async function getDepartmentTasksData(
   });
   if (!access) return null;
 
-  const [tasksRes, peopleRes, subteamsRes, projects, leadRes, isAdmin] = await Promise.all([
-    supabase.rpc("list_department_tasks", { p_dept: departmentId }),
-    supabase.rpc("list_department_team", { p_dept: departmentId }),
-    supabase.rpc("list_department_subteams", { p_dept: departmentId }),
-    listProjects(),
-    supabase.rpc("is_department_lead", { p_department: departmentId }),
-    can("access", "update"),
-  ]);
+  const [tasksRes, peopleRes, subteamsRes, projects, createRes, manageRes] =
+    await Promise.all([
+      supabase.rpc("list_department_tasks", { p_dept: departmentId }),
+      supabase.rpc("list_department_team", { p_dept: departmentId }),
+      supabase.rpc("list_department_subteams", { p_dept: departmentId }),
+      listProjects(),
+      supabase.rpc("can_create_task", { p_dept: departmentId }),
+      supabase.rpc("can_manage_department_tasks", { p_dept: departmentId }),
+    ]);
 
   return {
     departmentId,
@@ -51,7 +53,8 @@ export async function getDepartmentTasksData(
     people: (peopleRes.data ?? []) as TaskPerson[],
     subteams: (subteamsRes.data ?? []) as TaskSubteam[],
     projects: projects.map((p) => ({ id: p.id, name: p.name })),
-    canCreate: Boolean(leadRes.data) || isAdmin,
+    canCreate: createRes.data === true,
+    canManage: manageRes.data === true,
   };
 }
 

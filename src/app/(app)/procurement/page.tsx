@@ -27,7 +27,8 @@ export default async function ProcurementPage() {
   if (!dept && !canVendors) {
     redirect("/forbidden?resource=procurement.vendor&action=read");
   }
-  const canManage = dept?.can_manage ?? false;
+  const canPeople = dept?.can_manage_people ?? false;
+  const canSettings = dept?.can_manage_settings ?? false;
 
   return (
     <div className="space-y-6">
@@ -56,7 +57,7 @@ export default async function ProcurementPage() {
             </Card>
           </Link>
         )}
-        {canManage && dept && (
+        {canPeople && dept && (
           <Link href={`/departments/${dept.id}/people`}>
             <Card className="hover:bg-accent/50 transition-colors">
               <CardHeader>
@@ -98,7 +99,7 @@ export default async function ProcurementPage() {
             </Card>
           </Link>
         )}
-        {canManage && dept && (
+        {canSettings && dept && (
           <Link href={`/departments/${dept.id}/settings`}>
             <Card className="hover:bg-accent/50 transition-colors">
               <CardHeader>

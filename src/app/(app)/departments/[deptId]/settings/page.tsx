@@ -34,7 +34,7 @@ export default async function DepartmentSettingsPage({
 }) {
   const { deptId } = await params;
   const dept = await getDepartment(deptId);
-  if (!dept || !dept.can_manage) notFound();
+  if (!dept || !dept.can_manage_settings) notFound();
 
   // Rows are whatever modules are allotted to this department — not a fixed list.
   const [roleConfig, roleResources, moduleIds] = await Promise.all([
@@ -62,7 +62,8 @@ export default async function DepartmentSettingsPage({
         <h1 className="text-2xl font-semibold tracking-tight">{dept.label} settings</h1>
         <p className="text-muted-foreground text-sm">
           Create the roles people are given on a project, order them by seniority,
-          and tick what each can do.
+          and tick what each can do on a project. Who is on the team and what they
+          can do inside the department is set in People &amp; Access.
         </p>
       </div>
 

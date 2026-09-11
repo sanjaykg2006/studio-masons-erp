@@ -32,19 +32,19 @@ export type NewTask = {
   dueTime?: string | null;
 };
 
-/** Create a task on a department's board. Only a department lead (or admin) may —
- * RLS is the real boundary; this gives a readable message before the round-trip. */
+/** Create a task on a department's board. The lead, HR, or someone given Tasks ·
+ * Create in People & Access may — RLS is the real boundary; this gives a readable
+ * message before the round-trip. */
 export async function createTask(input: NewTask): Promise<ActionResult> {
   const title = input.title.trim();
   if (!title) return fail("Give the task a title.");
 
   const supabase = await createClient();
-  const [{ data: isLead }, { data: isAdmin }] = await Promise.all([
-    supabase.rpc("is_department_lead", { p_department: input.departmentId }),
-    supabase.rpc("has_permission", { p_resource: "access", p_action: "update" }),
-  ]);
-  if (!isLead && !isAdmin) {
-    return fail("Only the department lead can create tasks.");
+  const { data: allowed } = await supabase.rpc("can_create_task", {
+    p_dept: input.departmentId,
+  });
+  if (!allowed) {
+    return fail("You can't create tasks in this department. Ask the department lead.");
   }
 
   const { error } = await supabase.from("tasks").insert({

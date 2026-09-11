@@ -42,6 +42,7 @@ export function TasksView({
   subteams,
   projects,
   canCreate,
+  canManage,
   backHref,
   backLabel,
   subtitle,
@@ -51,8 +52,10 @@ export function TasksView({
   people: TaskPerson[];
   subteams: TaskSubteam[];
   projects: TaskProjectRef[];
-  /** Only a department lead (or admin) may create tasks. */
+  /** May set new tasks: the lead, HR, or someone given Tasks · Create. */
   canCreate: boolean;
+  /** May pause/resume anyone's task: the lead, HR, or someone given Tasks · Edit. */
+  canManage: boolean;
   /** Where the back arrow returns to — this department's home. Required so a new
    * caller can never silently fall back to some other department's page. */
   backHref: string;
@@ -330,7 +333,7 @@ export function TasksView({
           people={people}
           subteams={subteams}
           projects={projects}
-          canManage={canCreate}
+          canManage={canManage}
           onError={setError}
         />
       ) : (

@@ -13,7 +13,7 @@ import type { ProjectRoleRow } from "@/modules/design/data";
 type ActionResult = { ok: true } | { ok: false; error: string };
 
 /** A matrix row: a Design resource and the verbs it supports. */
-export type ProjectRoleResource = { id: string; label: string; actions: Action[] };
+export type ProjectRoleResource = { id: string; label: string; actions: Action[]; note?: string };
 
 type Props = {
   roles: ProjectRoleRow[];
@@ -192,7 +192,14 @@ export function ProjectRolesEditor({
                   <tbody>
                     {resources.map((res) => (
                       <tr key={res.id} className="border-b last:border-0">
-                        <td className="py-2 font-medium">{res.label}</td>
+                        <td className="py-2 font-medium">
+                          {res.label}
+                          {res.note && (
+                            <span className="text-muted-foreground block text-xs font-normal">
+                              {res.note}
+                            </span>
+                          )}
+                        </td>
                         {ACTIONS.map((action) => {
                           // Only show a checkbox for actions this area actually
                           // uses; others are left blank (they'd have no effect).

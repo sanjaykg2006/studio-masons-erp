@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/core/supabase/server";
 import { createAdminClient } from "@/core/supabase/admin";
 import { authorize, authorizeProject } from "@/core/rbac/can";
+import { canCreateProject } from "@/core/rbac/permissions";
+import { permissionMessage } from "@/core/rbac/types";
 import { getUser } from "@/core/auth/get-user";
 import { logAudit } from "@/modules/audit/log";
 import { getBriefForPdf } from "@/modules/projects/data";
@@ -23,8 +25,7 @@ export async function createProject(
   client: string,
   location: string
 ): Promise<ActionResult> {
-  const denied = await authorize("project", "create");
-  if (denied) return denied;
+  if (!(await canCreateProject())) return fail(permissionMessage("project", "create"));
   const trimmed = name.trim();
   if (!trimmed) return fail("Enter a project name.");
 

@@ -1,7 +1,6 @@
 import "server-only";
 
 import { createClient } from "@/core/supabase/server";
-import { type Action } from "@/core/rbac/types";
 import {
   type DesignFolderAccess,
   type DesignFolderType,
@@ -210,75 +209,6 @@ export type ProjectRoleRow = {
   /** Seniority order within the department; 1 = most senior. */
   rank: number;
 };
-
-export type ProjectRolesConfig = {
-  roles: ProjectRoleRow[];
-  /** Grants for those roles, as (role_id, resource, action) tuples. */
-  permissions: { role_id: string; resource: string; action: Action }[];
-};
-
-/**
- * The Design department's project roles + their grants, for the self-service
- * "Project roles" matrix on the settings page. Backed by SECURITY DEFINER RPCs
- * that now delegate to the generic department_* functions, so Design has no
- * private copy of the rules and the gate matches every other department: a lead
- * of Design, or access:update.
- */
-export async function getProjectRolesConfig(): Promise<ProjectRolesConfig> {
-  const supabase = await createClient();
-  const [rolesRes, permsRes] = await Promise.all([
-    supabase.rpc("design_settings_roles"),
-    supabase.rpc("design_settings_role_permissions"),
-  ]);
-  return {
-    roles: (rolesRes.data ?? []) as ProjectRoleRow[],
-    permissions: (permsRes.data ?? []) as {
-      role_id: string;
-      resource: string;
-      action: Action;
-    }[],
-  };
-}
-
-// --- Sub-teams: Concept / Technical (settings) -------------------------------
-
-export type SubteamRow = { id: string; key: string; label: string; sort: number };
-export type TeamPerson = { user_id: string; full_name: string | null; email: string | null };
-
-export type SubteamsConfig = {
-  subteams: SubteamRow[];
-  members: TeamPerson[];
-  /** True membership keyed by `${subteam_id}:${user_id}`. */
-  membership: Record<string, boolean>;
-};
-
-/**
- * The Design department's sub-teams (Concept / Technical), its team members, and
- * who currently belongs to each — for the assignment matrix on the settings page.
- * Backed by SECURITY DEFINER RPCs gated on the caller being able to see the team
- * (a department lead or an access admin).
- */
-export async function getSubteamsConfig(): Promise<SubteamsConfig> {
-  const supabase = await createClient();
-  const { data: deptId } = await supabase.rpc("design_department_id");
-  if (!deptId) return { subteams: [], members: [], membership: {} };
-
-  const [subteamsRes, membersRes, membershipRes] = await Promise.all([
-    supabase.rpc("list_department_subteams", { p_dept: deptId }),
-    supabase.rpc("list_department_team", { p_dept: deptId }),
-    supabase.rpc("list_subteam_members", { p_dept: deptId }),
-  ]);
-
-  const membership: Record<string, boolean> = {};
-  for (const m of (membershipRes.data ?? []) as { subteam_id: string; user_id: string }[]) {
-    membership[`${m.subteam_id}:${m.user_id}`] = true;
-  }
-  return {
-    subteams: (subteamsRes.data ?? []) as SubteamRow[],
-    members: (membersRes.data ?? []) as TeamPerson[],
-    membership,
-  };
-}
 
 // --- Stage checklist (settings) ----------------------------------------------
 

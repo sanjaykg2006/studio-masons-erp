@@ -53,7 +53,7 @@ export default async function DepartmentHome({
             </CardHeader>
           </Card>
         </Link>
-        {dept.can_manage && (
+        {dept.can_manage_people && (
           <Link href={`/departments/${deptId}/people`}>
             <Card className="hover:bg-accent/50 transition-colors">
               <CardHeader>
@@ -67,7 +67,7 @@ export default async function DepartmentHome({
             </Card>
           </Link>
         )}
-        {dept.can_manage && (
+        {dept.can_manage_settings && (
           <Link href={`/departments/${deptId}/settings`}>
             <Card className="hover:bg-accent/50 transition-colors">
               <CardHeader>

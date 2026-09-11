@@ -28,17 +28,12 @@ export const designModule: ModuleDefinition = {
     },
     {
       id: "design.folder",
-      // This ability is "may manage Design's settings" (the settings page: folder
-      // RULES, stage checklist, project roles) — a department-wide admin grant. The
-      // actual per-project folder ACCESS is a separate role→folder grid enforced
-      // per project (has_folder_capability), configured inside those settings.
-      label: "Design · Settings",
-      // Issuing the GFC package is gated by folder "approve" capability, not a
-      // design.folder:issue verb — so only read + manage are real here.
+      // Who manages Design's settings is now the department-wide "Settings"
+      // ability every department has (People & Access). What is left here is
+      // editing the shared twelve-folder catalogue, which stays admin-only, so
+      // this row appears on no department screen.
+      label: "Design · Folder catalogue",
       actions: ["read", "manage"],
-      // Managing the department's settings is a department-wide capability
-      // (People & Access), not a per-project role ability — so no projectRole.
-      departmentLevel: true,
     },
   ],
 };

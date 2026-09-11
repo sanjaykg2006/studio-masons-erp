@@ -7,14 +7,18 @@ import {
   type AccessResource,
 } from "@/modules/access/components/access-view";
 
-/** Resources shown in the permission matrix: every gated resource, in order.
- * Mapped to the plain {id,label,actions} shape — the registry rows also carry a
- * projectLink icon (a component), which can't cross into the client AccessView. */
-const resources: AccessResource[] = moduleResources().map((r) => ({
-  id: r.id,
-  label: r.label,
-  actions: r.actions,
-}));
+/** Resources shown on Access Control: every gated resource, in order, except the
+ * abilities built into every department (tasks, settings, people) — those live
+ * on each department's People & Access page. Mapped to the plain
+ * {id,label,actions} shape — the registry rows also carry a projectLink icon (a
+ * component), which can't cross into the client AccessView. */
+const resources: AccessResource[] = moduleResources()
+  .filter((r) => !r.everyDepartment)
+  .map((r) => ({
+    id: r.id,
+    label: r.label,
+    actions: r.actions,
+  }));
 
 export default async function AccessPage() {
   await requirePermission("access", "read");

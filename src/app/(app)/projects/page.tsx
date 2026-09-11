@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { can } from "@/core/rbac/can";
-import { hasProjectAccess } from "@/core/rbac/permissions";
+import { canCreateProject, hasProjectAccess } from "@/core/rbac/permissions";
 import { getConceptVisibility, listProjects } from "@/modules/projects/data";
 import { ProjectsList } from "@/modules/projects/components/projects-list";
 import { ConceptVisibilityMatrix } from "@/modules/projects/components/concept-visibility-matrix";
@@ -15,7 +15,7 @@ export default async function ProjectsPage() {
   }
   const [projects, canCreate, canTemplates, canAdminAccess] = await Promise.all([
     listProjects(),
-    can("project", "create"),
+    canCreateProject(),
     can("project.template", "read"),
     can("access", "update"),
   ]);

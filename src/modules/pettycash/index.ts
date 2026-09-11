@@ -13,6 +13,9 @@ import type { ModuleDefinition } from "@/core/modules/registry";
  *                      approve = Billing · manage = MD · issue = Accounts (pay).
  *                      Creating an entry is ungated (any employee).
  *   pettycash.category manage = Billing edits the category list.
+ *
+ * Both are company-wide (general): given with the job title in Access Control,
+ * never per department.
  */
 export const pettyCashModule: ModuleDefinition = {
   id: "pettycash",
@@ -24,13 +27,11 @@ export const pettyCashModule: ModuleDefinition = {
       id: "pettycash.entry",
       label: "Petty Cash · Entries",
       actions: ["read", "approve", "issue", "manage"],
-      departmentLevel: true,
     },
     {
       id: "pettycash.category",
       label: "Petty Cash · Categories",
       actions: ["read", "manage"],
-      departmentLevel: true,
     },
   ],
 };

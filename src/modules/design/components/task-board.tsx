@@ -47,7 +47,7 @@ type SharedProps = {
   people: TaskPerson[];
   subteams: TaskSubteam[];
   projects: TaskProjectRef[];
-  /** Whether the viewer may pause/resume tasks (the assigner: a lead / admin). */
+  /** Whether the viewer may pause/resume anyone's task (lead, HR, or Tasks · Edit). */
   canManage: boolean;
   onError: (msg: string | null) => void;
 };

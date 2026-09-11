@@ -30,29 +30,28 @@ export type ModuleResource = {
   /** Verbs this resource supports (which checkboxes render). */
   actions: Action[];
   /**
-   * Department-wide capability (e.g. manage the template library, create
-   * projects, edit settings) — granted PER PERSON on the People & Access page.
-   * Default false.
+   * Used only inside the department (its tasks, settings, template library,
+   * vendor list…) — granted PER PERSON on the People & Access page. Default false.
+   *
+   * Every resource has exactly ONE home: `departmentLevel` (People & Access),
+   * `projectRole` (Settings → Project roles), or neither — a company-wide screen
+   * given with the job title in Access Control. Never set both.
    */
   departmentLevel?: boolean;
   /**
    * Per-project capability — granted PER ROLE on a department's "Project roles"
    * matrix (what a role can do ON a project: view/edit the project, briefs,
-   * membership, budget, orders…). A resource may be both `departmentLevel` and
-   * `projectRole` (e.g. `project`: create is department-wide, view/edit is
-   * per-role). Company-wide modules and pure libraries set neither, so they stay
-   * out of the department matrices entirely. This is where a module declares
-   * whether it's department-only, project-only, or both.
+   * membership, budget, orders…).
    */
   projectRole?: boolean;
   /**
-   * The subset of `actions` grantable DEPARTMENT-WIDE (per person, in People &
-   * Access). Defaults to all `actions`. Use it to keep an all-projects verb off
-   * the department grid — e.g. `project` allows only `create` department-wide;
-   * viewing/editing a project must come from project membership, not a
-   * department-wide tick that would silently expose every project.
+   * Built into every department (its tasks, settings and people), so it needs no
+   * module allotting and never appears on Access Control. Mirrors
+   * is_department_ability() in the database.
    */
-  departmentActions?: Action[];
+  everyDepartment?: boolean;
+  /** A short hint shown under the row label in a matrix. */
+  note?: string;
   /**
    * If this resource has its own page inside a project, its link details. The
    * project screen renders a button for it — gated by `<id>:read` — so allotting

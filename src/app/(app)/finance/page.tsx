@@ -21,7 +21,8 @@ export default async function FinancePage() {
   if (!dept && !canReports) {
     redirect("/forbidden?resource=finance.invoice&action=read");
   }
-  const canManage = dept?.can_manage ?? false;
+  const canPeople = dept?.can_manage_people ?? false;
+  const canDeptSettings = dept?.can_manage_settings ?? false;
 
   return (
     <div className="space-y-6">
@@ -76,7 +77,7 @@ export default async function FinancePage() {
             </Card>
           </Link>
         )}
-        {canManage && dept && (
+        {canPeople && dept && (
           <Link href={`/departments/${dept.id}/people`}>
             <Card className="hover:bg-accent/50 transition-colors">
               <CardHeader>
@@ -88,7 +89,7 @@ export default async function FinancePage() {
             </Card>
           </Link>
         )}
-        {canManage && dept && (
+        {canDeptSettings && dept && (
           <Link href={`/departments/${dept.id}/settings`}>
             <Card className="hover:bg-accent/50 transition-colors">
               <CardHeader>

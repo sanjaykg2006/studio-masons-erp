@@ -61,6 +61,15 @@ export const projectsModule: ModuleDefinition = {
       whyNot: MEMBERSHIP_ONLY,
     },
     {
+      id: "project.change",
+      label: "Project · Change orders",
+      // read = see the Change Order Register · create = raise one ·
+      // approve = approve or reject one (0087). Project-scoped, so it may also
+      // be ticked per person (then on every project).
+      actions: ["read", "create", "approve"],
+      homes: ["project", "department"],
+    },
+    {
       id: "project.template",
       label: "Project · Templates",
       actions: ["read", "create", "update", "approve", "delete"],

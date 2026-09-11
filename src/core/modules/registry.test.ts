@@ -66,6 +66,9 @@ describe("where each module is set", () => {
     expect(effectiveHome(get("procurement.order"))).toBe("project");
     expect(effectiveHome(get("finance.invoice"))).toBe("project");
     expect(effectiveHome(get("project.template"))).toBe("project");
+    // Change orders have their own row (0087): view, raise and approve.
+    expect(effectiveHome(get("project.change"))).toBe("project");
+    expect(get("project.change").actions).toEqual(["read", "create", "approve"]);
     expect(effectiveHome(get("procurement.vendor"))).toBe("department");
     expect(effectiveHome(get("inventory.asset"))).toBe("department");
     expect(effectiveHome(get("audit"))).toBe("department");

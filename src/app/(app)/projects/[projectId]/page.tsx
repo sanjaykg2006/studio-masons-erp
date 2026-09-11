@@ -26,6 +26,7 @@ export default async function ProjectPage({
 
   const canManageMembers = detail.can("project.member", "manage");
   const canCreateBrief = detail.can("project.brief", "create");
+  const canViewChanges = detail.can("project.change", "read");
 
   // Which per-project module pages this user may open — computed from the registry,
   // so a module surfaces its link just by declaring `projectLink` (no list here).
@@ -37,7 +38,7 @@ export default async function ProjectPage({
       canCreateBrief ? getPublishableTemplates() : Promise.resolve([]),
       getProjectProgress(projectId),
       getProjectFolders(projectId),
-      getProjectChangeRequests(projectId),
+      canViewChanges ? getProjectChangeRequests(projectId) : Promise.resolve([]),
       getProjectRfis(projectId),
       ...linkResourceIds.map((id) => canOnProject(projectId, id, "read")),
     ]);
@@ -54,7 +55,9 @@ export default async function ProjectPage({
       rfiDepartments={rfis.departments}
       rfiRolesByDept={rfis.rolesByDept}
       visibleModuleResourceIds={visibleModuleResourceIds}
-      canDecideChanges={detail.can("project", "approve")}
+      canViewChanges={canViewChanges}
+      canRaiseChanges={detail.can("project.change", "create")}
+      canDecideChanges={detail.can("project.change", "approve")}
       members={detail.members}
       briefs={detail.briefs}
       users={pickers.users}

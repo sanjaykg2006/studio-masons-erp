@@ -831,7 +831,7 @@ export async function raiseChangeRequest(
   reason: string,
   folderKey: string | null
 ): Promise<ActionResult> {
-  const denied = await authorizeProject(projectId, "project", "read");
+  const denied = await authorizeProject(projectId, "project.change", "create");
   if (denied) return denied;
   const t = title.trim();
   if (!t) return fail("Enter what needs to change.");
@@ -862,7 +862,7 @@ export async function decideChangeRequest(
     .eq("id", requestId)
     .maybeSingle();
   if (!cr) return fail("Change request not found.");
-  const denied = await authorizeProject(cr.project_id, "project", "approve");
+  const denied = await authorizeProject(cr.project_id, "project.change", "approve");
   if (denied) return denied;
   if (cr.status !== "open") return fail("This request has already been decided.");
 

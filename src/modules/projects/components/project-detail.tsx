@@ -57,6 +57,9 @@ type Props = {
   rfiRolesByDept: Record<string, RoleRef[]>;
   /** Resource ids of the per-project module pages this user may open. */
   visibleModuleResourceIds: string[];
+  /** Project · Change orders → View / Create / Approve. */
+  canViewChanges: boolean;
+  canRaiseChanges: boolean;
   canDecideChanges: boolean;
   members: ProjectMemberView[];
   briefs: ProjectBriefRow[];
@@ -80,6 +83,8 @@ export function ProjectDetail({
   rfiDepartments,
   rfiRolesByDept,
   visibleModuleResourceIds,
+  canViewChanges,
+  canRaiseChanges,
   canDecideChanges,
   members,
   briefs,
@@ -224,11 +229,14 @@ export function ProjectDetail({
       <FoldersCard projectId={project.id} folders={folders} />
 
       {/* Change Order Register ---------------------------------------------- */}
-      <ChangeRequestsCard
-        projectId={project.id}
-        requests={changeRequests}
-        canDecide={canDecideChanges}
-      />
+      {canViewChanges && (
+        <ChangeRequestsCard
+          projectId={project.id}
+          requests={changeRequests}
+          canRaise={canRaiseChanges}
+          canDecide={canDecideChanges}
+        />
+      )}
 
       {/* Questions (RFIs) --------------------------------------------------- */}
       <RfiCard projectId={project.id} rfis={rfis} departments={rfiDepartments} rolesByDept={rfiRolesByDept} />

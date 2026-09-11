@@ -33,10 +33,14 @@ const STATUS_TONE: Record<ChangeRequestStatus, string> = {
 export function ChangeRequestsCard({
   projectId,
   requests,
+  canRaise,
   canDecide,
 }: {
   projectId: string;
   requests: DesignChangeRequest[];
+  /** Project · Change orders → Create. */
+  canRaise: boolean;
+  /** Project · Change orders → Approve (approve or reject). */
   canDecide: boolean;
 }) {
   const router = useRouter();
@@ -62,9 +66,11 @@ export function ChangeRequestsCard({
             After a freeze, changes to approved or issued work go through here.
           </CardDescription>
         </div>
-        <Button size="sm" variant="outline" onClick={() => setOpen((o) => !o)}>
-          <Plus className="size-4" /> Raise
-        </Button>
+        {canRaise && (
+          <Button size="sm" variant="outline" onClick={() => setOpen((o) => !o)}>
+            <Plus className="size-4" /> Raise
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {error && (
@@ -73,7 +79,7 @@ export function ChangeRequestsCard({
           </div>
         )}
 
-        {open && (
+        {open && canRaise && (
           <form
             className="space-y-2 rounded-md border p-3"
             onSubmit={(e) => {

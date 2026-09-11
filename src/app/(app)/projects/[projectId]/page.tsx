@@ -57,7 +57,6 @@ export default async function ProjectPage({
       canDecideChanges={detail.can("project", "approve")}
       members={detail.members}
       briefs={detail.briefs}
-      roleLabels={Object.fromEntries(pickers.roles.map((r) => [r.id, r.label]))}
       users={pickers.users}
       roles={pickers.roles}
       templates={templates}

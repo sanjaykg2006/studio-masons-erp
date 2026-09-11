@@ -60,7 +60,6 @@ type Props = {
   canDecideChanges: boolean;
   members: ProjectMemberView[];
   briefs: ProjectBriefRow[];
-  roleLabels: Record<string, string>;
   users: AssignableUser[];
   roles: DesignRole[];
   templates: { id: string; label: string; discipline: Discipline; version_id: string }[];
@@ -84,7 +83,6 @@ export function ProjectDetail({
   canDecideChanges,
   members,
   briefs,
-  roleLabels,
   users,
   roles,
   templates,
@@ -352,10 +350,18 @@ export function ProjectDetail({
                   <tr key={m.user_id} className="border-b last:border-0">
                     <td className="py-2">{m.full_name ?? m.email ?? m.user_id}</td>
                     <td className="text-muted-foreground py-2">
-                      {roleLabels[m.role_id] ?? "—"}
+                      {m.role_label}
+                      {m.every_project && (
+                        <span
+                          className="bg-muted ml-2 rounded px-1.5 py-0.5 text-xs"
+                          title="Given a role on every project in People & Access — turn it off there."
+                        >
+                          every project
+                        </span>
+                      )}
                     </td>
                     <td className="py-2 text-right">
-                      {canManageMembers && (
+                      {canManageMembers && !m.every_project && (
                         <button
                           type="button"
                           disabled={pending}

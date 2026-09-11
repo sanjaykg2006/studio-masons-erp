@@ -46,6 +46,10 @@ export type ProjectMemberView = {
   full_name: string | null;
   email: string | null;
   role_id: string;
+  role_label: string;
+  /** On the team through "a role on every project" (People & Access), not
+   * added to this project by hand — so it can't be removed here. */
+  every_project: boolean;
 };
 
 export type ProjectBriefRow = DesignBrief & { template_label: string };

@@ -42,6 +42,9 @@ export type PettyCashEntry = {
   can_md: boolean;
   can_pay: boolean;
   can_reject: boolean;
+  /** The pay-by date set when logging it (optional). */
+  due_date: string | null;
+  paid_at: string | null;
 };
 
 export type PettyCashCategory = { id: string; name: string; active: boolean };

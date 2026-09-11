@@ -4,6 +4,9 @@ import { ArrowLeft, BarChart3, Building2, CheckSquare, Settings, Users } from "l
 
 import { can } from "@/core/rbac/can";
 import { getMyDepartments } from "@/modules/departments/data";
+import { canSeeAllPettyCash, listPettyCashEntries } from "@/modules/pettycash/data";
+import { summarizePettyCash, todayInIndia } from "@/modules/pettycash/analytics";
+import { PettyCashSummaryPanel } from "@/modules/pettycash/components/pettycash-summary";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
@@ -12,11 +15,16 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
  * People / Settings reuse the generic department routes.
  */
 export default async function FinancePage() {
-  const [canReports, canSettings, myDepts] = await Promise.all([
+  const [canReports, canSettings, myDepts, seesAllPettyCash] = await Promise.all([
     can("finance.invoice", "read"),
     can("finance.settings", "read"),
     getMyDepartments(),
+    canSeeAllPettyCash(),
   ]);
+  // Company-wide petty-cash figures, for those who see everyone's claims.
+  const pettyCash = seesAllPettyCash
+    ? summarizePettyCash(await listPettyCashEntries(), todayInIndia())
+    : null;
   const dept = myDepts.find((d) => d.key === "finance");
   if (!dept && !canReports) {
     redirect("/forbidden?resource=finance.invoice&action=read");
@@ -102,6 +110,15 @@ export default async function FinancePage() {
           </Link>
         )}
       </div>
+
+      {pettyCash && (
+        <PettyCashSummaryPanel
+          summary={pettyCash}
+          title="Petty cash"
+          showWho
+          viewAllHref="/pettycash"
+        />
+      )}
     </div>
   );
 }

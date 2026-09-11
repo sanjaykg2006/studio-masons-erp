@@ -7,6 +7,7 @@ import { createAdminClient } from "@/core/supabase/admin";
 import { authorize } from "@/core/rbac/can";
 import { logAudit } from "@/modules/audit/log";
 import { validatePettyCash } from "@/modules/pettycash/validation";
+import { todayInIndia } from "@/modules/pettycash/analytics";
 
 const DOCS_BUCKET = "pettycash-docs";
 const MAX_DOC_BYTES = 25 * 1024 * 1024;
@@ -21,12 +22,18 @@ const refresh = () => revalidatePath("/pettycash");
 export async function createPettyCash(formData: FormData): Promise<ActionResult> {
   const amount = parseFloat(String(formData.get("amount") ?? "0"));
   const kind = String(formData.get("kind") ?? "reimbursement");
-  const invalid = validatePettyCash({ amount, kind });
+  const spentOn = String(formData.get("spent_on") ?? "");
+  const dueDate = String(formData.get("due_date") ?? "");
+  const invalid = validatePettyCash({
+    amount,
+    kind,
+    spentOn: spentOn || todayInIndia(),
+    dueDate,
+  });
   if (invalid) return fail(invalid);
   const projectId = String(formData.get("project_id") ?? "") || null;
   const categoryId = String(formData.get("category_id") ?? "") || null;
   const description = String(formData.get("description") ?? "");
-  const spentOn = String(formData.get("spent_on") ?? "");
 
   let filePath: string | null = null;
   const file = formData.get("file");
@@ -51,6 +58,7 @@ export async function createPettyCash(formData: FormData): Promise<ActionResult>
     p_description: description,
     p_spent_on: spentOn || null,
     p_file: filePath,
+    p_due_date: dueDate || null,
   });
   if (error) {
     if (filePath) await createAdminClient().storage.from(DOCS_BUCKET).remove([filePath]);

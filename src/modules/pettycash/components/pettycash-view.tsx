@@ -28,6 +28,8 @@ import {
   savePettyCashCategory,
   setPettyCashCategoryActive,
 } from "@/modules/pettycash/actions";
+import { daysOverdue, summarizePettyCash } from "@/modules/pettycash/analytics";
+import { PettyCashSummaryPanel } from "@/modules/pettycash/components/pettycash-summary";
 
 type Result = { ok: true } | { ok: false; error: string };
 const field = "border-input bg-background h-9 rounded-md border px-2 text-sm";
@@ -45,11 +47,17 @@ export function PettyCashView({
   categories,
   projects,
   canManageCategories,
+  seesAll,
+  today,
 }: {
   entries: PettyCashEntry[];
   categories: PettyCashCategory[];
   projects: ProjectOption[];
   canManageCategories: boolean;
+  /** Sees everyone's entries (Billing / Accounts / MD), not just their own. */
+  seesAll: boolean;
+  /** Today in India (YYYY-MM-DD), from the server — drives the overdue counts. */
+  today: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -88,10 +96,13 @@ export function PettyCashView({
 
   const exportMine = () => {
     const mine = entries.filter((e) => e.mine);
-    const headers = ["Date", "Category", "Type", "Project", "Amount", "Status", "Description"];
+    const headers = [
+      "Date", "Category", "Type", "Project", "Amount", "Status", "Pay by", "Days overdue", "Description",
+    ];
     const rows = mine.map((e) => [
       e.spent_on, e.category_name ?? "", KIND_LABEL[e.kind], e.project_name ?? "Company",
-      e.amount, PETTYCASH_STATUS_LABEL[e.status], e.description ?? "",
+      e.amount, PETTYCASH_STATUS_LABEL[e.status], e.due_date ?? "", daysOverdue(e, today) || "",
+      e.description ?? "",
     ]);
     const csv = [headers, ...rows]
       .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
@@ -132,6 +143,14 @@ export function PettyCashView({
         </div>
       )}
 
+      {entries.length > 0 && (
+        <PettyCashSummaryPanel
+          summary={summarizePettyCash(entries, today)}
+          title={seesAll ? "All petty cash" : "Your petty cash"}
+          showWho={seesAll}
+        />
+      )}
+
       {managing && canManageCategories && (
         <CategoryManager categories={categories} pending={pending} run={run} />
       )}
@@ -140,6 +159,7 @@ export function PettyCashView({
         <LogForm
           categories={categories.filter((c) => c.active)}
           projects={projects}
+          today={today}
           pending={pending}
           onError={setError}
           onCancel={() => setAdding(false)}
@@ -163,6 +183,7 @@ export function PettyCashView({
                     <th className="py-2 font-medium">Who / Category</th>
                     <th className="py-2 font-medium">Project</th>
                     <th className="py-2 font-medium">Amount</th>
+                    <th className="py-2 font-medium">Due</th>
                     <th className="py-2 font-medium">Status</th>
                     <th className="py-2" />
                   </tr>
@@ -180,6 +201,9 @@ export function PettyCashView({
                         </td>
                         <td className="text-muted-foreground py-2">{e.project_name ?? "Company"}</td>
                         <td className="py-2">{inr(e.amount)}</td>
+                        <td className="py-2">
+                          <DueCell entry={e} today={today} />
+                        </td>
                         <td className="py-2">
                           <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", STATUS_TONE[e.status])}>
                             {PETTYCASH_STATUS_LABEL[e.status]}
@@ -249,9 +273,26 @@ export function PettyCashView({
   );
 }
 
+/** The pay-by date, and how late an open claim is once it passes. */
+function DueCell({ entry, today }: { entry: PettyCashEntry; today: string }) {
+  if (!entry.due_date) return <span className="text-muted-foreground">—</span>;
+  const late = daysOverdue(entry, today);
+  return (
+    <>
+      <div className="text-muted-foreground">{entry.due_date}</div>
+      {late > 0 && (
+        <div className="text-destructive text-xs font-medium">
+          {late} day{late === 1 ? "" : "s"} overdue
+        </div>
+      )}
+    </>
+  );
+}
+
 function LogForm({
   categories,
   projects,
+  today,
   pending,
   onError,
   onCancel,
@@ -259,6 +300,7 @@ function LogForm({
 }: {
   categories: PettyCashCategory[];
   projects: ProjectOption[];
+  today: string;
   pending: boolean;
   onError: (e: string) => void;
   onCancel: () => void;
@@ -269,6 +311,7 @@ function LogForm({
   const [kind, setKind] = useState("reimbursement");
   const [projectId, setProjectId] = useState("");
   const [spentOn, setSpentOn] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [submitting, startSubmit] = useTransition();
@@ -276,12 +319,16 @@ function LogForm({
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!(parseFloat(amount || "0") > 0)) return onError("Enter an amount.");
+    if (dueDate && dueDate < (spentOn || today)) {
+      return onError("The pay-by date can't be before the date of the spend.");
+    }
     const fd = new FormData();
     fd.set("amount", amount);
     fd.set("category_id", categoryId);
     fd.set("kind", kind);
     fd.set("project_id", projectId);
     fd.set("spent_on", spentOn);
+    fd.set("due_date", dueDate);
     fd.set("description", description);
     if (file) fd.set("file", file);
     startSubmit(async () => {
@@ -318,7 +365,14 @@ function LogForm({
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
-            <input type="date" className={field} value={spentOn} onChange={(e) => setSpentOn(e.target.value)} aria-label="Date spent" />
+            <label className="text-muted-foreground flex items-center gap-2 text-xs">
+              Spent on
+              <input type="date" className={field} value={spentOn} max={today} onChange={(e) => setSpentOn(e.target.value)} aria-label="Date spent" />
+            </label>
+            <label className="text-muted-foreground flex items-center gap-2 text-xs">
+              Pay by (optional)
+              <input type="date" className={field} value={dueDate} min={spentOn || today} onChange={(e) => setDueDate(e.target.value)} aria-label="Pay by date" />
+            </label>
           </div>
           <Input placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} aria-label="Description" />
           <div className="flex flex-wrap items-center gap-2">

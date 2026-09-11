@@ -10,14 +10,14 @@ export async function listPettyCashEntries(): Promise<PettyCashEntry[]> {
   return (data ?? []) as PettyCashEntry[];
 }
 
-/** Whether the caller sees everyone's entries, not just their own: Billing
- * (approve), Accounts (issue) and the MD (manage) — the same rule
- * list_pettycash_entries applies. */
+/** Whether the caller sees everyone's entries, not just their own: "See all
+ * claims", or any of the three steps — the same rule as pettycash_sees_all(). */
 export async function canSeeAllPettyCash(): Promise<boolean> {
   const checks = await Promise.all([
-    can("pettycash.entry", "approve"),
-    can("pettycash.entry", "issue"),
-    can("pettycash.entry", "manage"),
+    can("pettycash.entry", "read"),
+    can("pettycash.billing", "approve"),
+    can("pettycash.md", "approve"),
+    can("pettycash.pay", "issue"),
   ]);
   return checks.some(Boolean);
 }

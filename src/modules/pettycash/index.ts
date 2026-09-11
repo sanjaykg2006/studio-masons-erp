@@ -7,15 +7,16 @@ import type { ModuleDefinition } from "@/core/modules/registry";
  * claim/settle it. Unlike the rest of Finance it is not project-gated to create: it
  * shows in the sidebar for everyone (the module declares `resources`, not a top-level
  * `read` action, so the nav never hides it). An entry then runs a fixed chain —
- * Billing approves → MD approves → Accounts pays — regardless of amount.
+ * Billing check → MD approval → Accounts pays — regardless of amount.
  *
- *   pettycash.entry    read = see EVERYONE's entries (Billing/Accounts/MD) ·
- *                      approve = Billing · manage = MD · issue = Accounts (pay).
- *                      Creating an entry is ungated (any employee).
- *   pettycash.category manage = Billing edits the category list.
- *
- * Both are company-wide (general): given with the job title in Access Control,
- * never per department.
+ * Each step is its own row, one verb each, held by the people who own it (0082):
+ *   pettycash.billing  Billing department's People & Access
+ *   pettycash.md       job title (Access Control)
+ *   pettycash.pay      Finance department's People & Access
+ *   pettycash.entry    job title — see everyone's claims (step owners see them too)
+ *   pettycash.category Billing department's People & Access — the category list
+ * Nobody may act on their own claim, and one person does at most one step on a
+ * claim (pettycash_block_reason).
  */
 export const pettyCashModule: ModuleDefinition = {
   id: "pettycash",
@@ -24,14 +25,32 @@ export const pettyCashModule: ModuleDefinition = {
   icon: Wallet,
   resources: [
     {
+      id: "pettycash.billing",
+      label: "Petty Cash · Billing check",
+      actions: ["approve"],
+      departmentLevel: true,
+    },
+    {
+      id: "pettycash.md",
+      label: "Petty Cash · MD approval",
+      actions: ["approve"],
+    },
+    {
+      id: "pettycash.pay",
+      label: "Petty Cash · Pay",
+      actions: ["issue"],
+      departmentLevel: true,
+    },
+    {
       id: "pettycash.entry",
-      label: "Petty Cash · Entries",
-      actions: ["read", "approve", "issue", "manage"],
+      label: "Petty Cash · See all claims",
+      actions: ["read"],
     },
     {
       id: "pettycash.category",
       label: "Petty Cash · Categories",
-      actions: ["read", "manage"],
+      actions: ["manage"],
+      departmentLevel: true,
     },
   ],
 };

@@ -24,7 +24,7 @@ describe("moduleResources", () => {
     }
   });
 
-  it("keeps single-resource modules as a single row (the access module)", () => {
+  it("keeps Access Control as one row with its four verbs", () => {
     const access = byId.get("access");
     expect(access?.actions).toEqual(["create", "read", "update", "delete"]);
   });
@@ -73,10 +73,8 @@ describe("resourcesForModules", () => {
       "design.template",
       "design.folder",
       "procurement.order",
-      // general/company modules are always available:
+      // the one general module left, always available:
       "dashboard",
-      "access",
-      "audit",
     ];
     const scoped = resourcesForModules(designAllotted);
 
@@ -116,6 +114,17 @@ describe("resourcesForModules", () => {
     expect(project.projectRole).toBe(true);
     expect(project.departmentLevel).toBeFalsy();
     expect(project.actions).toContain("create");
+  });
+
+  it("puts Access Control and the two logs on a department's People & Access", () => {
+    // They belong to the IT department (0085), which is allotted all three; the
+    // database also keeps Access Control to IT and to administrators' hands.
+    const rows = resourcesForModules(["access", "audit", "errorlog"]);
+    expect(rows.map((r) => r.id)).toEqual(["access", "audit", "errorlog"]);
+    for (const r of rows) {
+      expect(r.departmentLevel).toBe(true);
+      expect(r.projectRole).toBeFalsy();
+    }
   });
 
   it("gives every department its tasks, settings and people abilities", () => {

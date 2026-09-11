@@ -10,4 +10,5 @@ export const DEPARTMENT_HOME: Record<string, string> = {
   design: "/design",
   procurement: "/procurement",
   finance: "/finance",
+  it: "/it",
 };

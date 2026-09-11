@@ -317,6 +317,8 @@ export function PeopleAccessView({
                   <p className="text-muted-foreground text-xs">
                     The lead can always do all of this. Only the lead can hand out
                     Settings or People &amp; Access.
+                    {resources.some((r) => r.id === "access") &&
+                      " Only a full-access Administrator can hand out Access Control — it lets the holder change anyone's access, their own included."}
                   </p>
                   {resources.length === 0 ? (
                     <p className="text-muted-foreground text-sm">

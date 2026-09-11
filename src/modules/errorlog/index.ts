@@ -5,9 +5,10 @@ import type { ModuleDefinition } from "@/core/modules/registry";
 /**
  * Error Log module — a read-only window onto technical failures (website crashes
  * and backend errors). Gated by `errorlog:read`, so the sidebar link and page
- * appear only for roles granted the "errorlog" resource (top admins get it via
+ * appear only for people granted the "errorlog" resource (top admins get it via
  * their '*' wildcard). Entries are written by the crash boundaries and by the
- * server error hook (instrumentation), never created here.
+ * server error hook (instrumentation), never created here. Given on the IT
+ * department's People & Access page (0085).
  */
 export const errorLogModule: ModuleDefinition = {
   id: "errorlog",
@@ -15,6 +16,8 @@ export const errorLogModule: ModuleDefinition = {
   href: "/logs",
   icon: Bug,
   nav: true,
-  actions: ["read"],
+  resources: [
+    { id: "errorlog", label: "Error Log", actions: ["read"], departmentLevel: true },
+  ],
   requires: { resource: "errorlog", action: "read" },
 };

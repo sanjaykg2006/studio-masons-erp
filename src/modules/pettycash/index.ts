@@ -15,8 +15,8 @@ import type { ModuleDefinition } from "@/core/modules/registry";
  *   pettycash.pay      Finance department's People & Access
  *   pettycash.entry    job title — see everyone's claims (step owners see them too)
  *   pettycash.category Billing department's People & Access — the category list
- * Nobody may act on their own claim, and one person does at most one step on a
- * claim (pettycash_block_reason).
+ * Only the owner of the step a claim is waiting on may act on it (administrators
+ * as a backup), and nobody acts on their own claim (pettycash_block_reason).
  */
 export const pettyCashModule: ModuleDefinition = {
   id: "pettycash",

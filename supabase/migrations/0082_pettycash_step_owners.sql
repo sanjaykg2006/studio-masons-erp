@@ -20,10 +20,11 @@
 --                          who does one of the steps.
 --   Category list ........ Billing department, People & Access.
 --
---   Safeguards, for everyone including administrators:
---     * nobody approves or rejects their own claim;
---     * one person does at most one step on a claim;
---     * a claim is rejected only by the owner of the step it is waiting on.
+--   Only the owner of the step a claim is waiting on may approve or reject it:
+--   a claim awaiting the Billing check can only be acted on by Billing, one
+--   awaiting MD approval only by the MD, one awaiting payment only by Accounts.
+--   Full-access administrators can act on any step, as a backup. Nobody —
+--   administrators included — approves or rejects their own claim.
 --
 -- WHO IS AFFECTED ON THE DAY THIS RUNS
 --   * The old step ticks are removed from every job title: Director loses Billing
@@ -93,9 +94,7 @@ create policy "pettycash_entries_select" on public.pettycash_entries
 -- they can never disagree.
 create or replace function public.pettycash_block_reason(
   p_status     public.pettycash_status,
-  p_created_by uuid,
-  p_billing_by uuid,
-  p_md_by      uuid
+  p_created_by uuid
 )
 returns text
 language sql stable security definer set search_path = public
@@ -106,15 +105,11 @@ as $$
     when p_created_by = auth.uid()
       then 'You can''t approve or reject your own claim'
     when p_status = 'pending_billing' and not public.has_permission('pettycash.billing', 'approve')
-      then 'Only the Billing department can do the Billing check'
+      then 'This claim is waiting for the Billing check — only Billing can act on it'
     when p_status = 'pending_md' and not public.has_permission('pettycash.md', 'approve')
-      then 'Only the MD can give MD approval'
+      then 'This claim is waiting for MD approval — only the MD can act on it'
     when p_status = 'pending_accounts' and not public.has_permission('pettycash.pay', 'issue')
-      then 'Only Accounts can pay a claim'
-    when p_billing_by = auth.uid()
-      then 'You did the Billing check on this claim, so someone else must do this step'
-    when p_md_by = auth.uid()
-      then 'You gave MD approval on this claim, so someone else must do this step'
+      then 'This claim is waiting for payment — only Accounts can act on it'
     else null
   end;
 $$;
@@ -133,7 +128,7 @@ begin
   if e.status <> p_from then
     raise exception 'This claim has already moved on — refresh the page';
   end if;
-  v_reason := public.pettycash_block_reason(e.status, e.created_by, e.billing_by, e.md_by);
+  v_reason := public.pettycash_block_reason(e.status, e.created_by);
   if v_reason is not null then raise exception '%', v_reason; end if;
 
   if p_from = 'pending_billing' then
@@ -180,7 +175,7 @@ declare
 begin
   select * into e from public.pettycash_entries where id = p_id for update;
   if not found then raise exception 'Entry not found'; end if;
-  v_reason := public.pettycash_block_reason(e.status, e.created_by, e.billing_by, e.md_by);
+  v_reason := public.pettycash_block_reason(e.status, e.created_by);
   if v_reason is not null then raise exception '%', v_reason; end if;
   update public.pettycash_entries
      set status = 'rejected', rejected_by = auth.uid(), rejected_at = now(),
@@ -210,7 +205,7 @@ language sql stable security definer set search_path = public as $$
          e.due_date, e.paid_at
   from public.pettycash_entries e
   cross join lateral (
-    select public.pettycash_block_reason(e.status, e.created_by, e.billing_by, e.md_by) as reason
+    select public.pettycash_block_reason(e.status, e.created_by) as reason
   ) x
   left join public.profiles cp on cp.id = e.created_by
   left join public.projects p on p.id = e.project_id

@@ -124,30 +124,6 @@ export async function moveJobTitle(roleId: string, up: boolean): Promise<ActionR
   return ok;
 }
 
-/** Whether a job title's petty-cash claims skip senior approval (go from the
- * Billing check straight to Accounts). */
-export async function setSkipsSeniorApproval(
-  roleId: string,
-  skips: boolean
-): Promise<ActionResult> {
-  const denied = await authorize("access", "update");
-  if (denied) return denied;
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("roles")
-    .update({ skips_senior_approval: skips })
-    .eq("id", roleId)
-    .is("department_id", null);
-  if (error) return fail(error.message);
-  await logAudit(
-    "role.skips_senior_approval",
-    `${skips ? "Petty cash claims now skip" : "Petty cash claims now need"} senior approval for a job title`,
-    { roleId, skips }
-  );
-  revalidatePath("/access");
-  return ok;
-}
-
 /**
  * Grant or revoke a single (resource, action) on a role — one matrix cell.
  * Granting inserts the row; revoking deletes it (deny-by-default).

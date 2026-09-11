@@ -850,35 +850,31 @@ export async function raiseChangeRequest(
   return ok;
 }
 
+/**
+ * Approve or reject the approval stage a change order is waiting on. Its
+ * stages, and who gives each, are set on Access Control → Approval flows;
+ * approval_decide re-checks the stage's rule and, on the last stage, marks the
+ * change order approved or rejected.
+ */
 export async function decideChangeRequest(
-  requestId: string,
-  decision: "approved" | "rejected",
+  projectId: string,
+  approvalId: string,
+  approve: boolean,
   note: string
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const { data: cr } = await supabase
-    .from("project_change_requests")
-    .select("project_id, status")
-    .eq("id", requestId)
-    .maybeSingle();
-  if (!cr) return fail("Change request not found.");
-  const denied = await authorizeProject(cr.project_id, "project.change", "approve");
-  if (denied) return denied;
-  if (cr.status !== "open") return fail("This request has already been decided.");
-
-  const user = await getUser();
-  const { error } = await supabase
-    .from("project_change_requests")
-    .update({
-      status: decision,
-      decided_by: user?.id ?? null,
-      decided_at: new Date().toISOString(),
-      decision_note: note.trim() || null,
-    })
-    .eq("id", requestId);
+  const { error } = await supabase.rpc("approval_decide", {
+    p_request: approvalId,
+    p_approve: approve,
+    p_note: note,
+  });
   if (error) return fail(error.message);
-  await logAudit("project.change.decide", `Change request ${decision}`, { requestId });
-  revalidatePath(`/projects/${cr.project_id}`);
+  await logAudit(
+    "project.change.decide",
+    approve ? "Approved a change-order stage" : "Rejected a change order",
+    { projectId, approvalId }
+  );
+  revalidatePath(`/projects/${projectId}`);
   return ok;
 }
 

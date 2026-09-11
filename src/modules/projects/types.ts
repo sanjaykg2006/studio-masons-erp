@@ -61,6 +61,12 @@ export type DesignChangeRequest = {
   raised_at: string;
   decided_at: string | null;
   decision_note: string | null;
+  /** Its approval request (the flow's stages, snapshotted when raised). */
+  approval_id: string | null;
+  /** The approval stage it is waiting on, while open. */
+  stage_label: string | null;
+  /** The viewer may approve or reject that stage. */
+  can_approve: boolean;
 };
 
 // --- Stage progress ----------------------------------------------------------

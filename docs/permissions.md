@@ -49,6 +49,21 @@ be set (only those its screens actually check; the first is the default), and
 | People & Access `/departments/<id>/people` | The lead, or anyone given People & Access | Per person, the department's own work: Tasks, Settings, People & Access (`everyDepartment`, built into every department) plus the tools allotted to it (Design's template library, vendor list, company assets, billing branches). | `department` |
 | Settings → Project roles `/departments/<id>/settings` (Design: `/design/settings`) | The lead, or anyone given Settings | Per project role, what it can do on a project. Two rows aren't tied to one project and apply wherever the role is held (any project, or every project): Projects · Create ("may start new projects") and Project · Templates (the shared library + default checklist). The app checks these with `canAnywhere` / `requireAnywhere` / `authorizeAnywhere`; the DB with `has_permission_anywhere()`. | `project` |
 
+## Approval flows
+
+Every approval chain is described on Access Control → **Approval flows**
+(`/access/approvals`, `src/modules/access/approval-flows.ts`). Each flow has fixed
+WORK steps (log, pay, raise, book…) and APPROVAL stages between them.
+
+Flows on the approval engine (0089 — so far Petty Cash and Change orders) have
+editable stages (`approval_stages`): who approves (`tick` / `senior` to the
+requester / the requester's `dept_lead` / a `job_title`), which job titles skip
+it, an optional minimum amount, and whether the requester is blocked from their
+own item. Raising an item snapshots its applicable stages into an
+`approval_requests` row; `approval_decide()` moves it on and `approval_finish()`
+applies the outcome to the item. Full-access administrators can act on any stage,
+never on their own item. The remaining flows move onto the engine in batches.
+
 ## Department leads
 
 "Lead-ness" is membership in `public.department_leads`, not a matrix grant (mirrors

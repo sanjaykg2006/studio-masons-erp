@@ -47,7 +47,7 @@ export async function getAccessData(): Promise<{
     supabase
       .from("roles")
       .select(
-        "id, key, label, description, is_system, department_id, is_department_wide, rank, skips_senior_approval"
+        "id, key, label, description, is_system, department_id, is_department_wide, rank"
       )
       .order("rank")
       .order("label"),

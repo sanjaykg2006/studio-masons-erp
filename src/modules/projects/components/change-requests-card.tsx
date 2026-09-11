@@ -34,14 +34,11 @@ export function ChangeRequestsCard({
   projectId,
   requests,
   canRaise,
-  canDecide,
 }: {
   projectId: string;
   requests: DesignChangeRequest[];
   /** Project · Change orders → Create. */
   canRaise: boolean;
-  /** Project · Change orders → Approve (approve or reject). */
-  canDecide: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -135,6 +132,11 @@ export function ChangeRequestsCard({
                         Decision: {r.decision_note}
                       </p>
                     )}
+                    {r.status === "open" && r.stage_label && (
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        Waiting for: {r.stage_label}
+                      </p>
+                    )}
                   </div>
                   <span
                     className={cn(
@@ -145,13 +147,15 @@ export function ChangeRequestsCard({
                     {CHANGE_STATUS_LABEL[r.status]}
                   </span>
                 </div>
-                {canDecide && r.status === "open" && (
+                {r.can_approve && r.status === "open" && r.approval_id && (
                   <div className="mt-2 flex gap-2">
                     <Button
                       size="sm"
                       variant="outline"
                       disabled={pending}
-                      onClick={() => run(() => decideChangeRequest(r.id, "approved", ""))}
+                      onClick={() =>
+                        run(() => decideChangeRequest(projectId, r.approval_id!, true, ""))
+                      }
                     >
                       Approve
                     </Button>
@@ -159,7 +163,11 @@ export function ChangeRequestsCard({
                       size="sm"
                       variant="ghost"
                       disabled={pending}
-                      onClick={() => run(() => decideChangeRequest(r.id, "rejected", ""))}
+                      onClick={() => {
+                        const note = prompt("Reject this change order — reason?");
+                        if (note === null) return;
+                        run(() => decideChangeRequest(projectId, r.approval_id!, false, note));
+                      }}
                     >
                       Reject
                     </Button>

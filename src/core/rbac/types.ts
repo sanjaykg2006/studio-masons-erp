@@ -93,9 +93,6 @@ export type Role = {
   /** Seniority within its ladder (a department's roles, or the job titles);
    * 1 = most senior. */
   rank: number;
-  /** Job titles only: their petty-cash claims go from the Billing check
-   * straight to Accounts, with no senior approval (e.g. MD, Co-Founder). */
-  skips_senior_approval: boolean;
 };
 
 /** A single granted permission as stored in `public.role_permissions`. */

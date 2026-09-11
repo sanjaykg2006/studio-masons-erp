@@ -392,18 +392,15 @@ export async function getFolderFiles(
   return (data ?? []) as DesignFile[];
 }
 
-/** The change-order register for a project. */
+/** The change-order register for a project, with the approval stage each open
+ * one waits on and whether the viewer may decide it (0089). */
 export async function getProjectChangeRequests(
   projectId: string
 ): Promise<DesignChangeRequest[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("project_change_requests")
-    .select(
-      "id, project_id, folder_key, title, reason, status, raised_at, decided_at, decision_note"
-    )
-    .eq("project_id", projectId)
-    .order("raised_at", { ascending: false });
+  const { data } = await supabase.rpc("list_project_change_requests", {
+    p_project: projectId,
+  });
   return (data ?? []) as DesignChangeRequest[];
 }
 

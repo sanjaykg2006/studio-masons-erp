@@ -18,11 +18,10 @@ import {
   type ProjectOption,
 } from "@/modules/pettycash/types";
 import {
-  billingApprovePettyCash,
   createPettyCash,
+  decidePettyCash,
   deletePettyCash,
   getVoucherUrl,
-  mdApprovePettyCash,
   payPettyCash,
   rejectPettyCash,
   savePettyCashCategory,
@@ -37,6 +36,7 @@ const field = "border-input bg-background h-9 rounded-md border px-2 text-sm";
 const STATUS_TONE: Record<PettyCashStatus, string> = {
   pending_billing: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
   pending_md: "bg-purple-500/15 text-purple-700 dark:text-purple-400",
+  pending_approval: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
   pending_accounts: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
   paid: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
   rejected: "bg-destructive/10 text-destructive",
@@ -86,7 +86,12 @@ export function PettyCashView({
   const reject = (e: PettyCashEntry) => {
     const reason = prompt(`Reject this ${inr(e.amount)} entry — reason?`);
     if (reason === null) return;
-    run(() => rejectPettyCash(e.id, reason));
+    // At an approval stage the engine rejects it; at payment, Accounts does.
+    run(() =>
+      e.status === "pending_approval" && e.approval_id
+        ? decidePettyCash(e.approval_id, false, reason)
+        : rejectPettyCash(e.id, reason)
+    );
   };
 
   const remove = (e: PettyCashEntry) => {
@@ -119,8 +124,8 @@ export function PettyCashView({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Petty Cash</h1>
           <p className="text-muted-foreground">
-            Log a small spend and claim it. Billing checks it, someone senior to
-            you approves it, and Accounts pays.
+            Log a small spend and claim it. It goes through its approval stages,
+            then Accounts pays.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -207,7 +212,9 @@ export function PettyCashView({
                         </td>
                         <td className="py-2">
                           <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", STATUS_TONE[e.status])}>
-                            {PETTYCASH_STATUS_LABEL[e.status]}
+                            {e.status === "pending_approval" && e.stage_label
+                              ? `Awaiting ${e.stage_label}`
+                              : PETTYCASH_STATUS_LABEL[e.status]}
                           </span>
                           {e.status === "rejected" && e.reject_reason && (
                             <div className="text-muted-foreground text-[10px]">{e.reject_reason}</div>
@@ -227,13 +234,13 @@ export function PettyCashView({
                                 <FileText className="size-4" />
                               </button>
                             )}
-                            {e.status === "pending_billing" && e.can_billing && (
-                              <Button size="sm" disabled={pending} onClick={() => run(() => billingApprovePettyCash(e.id))}>
-                                <Check className="size-4" /> Billing
-                              </Button>
-                            )}
-                            {e.status === "pending_md" && e.can_md && (
-                              <Button size="sm" disabled={pending} onClick={() => run(() => mdApprovePettyCash(e.id))}>
+                            {e.status === "pending_approval" && e.can_approve && e.approval_id && (
+                              <Button
+                                size="sm"
+                                disabled={pending}
+                                onClick={() => run(() => decidePettyCash(e.approval_id!, true, ""))}
+                                title={e.stage_label ?? undefined}
+                              >
                                 <Check className="size-4" /> Approve
                               </Button>
                             )}
@@ -242,12 +249,13 @@ export function PettyCashView({
                                 Pay
                               </Button>
                             )}
-                            {e.can_reject && e.status !== "paid" && e.status !== "rejected" && (
+                            {((e.status === "pending_approval" && e.can_approve) ||
+                              (e.status === "pending_accounts" && e.can_reject)) && (
                               <Button size="sm" variant="outline" disabled={pending} onClick={() => reject(e)}>
                                 Reject
                               </Button>
                             )}
-                            {e.mine && e.status === "pending_billing" && (
+                            {e.mine && e.status === "pending_approval" && (
                               <button
                                 type="button"
                                 disabled={pending}

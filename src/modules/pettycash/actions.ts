@@ -69,20 +69,28 @@ export async function createPettyCash(formData: FormData): Promise<ActionResult>
   return ok;
 }
 
-export async function billingApprovePettyCash(id: string): Promise<ActionResult> {
+/**
+ * Approve or reject the approval stage a claim is waiting on. Which stages a
+ * claim goes through, and who gives each, is set on Access Control → Approval
+ * flows; approval_decide re-checks the stage's rule and moves the claim on.
+ */
+export async function decidePettyCash(
+  approvalId: string,
+  approve: boolean,
+  note: string
+): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("billing_approve_pettycash", { p_id: id });
+  const { error } = await supabase.rpc("approval_decide", {
+    p_request: approvalId,
+    p_approve: approve,
+    p_note: note,
+  });
   if (error) return fail(error.message);
-  await logAudit("pettycash.billing", "Billing approved petty cash", { id });
-  refresh();
-  return ok;
-}
-
-export async function mdApprovePettyCash(id: string): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("md_approve_pettycash", { p_id: id });
-  if (error) return fail(error.message);
-  await logAudit("pettycash.senior", "Senior approval given on petty cash", { id });
+  await logAudit(
+    "pettycash.stage",
+    approve ? "Approved a petty-cash approval stage" : "Rejected a petty-cash claim",
+    { approvalId }
+  );
   refresh();
   return ok;
 }

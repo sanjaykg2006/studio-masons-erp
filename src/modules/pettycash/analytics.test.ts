@@ -15,12 +15,13 @@ const entry = (over: Partial<PettyCashEntry>): PettyCashEntry => ({
   description: null,
   spent_on: "2026-09-01",
   file_path: null,
-  status: "pending_billing",
+  status: "pending_approval",
   reject_reason: null,
   created_at: "2026-09-01T05:00:00Z",
   mine: true,
-  can_billing: false,
-  can_md: false,
+  approval_id: null,
+  stage_label: null,
+  can_approve: false,
   can_pay: false,
   can_reject: false,
   due_date: null,
@@ -61,7 +62,7 @@ describe("summarizePettyCash", () => {
   const s = summarizePettyCash(
     [
       entry({ amount: 500, due_date: "2026-09-01" }), // 10 days overdue
-      entry({ amount: 200, due_date: "2026-09-09", status: "pending_md" }), // 2 overdue
+      entry({ amount: 200, due_date: "2026-09-09" }), // 2 overdue
       entry({ amount: 300, due_date: "2026-09-15", status: "pending_accounts" }), // due soon
       entry({ amount: 50, due_date: "2026-10-30" }), // open, not soon
       entry({ amount: 70 }), // open, no due date
@@ -80,8 +81,7 @@ describe("summarizePettyCash", () => {
 
   it("splits open claims by the step they wait on", () => {
     expect(s.stages.map((x) => [x.status, x.count, x.amount])).toEqual([
-      ["pending_billing", 3, 620],
-      ["pending_md", 1, 200],
+      ["pending_approval", 4, 820],
       ["pending_accounts", 1, 300],
     ]);
   });

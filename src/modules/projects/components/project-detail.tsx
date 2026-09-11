@@ -57,10 +57,10 @@ type Props = {
   rfiRolesByDept: Record<string, RoleRef[]>;
   /** Resource ids of the per-project module pages this user may open. */
   visibleModuleResourceIds: string[];
-  /** Project · Change orders → View / Create / Approve. */
+  /** Project · Change orders → View / Create. Deciding follows each change
+   * order's approval stages (Access Control → Approval flows). */
   canViewChanges: boolean;
   canRaiseChanges: boolean;
-  canDecideChanges: boolean;
   members: ProjectMemberView[];
   briefs: ProjectBriefRow[];
   users: AssignableUser[];
@@ -85,7 +85,6 @@ export function ProjectDetail({
   visibleModuleResourceIds,
   canViewChanges,
   canRaiseChanges,
-  canDecideChanges,
   members,
   briefs,
   users,
@@ -234,7 +233,6 @@ export function ProjectDetail({
           projectId={project.id}
           requests={changeRequests}
           canRaise={canRaiseChanges}
-          canDecide={canDecideChanges}
         />
       )}
 

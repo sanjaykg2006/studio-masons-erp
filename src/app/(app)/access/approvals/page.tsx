@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-import { requirePermission } from "@/core/rbac/can";
+import { can, requirePermission } from "@/core/rbac/can";
+import { moduleResources } from "@/core/modules/registry";
 import {
   Card,
   CardContent,
@@ -10,22 +11,33 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getApprovalFlows, type StepWho } from "@/modules/access/approval-data";
+import { ApprovalStagesEditor } from "@/modules/access/components/approval-stages-editor";
 
 /** Nobody can do a step yet (full-access administrators aside). */
 const nobody = (who: StepWho) =>
-  who.jobTitles.length === 0 && who.projectRoles.length === 0 && who.people.length === 0;
+  who.jobTitles.length === 0 &&
+  who.projectRoles.length === 0 &&
+  who.people.length === 0 &&
+  who.leads.length === 0;
 
 const withPeople = (x: { label: string; people: string[] }) =>
   x.people.length ? `${x.label} (${x.people.join(", ")})` : `${x.label} (nobody holds it)`;
 
 /**
  * Approval flows — every approval chain in the ERP, its steps in order, who can
- * do each step right now, and where that is changed. Read-only: the steps are
- * fixed by each module; who does them is the ticks, edited on the linked pages.
+ * do each step right now, and where that is changed. Flows on the approval
+ * engine (0089) also get an editor for their approval stages; the fixed work
+ * steps and the other flows are described, not edited.
  */
 export default async function ApprovalFlowsPage() {
   await requirePermission("access", "read");
-  const flows = await getApprovalFlows();
+  const [{ flows, jobTitles }, canEdit] = await Promise.all([
+    getApprovalFlows(),
+    can("access", "update"),
+  ]);
+  const resources = moduleResources()
+    .filter((r) => !r.everyDepartment)
+    .map((r) => ({ id: r.id, label: r.label, actions: r.actions }));
 
   return (
     <div className="space-y-6">
@@ -40,15 +52,22 @@ export default async function ApprovalFlowsPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Approval flows</h1>
         <p className="text-muted-foreground">
           Every approval chain in the ERP, step by step: who can do each step
-          right now, and where to change it. The steps themselves are fixed; who
-          does them is decided by the ticks on the linked pages.
+          right now, and where to change it. Petty Cash and Change orders have
+          editable approval stages; the others are being moved over.
         </p>
       </div>
 
       {flows.map((flow) => (
         <Card key={flow.id}>
           <CardHeader>
-            <CardTitle className="text-base">{flow.label}</CardTitle>
+            <CardTitle className="text-base">
+              {flow.label}
+              {flow.engine && (
+                <span className="bg-primary/10 text-primary ml-2 rounded px-1.5 py-0.5 text-xs font-normal">
+                  editable stages
+                </span>
+              )}
+            </CardTitle>
             <CardDescription>{flow.where}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -104,6 +123,14 @@ export default async function ApprovalFlowsPage() {
                                   .join("; ")}
                               </li>
                             )}
+                            {step.who.leads.length > 0 && (
+                              <li>
+                                <span className="text-muted-foreground">Department leads: </span>
+                                {step.who.leads
+                                  .map((p) => `${p.department}: ${p.person}`)
+                                  .join("; ")}
+                              </li>
+                            )}
                           </ul>
                         )}
                         {step.who.fullAccess.length > 0 && (
@@ -118,7 +145,7 @@ export default async function ApprovalFlowsPage() {
                       <p className="text-xs">
                         <span className="text-muted-foreground">Change it: </span>
                         {step.changeAt.map((c, j) => (
-                          <span key={c.href}>
+                          <span key={`${c.href}-${j}`}>
                             {j > 0 && " · "}
                             <Link href={c.href} className="underline">
                               {c.label}
@@ -138,6 +165,14 @@ export default async function ApprovalFlowsPage() {
                   <li key={r}>{r}</li>
                 ))}
               </ul>
+            )}
+
+            {flow.engine && canEdit && (
+              <ApprovalStagesEditor
+                flow={flow.engine}
+                jobTitles={jobTitles}
+                resources={resources}
+              />
             )}
           </CardContent>
         </Card>

@@ -12,8 +12,7 @@ export function todayInIndia(now: Date = new Date()): string {
 
 /** Statuses still waiting on someone — the only ones that can be overdue. */
 export const OPEN_STATUSES: readonly PettyCashStatus[] = [
-  "pending_billing",
-  "pending_md",
+  "pending_approval",
   "pending_accounts",
 ];
 

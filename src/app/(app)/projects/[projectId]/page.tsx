@@ -57,7 +57,6 @@ export default async function ProjectPage({
       visibleModuleResourceIds={visibleModuleResourceIds}
       canViewChanges={canViewChanges}
       canRaiseChanges={detail.can("project.change", "create")}
-      canDecideChanges={detail.can("project.change", "approve")}
       members={detail.members}
       briefs={detail.briefs}
       users={pickers.users}

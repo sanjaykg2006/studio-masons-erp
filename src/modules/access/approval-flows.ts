@@ -20,10 +20,15 @@ export type FlowStep = {
   rule?: string;
   /** Only happens in some cases (e.g. an over-budget PO). */
   optional?: boolean;
+  /** Placeholder: the flow's editable approval stages (from the database) go
+   * here. Only in flows with an `engineId`. */
+  stages?: boolean;
 };
 
 export type ApprovalFlow = {
   id: string;
+  /** The approval_flows id when its approval stages are editable (0089). */
+  engineId?: string;
   label: string;
   /** Where in the ERP it happens. */
   where: string;
@@ -35,24 +40,23 @@ export type ApprovalFlow = {
 export const APPROVAL_FLOWS: ApprovalFlow[] = [
   {
     id: "pettycash",
+    engineId: "pettycash",
     label: "Petty Cash claim",
     where: "Petty Cash",
     steps: [
       { label: "Log a claim", rule: "Anyone signed in — no tick needed." },
-      { label: "Billing check", resource: "pettycash.billing", action: "approve" },
+      { label: "Approval stages", stages: true },
       {
-        label: "Senior approval",
-        resource: "pettycash.senior",
-        action: "approve",
-        rule:
-          "The approver's job title must be above the claimant's in the job-title order. Skipped for job titles with “Petty cash claims skip senior approval” switched on.",
+        label: "Pay",
+        resource: "pettycash.pay",
+        action: "issue",
+        rule: "Nobody pays or rejects their own claim.",
       },
-      { label: "Pay", resource: "pettycash.pay", action: "issue" },
     ],
     rules: [
-      "Nobody approves or rejects their own claim.",
-      "Only the owner of the step a claim is waiting on can reject it.",
-      "Full-access administrators can act on any step, as a backup.",
+      "A claim is approved or rejected by whoever can give the stage it is waiting on.",
+      "Full-access administrators can act on any stage, as a backup — never on their own claim.",
+      "A claim keeps the stages it started with; editing them affects new claims only.",
     ],
   },
   {
@@ -167,11 +171,17 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
   },
   {
     id: "change",
+    engineId: "change_order",
     label: "Change order",
     where: "Project → Change Order Register",
     steps: [
       { label: "Raise a change order", resource: "project.change", action: "create" },
-      { label: "Approve or reject", resource: "project.change", action: "approve" },
+      { label: "Approval stages", stages: true },
+    ],
+    rules: [
+      "Ticks are checked on the change order's project.",
+      "Full-access administrators can act on any stage, as a backup.",
+      "A change order keeps the stages it started with; editing them affects new ones only.",
     ],
   },
   {

@@ -18,6 +18,15 @@ const resources: AccessResource[] = moduleResources()
     id: r.id,
     label: r.label,
     actions: r.actions,
+    // Where allotting it to a department makes it appear, so the "Modules in"
+    // card can say so. folder.access has no matrix row: it adds its own grid
+    // to the department's Settings page.
+    home:
+      r.projectRole || r.id === "folder.access"
+        ? "settings"
+        : r.departmentLevel
+          ? "people"
+          : "other",
   }));
 
 export default async function AccessPage() {

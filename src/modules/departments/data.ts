@@ -86,6 +86,18 @@ export async function getDepartmentRoleResources(deptId: string): Promise<Matrix
     }));
 }
 
+/**
+ * The department tools allotted to a department (vendor list, templates, …).
+ * They are set per person on People & Access, not in the Project roles matrix —
+ * the Settings page names them so an allotted module is never "missing".
+ */
+export async function getDepartmentToolLabels(deptId: string): Promise<string[]> {
+  const ids = await getDepartmentModuleIds(deptId);
+  return resourcesForModules(ids)
+    .filter((r) => r.departmentLevel && !r.everyDepartment)
+    .map((r) => r.label);
+}
+
 export type DepartmentRolesConfig = {
   roles: ProjectRoleRow[];
   permissions: { role_id: string; resource: string; action: Action }[];

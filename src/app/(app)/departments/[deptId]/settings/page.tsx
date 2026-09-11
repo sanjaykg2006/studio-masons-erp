@@ -15,6 +15,7 @@ import {
   getDepartmentModuleIds,
   getDepartmentRoleResources,
   getDepartmentRolesConfig,
+  getDepartmentToolLabels,
 } from "@/modules/departments/data";
 import {
   createDeptRole,
@@ -37,10 +38,11 @@ export default async function DepartmentSettingsPage({
   if (!dept || !dept.can_manage_settings) notFound();
 
   // Rows are whatever modules are allotted to this department — not a fixed list.
-  const [roleConfig, roleResources, moduleIds] = await Promise.all([
+  const [roleConfig, roleResources, moduleIds, toolLabels] = await Promise.all([
     getDepartmentRolesConfig(deptId),
     getDepartmentRoleResources(deptId),
     getDepartmentModuleIds(deptId),
+    getDepartmentToolLabels(deptId),
   ]);
 
   // The controlled-folder access grid only appears once the department has been
@@ -65,6 +67,12 @@ export default async function DepartmentSettingsPage({
           and tick what each can do on a project. Who is on the team and what they
           can do inside the department is set in People &amp; Access.
         </p>
+        {toolLabels.length > 0 && (
+          <p className="text-muted-foreground mt-1 text-sm">
+            Also given to {dept.label}, and set per person on People &amp; Access:{" "}
+            {toolLabels.join(", ")}.
+          </p>
+        )}
       </div>
 
       <Card>

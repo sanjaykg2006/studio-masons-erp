@@ -16,6 +16,7 @@ import {
   getDepartmentIdByKey,
   getDepartmentRoleResources,
   getDepartmentRolesConfig,
+  getDepartmentToolLabels,
 } from "@/modules/departments/data";
 import {
   createDeptRole,
@@ -36,10 +37,11 @@ export default async function DesignSettingsPage() {
     redirect("/forbidden?resource=department.settings&action=manage");
   }
 
-  const [roleConfig, roleResources, folderConfig] = await Promise.all([
+  const [roleConfig, roleResources, folderConfig, toolLabels] = await Promise.all([
     getDepartmentRolesConfig(designId),
     getDepartmentRoleResources(designId),
     getFolderAccessConfig(),
+    getDepartmentToolLabels(designId),
   ]);
 
   return (
@@ -72,6 +74,12 @@ export default async function DesignSettingsPage() {
           )}
           .
         </p>
+        {toolLabels.length > 0 && (
+          <p className="text-muted-foreground mt-1 text-sm">
+            Also given to Design, and set per person on People &amp; Access:{" "}
+            {toolLabels.join(", ")}.
+          </p>
+        )}
       </div>
 
       <Card>

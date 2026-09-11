@@ -8,7 +8,14 @@ import {
 } from "@/core/rbac/types";
 
 /** A gated resource (module) shown as a row in the permission matrix. */
-export type AccessResource = { id: string; label: string; actions: Action[] };
+export type AccessResource = {
+  id: string;
+  label: string;
+  actions: Action[];
+  /** Where it is set once allotted to a department: Settings → Project roles,
+   * People & Access, or no department screen. Set by the Access Control page. */
+  home?: "settings" | "people" | "other";
+};
 
 export const grantKey = (roleId: string, resource: string, action: Action) =>
   `${roleId}:${resource}:${action}`;

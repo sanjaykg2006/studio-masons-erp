@@ -108,6 +108,25 @@ const BLOCKER_LABEL: Record<string, string> = {
 
 const blockerLabel = (t: string) =>
   BLOCKER_LABEL[t] ?? t.replace(/_/g, " ");
+
+/** The "Modules in …" card's groups: where a ticked module shows up. */
+const MODULE_GROUPS: { home: NonNullable<AccessResource["home"]>; title: string; hint: string }[] = [
+  {
+    home: "settings",
+    title: "Project work",
+    hint: "Shows on the department's Settings → Project roles, ticked per role.",
+  },
+  {
+    home: "people",
+    title: "Department tools",
+    hint: "Shows on the department's People & Access, ticked per person.",
+  },
+  {
+    home: "other",
+    title: "Other",
+    hint: "Not set on a department screen.",
+  },
+];
 export function AccessView({
   roles,
   permissions,
@@ -458,49 +477,61 @@ export function AccessView({
                     Modules in {deptById.get(deptId)?.label ?? "this department"}
                   </CardTitle>
                   <CardDescription>
-                    Choose which modules this department&apos;s roles can be
-                    granted. General modules are always available and not listed
-                    here.
+                    Choose which modules this department can use. Each group says
+                    where a ticked module then shows up. Back-office modules are
+                    given with the job title and not listed here.
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                   {resources.filter((r) => !generalSet.has(r.id)).length === 0 ? (
                     <p className="text-muted-foreground text-sm">
                       No department-specific modules exist yet. As business modules
                       (e.g. Projects) are added, they&apos;ll appear here.
                     </p>
                   ) : (
-                    <div className="flex flex-wrap gap-x-6 gap-y-2">
-                      {resources
-                        .filter((r) => !generalSet.has(r.id))
-                        .map((res) => {
-                          const included =
-                            modulesByDept.get(deptId)?.has(res.id) ?? false;
-                          return (
-                            <label
-                              key={res.id}
-                              className="flex items-center gap-2 text-sm"
-                            >
-                              <input
-                                type="checkbox"
-                                className="size-4 accent-primary"
-                                checked={included}
-                                disabled={pending}
-                                onChange={(e) =>
-                                  run(() =>
-                                    setDepartmentModule(
-                                      deptId,
-                                      res.id,
-                                      e.target.checked
-                                    )
-                                  )
-                                }
-                              />
-                              {res.label}
-                            </label>
-                          );
-                        })}
-                    </div>
+                    MODULE_GROUPS.map((group) => {
+                      const inGroup = resources.filter(
+                        (r) => !generalSet.has(r.id) && (r.home ?? "other") === group.home
+                      );
+                      if (inGroup.length === 0) return null;
+                      return (
+                        <div key={group.home} className="space-y-2">
+                          <div>
+                            <p className="text-sm font-medium">{group.title}</p>
+                            <p className="text-muted-foreground text-xs">{group.hint}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-x-6 gap-y-2">
+                            {inGroup.map((res) => {
+                              const included =
+                                modulesByDept.get(deptId)?.has(res.id) ?? false;
+                              return (
+                                <label
+                                  key={res.id}
+                                  className="flex items-center gap-2 text-sm"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="size-4 accent-primary"
+                                    checked={included}
+                                    disabled={pending}
+                                    onChange={(e) =>
+                                      run(() =>
+                                        setDepartmentModule(
+                                          deptId,
+                                          res.id,
+                                          e.target.checked
+                                        )
+                                      )
+                                    }
+                                  />
+                                  {res.label}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </CardContent>
               </Card>

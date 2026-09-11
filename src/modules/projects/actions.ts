@@ -547,14 +547,93 @@ export async function toggleProjectStep(
 
   const supabase = await createClient();
   const user = await getUser();
-  const { error } = await supabase.from("project_steps").upsert({
+  // The step is the project's own row now, so this updates it rather than
+  // upserting a tick against a shared catalogue.
+  const { error } = await supabase
+    .from("project_steps")
+    .update({
+      done,
+      done_by: done ? user?.id ?? null : null,
+      done_at: done ? new Date().toISOString() : null,
+    })
+    .eq("id", stepId)
+    .eq("project_id", projectId);
+  if (error) return fail(error.message);
+  revalidatePath(`/projects/${projectId}`);
+  return ok;
+}
+
+/** Add a step to THIS project's checklist. Changes nothing on any other. */
+export async function addProjectStep(
+  projectId: string,
+  stage: string,
+  label: string
+): Promise<ActionResult> {
+  const denied = await authorizeProject(projectId, "project", "update");
+  if (denied) return denied;
+  const t = label.trim();
+  if (!t) return fail("Enter a step.");
+
+  const supabase = await createClient();
+  const { data: max } = await supabase
+    .from("project_steps")
+    .select("sort")
+    .eq("project_id", projectId)
+    .eq("stage", stage)
+    .order("sort", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { error } = await supabase.from("project_steps").insert({
     project_id: projectId,
-    step_id: stepId,
-    done,
-    done_by: done ? user?.id ?? null : null,
-    done_at: done ? new Date().toISOString() : null,
+    stage,
+    label: t,
+    sort: ((max as { sort: number } | null)?.sort ?? 0) + 1,
   });
   if (error) return fail(error.message);
+  await logAudit("project.step.add", `Added a checklist step`, { projectId, stage });
+  revalidatePath(`/projects/${projectId}`);
+  return ok;
+}
+
+/** Rename one of this project's checklist steps. */
+export async function renameProjectStep(
+  projectId: string,
+  stepId: string,
+  label: string
+): Promise<ActionResult> {
+  const denied = await authorizeProject(projectId, "project", "update");
+  if (denied) return denied;
+  const t = label.trim();
+  if (!t) return fail("Enter a step.");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("project_steps")
+    .update({ label: t })
+    .eq("id", stepId)
+    .eq("project_id", projectId);
+  if (error) return fail(error.message);
+  revalidatePath(`/projects/${projectId}`);
+  return ok;
+}
+
+/** Remove a step from this project's checklist. */
+export async function deleteProjectStep(
+  projectId: string,
+  stepId: string
+): Promise<ActionResult> {
+  const denied = await authorizeProject(projectId, "project", "update");
+  if (denied) return denied;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("project_steps")
+    .delete()
+    .eq("id", stepId)
+    .eq("project_id", projectId);
+  if (error) return fail(error.message);
+  await logAudit("project.step.remove", "Removed a checklist step", { projectId });
   revalidatePath(`/projects/${projectId}`);
   return ok;
 }
@@ -833,5 +912,71 @@ export async function setConceptVisibility(
     { ownerDepartmentId, viewerDepartmentId, allowed }
   );
   revalidatePath("/projects");
+  return ok;
+}
+
+// ===================== THE COMPANY DEFAULT CHECKLIST =========================
+//
+// These edit the TEMPLATE only — the list a new project starts from. They never
+// touch a project that already exists; each of those owns its own steps.
+
+export async function addTemplateStep(
+  stage: string,
+  label: string
+): Promise<ActionResult> {
+  const denied = await authorize("project.template", "update");
+  if (denied) return denied;
+  const t = label.trim();
+  if (!t) return fail("Enter a step.");
+
+  const supabase = await createClient();
+  const { data: max } = await supabase
+    .from("project_step_templates")
+    .select("sort")
+    .eq("stage", stage)
+    .order("sort", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { error } = await supabase.from("project_step_templates").insert({
+    stage,
+    label: t,
+    sort: ((max as { sort: number } | null)?.sort ?? 0) + 1,
+  });
+  if (error) return fail(error.message);
+  revalidatePath("/projects/templates");
+  return ok;
+}
+
+export async function renameTemplateStep(
+  stepId: string,
+  label: string
+): Promise<ActionResult> {
+  const denied = await authorize("project.template", "update");
+  if (denied) return denied;
+  const t = label.trim();
+  if (!t) return fail("Enter a step.");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("project_step_templates")
+    .update({ label: t })
+    .eq("id", stepId);
+  if (error) return fail(error.message);
+  revalidatePath("/projects/templates");
+  return ok;
+}
+
+export async function deleteTemplateStep(stepId: string): Promise<ActionResult> {
+  const denied = await authorize("project.template", "update");
+  if (denied) return denied;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("project_step_templates")
+    .delete()
+    .eq("id", stepId);
+  if (error) return fail(error.message);
+  revalidatePath("/projects/templates");
   return ok;
 }

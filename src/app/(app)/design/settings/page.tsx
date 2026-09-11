@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-import { requirePermission } from "@/core/rbac/can";
+import { redirect } from "next/navigation";
+
+import { createClient } from "@/core/supabase/server";
 import {
   Card,
   CardContent,
@@ -12,7 +14,6 @@ import {
 import {
   getFolderAccessConfig,
   getProjectRolesConfig,
-  getStageSteps,
   getSubteamsConfig,
 } from "@/modules/design/data";
 import {
@@ -29,20 +30,27 @@ import {
 } from "@/modules/design/actions";
 import { FolderAccessMatrix } from "@/modules/design/components/folder-access-matrix";
 import { ProjectRolesEditor } from "@/modules/design/components/project-roles-editor";
-import { StageStepsEditor } from "@/modules/design/components/stage-steps-editor";
 import { SubteamsEditor } from "@/modules/design/components/subteams-editor";
 
-/** Design configuration: project roles + folder access + the stage checklist. */
+/** Design configuration: project roles + folder access + sub-teams. */
 export default async function DesignSettingsPage() {
-  await requirePermission("design.folder", "manage");
-
-  // The role-matrix rows are whatever modules are allotted to Design — driven by
-  // department_modules, so allotting a new module surfaces it here automatically.
+  // The role-matrix rows are whatever modules are allotted to Design - driven
+  // by department_modules, so allotting a new module surfaces it here.
   const designId = await getDepartmentIdByKey("design");
-  const [roleConfig, config, steps, subteams, roleResources] = await Promise.all([
+
+  // Guard on exactly what the cards below need. Since 0075 they read through
+  // the generic department_* functions, so the page must ask the same question
+  // they do - a lead of Design, or access:update - rather than
+  // design.folder:manage, which would let someone in to two matrices that then
+  // came back empty.
+  const supabase = await createClient();
+  const { data: canManage } = designId
+    ? await supabase.rpc("can_manage_department_roles", { p_dept: designId })
+    : { data: false };
+  if (!canManage) redirect("/forbidden?resource=access&action=update");
+  const [roleConfig, config, subteams, roleResources] = await Promise.all([
     getProjectRolesConfig(),
     getFolderAccessConfig(),
-    getStageSteps(),
     getSubteamsConfig(),
     designId
       ? getDepartmentRoleResources(designId)
@@ -132,18 +140,6 @@ export default async function DesignSettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Design&apos;s stage checklist</CardTitle>
-          <CardDescription>
-            The steps that fill each Design project&apos;s progress bars. Add,
-            rename or remove steps per stage.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <StageStepsEditor steps={steps} />
-        </CardContent>
-      </Card>
     </div>
   );
 }

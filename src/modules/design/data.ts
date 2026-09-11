@@ -13,7 +13,6 @@ import {
   type DesignTemplateVersion,
   type TemplateStatus,
 } from "@/modules/design/types";
-import { type DesignStageStep } from "@/modules/projects/types";
 
 /** A project role / assignable-person reference, as shown in a settings matrix. */
 export type DesignRole = { id: string; label: string };
@@ -284,11 +283,4 @@ export async function getSubteamsConfig(): Promise<SubteamsConfig> {
 // --- Stage checklist (settings) ----------------------------------------------
 
 /** Every checklist step (across stages), for the checklist editor. */
-export async function getStageSteps(): Promise<DesignStageStep[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("design_stage_steps")
-    .select("id, stage, sort, label")
-    .order("sort");
-  return (data ?? []) as DesignStageStep[];
-}
+// getStageSteps moved to the Projects module (project_step_templates).

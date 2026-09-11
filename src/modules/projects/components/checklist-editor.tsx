@@ -7,19 +7,33 @@ import { Check, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  addStageStep,
-  deleteStageStep,
-  updateStageStep,
-} from "@/modules/design/actions";
-import {
   DESIGN_STAGES,
   DESIGN_STAGE_LABEL,
   type DesignStage,
   type DesignStageStep,
 } from "@/modules/projects/types";
 
-/** Edit the checklist steps that drive every project's progress bars. */
-export function StageStepsEditor({ steps }: { steps: DesignStageStep[] }) {
+type Result = { ok: true } | { ok: false; error: string };
+
+/**
+ * Edit a checklist, stage by stage.
+ *
+ * The same editor serves the company DEFAULT list and, in future, any other
+ * checklist — the caller supplies the three actions, so who may edit and what
+ * gets written stays with the action (and the RLS behind it) rather than being
+ * decided here.
+ */
+export function ChecklistEditor({
+  steps,
+  onAdd,
+  onRename,
+  onDelete,
+}: {
+  steps: DesignStageStep[];
+  onAdd: (stage: DesignStage, label: string) => Promise<Result>;
+  onRename: (stepId: string, label: string) => Promise<Result>;
+  onDelete: (stepId: string) => Promise<Result>;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +87,7 @@ export function StageStepsEditor({ steps }: { steps: DesignStageStep[] }) {
                       <button
                         type="button"
                         disabled={pending}
-                        onClick={() => run(() => updateStageStep(step.id, draft))}
+                        onClick={() => run(() => onRename(step.id, draft))}
                         className="text-muted-foreground hover:text-foreground"
                         aria-label="Save"
                       >
@@ -103,7 +117,7 @@ export function StageStepsEditor({ steps }: { steps: DesignStageStep[] }) {
                       <button
                         type="button"
                         disabled={pending}
-                        onClick={() => run(() => deleteStageStep(step.id))}
+                        onClick={() => run(() => onDelete(step.id))}
                         className="text-muted-foreground hover:text-destructive"
                         aria-label="Delete step"
                       >
@@ -121,7 +135,7 @@ export function StageStepsEditor({ steps }: { steps: DesignStageStep[] }) {
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (!newLabel.trim()) return;
-                  run(() => addStageStep(stage, newLabel));
+                  run(() => onAdd(stage, newLabel));
                 }}
               >
                 <Input

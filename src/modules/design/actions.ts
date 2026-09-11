@@ -6,7 +6,7 @@ import { createClient } from "@/core/supabase/server";
 import { authorize } from "@/core/rbac/can";
 import { logAudit } from "@/modules/audit/log";
 import type { FolderCapability } from "@/modules/design/types";
-import type { Discipline, DesignStage } from "@/modules/projects/types";
+import type { Discipline } from "@/modules/projects/types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 const ok: ActionResult = { ok: true };
@@ -483,56 +483,5 @@ export async function setSubteamMember(
   return ok;
 }
 
-// ============================== STAGE CHECKLIST ==============================
-
-export async function addStageStep(
-  stage: DesignStage,
-  label: string
-): Promise<ActionResult> {
-  const denied = await authorize("design.folder", "manage");
-  if (denied) return denied;
-  const t = label.trim();
-  if (!t) return fail("Enter a step.");
-  const supabase = await createClient();
-  const { data: max } = await supabase
-    .from("design_stage_steps")
-    .select("sort")
-    .eq("stage", stage)
-    .order("sort", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const { error } = await supabase
-    .from("design_stage_steps")
-    .insert({ stage, label: t, sort: (max?.sort ?? 0) + 1 });
-  if (error) return fail(error.message);
-  revalidatePath("/design/settings");
-  return ok;
-}
-
-export async function updateStageStep(
-  stepId: string,
-  label: string
-): Promise<ActionResult> {
-  const denied = await authorize("design.folder", "manage");
-  if (denied) return denied;
-  const t = label.trim();
-  if (!t) return fail("Enter a step.");
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("design_stage_steps")
-    .update({ label: t })
-    .eq("id", stepId);
-  if (error) return fail(error.message);
-  revalidatePath("/design/settings");
-  return ok;
-}
-
-export async function deleteStageStep(stepId: string): Promise<ActionResult> {
-  const denied = await authorize("design.folder", "manage");
-  if (denied) return denied;
-  const supabase = await createClient();
-  const { error } = await supabase.from("design_stage_steps").delete().eq("id", stepId);
-  if (error) return fail(error.message);
-  revalidatePath("/design/settings");
-  return ok;
-}
+// The stage checklist moved to the Projects module: each project owns its own
+// steps, seeded from project_step_templates. See modules/projects/actions.ts.

@@ -322,21 +322,18 @@ export async function getProjectProgress(
   projectId: string
 ): Promise<ProjectProgress> {
   const supabase = await createClient();
-  const [{ data: steps }, { data: done }] = await Promise.all([
-    supabase.from("design_stage_steps").select("id, stage, sort, label").order("sort"),
-    supabase.from("project_steps").select("step_id, done").eq("project_id", projectId),
-  ]);
-
-  const doneSet = new Set(
-    ((done ?? []) as { step_id: string; done: boolean }[])
-      .filter((d) => d.done)
-      .map((d) => d.step_id)
-  );
+  // The project's OWN checklist. No company-wide catalogue is consulted, so
+  // there is nothing here gated on belonging to a particular department.
+  const { data: rows } = await supabase
+    .from("project_steps")
+    .select("id, stage, sort, label, done")
+    .eq("project_id", projectId)
+    .order("sort");
 
   const byStage = new Map<DesignStage, ProjectStep[]>();
-  for (const s of (steps ?? []) as DesignStageStep[]) {
+  for (const s of (rows ?? []) as ProjectStep[]) {
     if (!byStage.has(s.stage)) byStage.set(s.stage, []);
-    byStage.get(s.stage)!.push({ ...s, done: doneSet.has(s.id) });
+    byStage.get(s.stage)!.push(s);
   }
 
   const stages: StageProgress[] = DESIGN_STAGES.map((stage) => {
@@ -430,4 +427,17 @@ export async function getConceptVisibility(): Promise<ConceptVisibility | null> 
     departments: depts as { id: string; label: string }[],
     allowed: new Set(pairs.map((p) => `${p.owner_department_id}:${p.viewer_department_id}`)),
   };
+}
+
+// --- The company default checklist -------------------------------------------
+
+/** The default steps copied into a new project. Editing these changes what
+ * FUTURE projects start with; an existing project's own list is untouched. */
+export async function getStepTemplates(): Promise<DesignStageStep[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("project_step_templates")
+    .select("id, stage, sort, label")
+    .order("sort");
+  return (data ?? []) as DesignStageStep[];
 }

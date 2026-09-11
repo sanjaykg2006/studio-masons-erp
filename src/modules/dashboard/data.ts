@@ -9,7 +9,6 @@ import {
   DESIGN_STAGE_LABEL,
   type DesignProject,
   type DesignStage,
-  type DesignStageStep,
 } from "@/modules/projects/types";
 
 /** How many project cards the dashboard shows before linking to the full list. */
@@ -87,35 +86,35 @@ async function withProgress(projects: DesignProject[]): Promise<DashboardProject
   const supabase = await createClient();
   const ids = projects.map((p) => p.id);
 
-  const [{ data: steps }, { data: done }] = await Promise.all([
-    supabase.from("design_stage_steps").select("id, stage, sort, label").order("sort"),
-    supabase.from("project_steps").select("project_id, step_id, done").in("project_id", ids),
-  ]);
+  // Each project carries its own checklist, so the denominator is per project
+  // now rather than one shared list of steps.
+  const { data: rows } = await supabase
+    .from("project_steps")
+    .select("project_id, stage, done")
+    .in("project_id", ids);
 
-  // stage -> list of step ids (the denominators, shared by every project).
-  const stepsByStage = new Map<DesignStage, string[]>();
-  for (const s of (steps ?? []) as DesignStageStep[]) {
-    if (!stepsByStage.has(s.stage)) stepsByStage.set(s.stage, []);
-    stepsByStage.get(s.stage)!.push(s.id);
-  }
-
-  // project id -> set of completed step ids.
-  const doneByProject = new Map<string, Set<string>>();
-  for (const d of (done ?? []) as { project_id: string; step_id: string; done: boolean }[]) {
-    if (!d.done) continue;
-    if (!doneByProject.has(d.project_id)) doneByProject.set(d.project_id, new Set());
-    doneByProject.get(d.project_id)!.add(d.step_id);
+  // project id -> stage -> [total, done]
+  const tally = new Map<string, Map<DesignStage, [number, number]>>();
+  for (const r of (rows ?? []) as {
+    project_id: string;
+    stage: DesignStage;
+    done: boolean;
+  }[]) {
+    if (!tally.has(r.project_id)) tally.set(r.project_id, new Map());
+    const byStage = tally.get(r.project_id)!;
+    const cur = byStage.get(r.stage) ?? [0, 0];
+    cur[0] += 1;
+    if (r.done) cur[1] += 1;
+    byStage.set(r.stage, cur);
   }
 
   return projects.map((p) => {
-    const completed = doneByProject.get(p.id) ?? new Set<string>();
+    const byStage = tally.get(p.id) ?? new Map<DesignStage, [number, number]>();
 
     // Per-stage %, each stage weighted equally in the overall figure.
     const stagePcts = DESIGN_STAGES.map((stage) => {
-      const stepIds = stepsByStage.get(stage) ?? [];
-      if (stepIds.length === 0) return { stage, pct: 0 };
-      const doneCount = stepIds.filter((id) => completed.has(id)).length;
-      return { stage, pct: Math.round((doneCount / stepIds.length) * 100) };
+      const [total, done] = byStage.get(stage) ?? [0, 0];
+      return { stage, pct: total === 0 ? 0 : Math.round((done / total) * 100) };
     });
 
     const overallPct = Math.round(

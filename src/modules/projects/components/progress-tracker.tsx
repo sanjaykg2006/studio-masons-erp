@@ -11,8 +11,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { toggleProjectStep } from "@/modules/projects/actions";
-import type { ProjectProgress } from "@/modules/projects/types";
+import { Input } from "@/components/ui/input";
+import {
+  addProjectStep,
+  deleteProjectStep,
+  renameProjectStep,
+  toggleProjectStep,
+} from "@/modules/projects/actions";
+import type { DesignStage, ProjectProgress } from "@/modules/projects/types";
 
 /** A thin filled bar; width is the percentage, with a gentle fill animation. */
 function Bar({ pct, className }: { pct: number; className?: string }) {
@@ -40,6 +46,26 @@ export function ProgressTracker({
   const [error, setError] = useState<string | null>(null);
 
   const current = progress.stages.find((s) => s.stage === progress.currentStage)!;
+
+  // This checklist belongs to THIS project, so editing it here changes nothing
+  // anywhere else. The company default lives under Projects -> Templates.
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [adding, setAdding] = useState<DesignStage | null>(null);
+  const [newLabel, setNewLabel] = useState("");
+
+  const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) =>
+    startTransition(async () => {
+      setError(null);
+      const res = await fn();
+      if (!res.ok) setError(res.error);
+      else {
+        setEditing(null);
+        setAdding(null);
+        setNewLabel("");
+        router.refresh();
+      }
+    });
 
   const toggle = (stepId: string, done: boolean) =>
     startTransition(async () => {
@@ -112,7 +138,33 @@ export function ProgressTracker({
                 ) : (
                   <ul className="space-y-1">
                     {stage.steps.map((step) => (
-                      <li key={step.id}>
+                      <li key={step.id} className="flex items-center gap-2">
+                        {editing === step.id ? (
+                          <>
+                            <Input
+                              value={draft}
+                              onChange={(e) => setDraft(e.target.value)}
+                              className="h-8 flex-1"
+                              aria-label="Step text"
+                            />
+                            <button
+                              type="button"
+                              disabled={pending}
+                              onClick={() => run(() => renameProjectStep(projectId, step.id, draft))}
+                              className="text-muted-foreground hover:text-foreground text-xs"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditing(null)}
+                              className="text-muted-foreground hover:text-foreground text-xs"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                        <>
                         <label
                           className={cn(
                             "flex items-center gap-2 text-sm",
@@ -129,10 +181,75 @@ export function ProgressTracker({
                           />
                           {step.label}
                         </label>
+                        {canUpdate && (
+                          <span className="ml-auto flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditing(step.id);
+                                setDraft(step.label);
+                              }}
+                              className="text-muted-foreground hover:text-foreground text-xs"
+                              aria-label={`Rename ${step.label}`}
+                            >
+                              Rename
+                            </button>
+                            <button
+                              type="button"
+                              disabled={pending}
+                              onClick={() => run(() => deleteProjectStep(projectId, step.id))}
+                              className="text-muted-foreground hover:text-destructive text-xs"
+                              aria-label={`Remove ${step.label}`}
+                            >
+                              Remove
+                            </button>
+                          </span>
+                        )}
+                        </>
+                        )}
                       </li>
                     ))}
                   </ul>
                 )}
+
+                {canUpdate &&
+                  (adding === stage.stage ? (
+                    <form
+                      className="flex items-center gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!newLabel.trim()) return;
+                        run(() => addProjectStep(projectId, stage.stage, newLabel));
+                      }}
+                    >
+                      <Input
+                        value={newLabel}
+                        onChange={(e) => setNewLabel(e.target.value)}
+                        placeholder="New step"
+                        className="h-8 flex-1"
+                        aria-label="New step"
+                        autoFocus
+                      />
+                      <button type="submit" disabled={pending} className="text-xs underline">
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAdding(null)}
+                        className="text-muted-foreground text-xs"
+                      >
+                        Cancel
+                      </button>
+                    </form>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setAdding(stage.stage)}
+                      className="text-muted-foreground hover:text-foreground text-xs"
+                    >
+                      + Add a step
+                    </button>
+                  ))}
               </div>
             );
           })}

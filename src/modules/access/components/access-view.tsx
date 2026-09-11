@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useMemo, useState, useTransition } from "react";
 import {
@@ -286,7 +287,15 @@ export function AccessView({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Access Control</h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight">Access Control</h1>
+          <Link
+            href="/access/approvals"
+            className="text-muted-foreground hover:text-foreground text-sm underline"
+          >
+            Approval flows — who approves what
+          </Link>
+        </div>
         <p className="text-muted-foreground">
           HR&apos;s control room. Create <strong>Back Office job titles</strong>{" "}
           (which back-office screens each can open) and assign one to each person.

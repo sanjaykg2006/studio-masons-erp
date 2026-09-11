@@ -8,6 +8,7 @@ import {
   Settings,
   ShieldCheck,
   Users,
+  Workflow,
 } from "lucide-react";
 
 import { can } from "@/core/rbac/can";
@@ -63,6 +64,20 @@ export default async function ITPage() {
                 </CardTitle>
                 <CardDescription>
                   Job titles, departments, leads and people — who can open what.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        )}
+        {canAccess && (
+          <Link href="/access/approvals">
+            <Card className="hover:bg-accent/50 transition-colors">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Workflow className="size-4" /> Approval flows
+                </CardTitle>
+                <CardDescription>
+                  Every approval chain, step by step — who approves each step.
                 </CardDescription>
               </CardHeader>
             </Card>

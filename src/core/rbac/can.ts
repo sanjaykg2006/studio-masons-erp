@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/core/supabase/server";
-import { can, getPermissions } from "@/core/rbac/permissions";
+import { can, canAnywhere, getPermissions } from "@/core/rbac/permissions";
 import { permissionMessage, type Action, type Resource } from "@/core/rbac/types";
 
-export { can, getPermissions };
+export { can, canAnywhere, getPermissions };
 
 /**
  * Page guard. If the user lacks `action` on `resource`, send them to the
@@ -35,6 +35,26 @@ export async function authorize(
   action: Action
 ): Promise<{ ok: false; error: string } | null> {
   if (await can(resource, action)) return null;
+  return { ok: false, error: permissionMessage(resource, action) };
+}
+
+/** Page guard for a project-role ability that isn't tied to one project — see
+ * `canAnywhere`. */
+export async function requireAnywhere(
+  resource: Resource,
+  action: Action
+): Promise<void> {
+  if (!(await canAnywhere(resource, action))) {
+    redirect(`/forbidden?resource=${encodeURIComponent(resource)}&action=${action}`);
+  }
+}
+
+/** Server-action guard for the same — returns an inline failure, or null. */
+export async function authorizeAnywhere(
+  resource: Resource,
+  action: Action
+): Promise<{ ok: false; error: string } | null> {
+  if (await canAnywhere(resource, action)) return null;
   return { ok: false, error: permissionMessage(resource, action) };
 }
 

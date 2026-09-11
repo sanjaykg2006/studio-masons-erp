@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/core/supabase/server";
-import { authorize } from "@/core/rbac/can";
+import { authorize, authorizeAnywhere } from "@/core/rbac/can";
 import { logAudit } from "@/modules/audit/log";
 import type { FolderCapability } from "@/modules/design/types";
 import type { Discipline } from "@/modules/projects/types";
@@ -19,9 +19,12 @@ function toKey(label: string): string {
 /** A template library's scope: company-wide (Projects) or a department's own. */
 export type TemplateScope = "general" | "design";
 
-/** The resource that gates a scope's templates. */
-const scopeResource = (scope: TemplateScope) =>
-  scope === "design" ? "design.template" : "project.template";
+/** Check a scope's library: Design's own is a People & Access tick; the shared
+ * (Projects) library is a project-role ability, held on any project. */
+const authorizeScope = (scope: TemplateScope, action: Parameters<typeof authorize>[1]) =>
+  scope === "design"
+    ? authorize("design.template", action)
+    : authorizeAnywhere("project.template", action);
 
 /**
  * Allow a template mutation if the caller can do it in EITHER library. RLS
@@ -31,9 +34,9 @@ const scopeResource = (scope: TemplateScope) =>
 async function authorizeAnyTemplate(
   action: Parameters<typeof authorize>[1]
 ): Promise<ActionResult | null> {
-  const denied = await authorize("project.template", action);
+  const denied = await authorizeScope("general", action);
   if (!denied) return null;
-  return authorize("design.template", action);
+  return authorizeScope("design", action);
 }
 
 // ============================== TEMPLATES ====================================
@@ -44,7 +47,7 @@ export async function createTemplate(
   discipline: Discipline,
   scope: TemplateScope
 ): Promise<ActionResult> {
-  const denied = await authorize(scopeResource(scope), "create");
+  const denied = await authorizeScope(scope, "create");
   if (denied) return denied;
   const trimmed = label.trim();
   const key = toKey(trimmed);

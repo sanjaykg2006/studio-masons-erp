@@ -42,8 +42,8 @@ its flags in the module registry (`registry.test.ts` fails if a resource has two
 | Screen | Who edits it | What it grants | Registry flag |
 |---|---|---|---|
 | Access Control `/access` | HR / admin (`access:*`) | Job titles → company-wide screens (general modules, incl. Petty Cash). Also creates departments, allots their modules, appoints leads, invites people. | neither |
-| People & Access `/departments/<id>/people` | The lead, or anyone given People & Access | Per person, the department's own work: Tasks, Settings, People & Access (`everyDepartment`, built into every department) plus the tools allotted to it (template libraries, vendor list, company assets, billing branches). | `departmentLevel` |
-| Settings → Project roles `/departments/<id>/settings` (Design: `/design/settings`) | The lead, or anyone given Settings | Per project role, what it can do on a project. Projects · Create means "may start new projects". | `projectRole` |
+| People & Access `/departments/<id>/people` | The lead, or anyone given People & Access | Per person, the department's own work: Tasks, Settings, People & Access (`everyDepartment`, built into every department) plus the tools allotted to it (Design's template library, vendor list, company assets, billing branches). | `departmentLevel` |
+| Settings → Project roles `/departments/<id>/settings` (Design: `/design/settings`) | The lead, or anyone given Settings | Per project role, what it can do on a project. Two rows aren't tied to one project and apply wherever the role is held (any project, or every project): Projects · Create ("may start new projects") and Project · Templates (the shared library + default checklist). The app checks these with `canAnywhere` / `requireAnywhere` / `authorizeAnywhere`; the DB with `has_permission_anywhere()`. | `projectRole` |
 
 ## Department leads
 

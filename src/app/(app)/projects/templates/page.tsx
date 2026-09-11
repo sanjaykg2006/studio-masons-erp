@@ -1,18 +1,19 @@
-import { requirePermission, can } from "@/core/rbac/can";
+import { requireAnywhere, canAnywhere } from "@/core/rbac/can";
 import { listTemplates } from "@/modules/design/data";
 import { getStepTemplates } from "@/modules/projects/data";
 import { TemplateLibrary } from "@/modules/design/components/template-library";
 import { DefaultChecklistCard } from "@/modules/projects/components/default-checklist-card";
 
-/** The general, company-wide template library (usable across projects). */
+/** The general, company-wide template library (usable across projects). Access
+ * is a project-role ability held on any project — see canAnywhere. */
 export default async function ProjectTemplatesPage() {
-  await requirePermission("project.template", "read");
+  await requireAnywhere("project.template", "read");
   const [templates, steps, canCreate, canDelete, canEditSteps] = await Promise.all([
     listTemplates("general"),
     getStepTemplates(),
-    can("project.template", "create"),
-    can("project.template", "delete"),
-    can("project.template", "update"),
+    canAnywhere("project.template", "create"),
+    canAnywhere("project.template", "delete"),
+    canAnywhere("project.template", "update"),
   ]);
   return (
     <div className="space-y-6">

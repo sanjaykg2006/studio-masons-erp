@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { can } from "@/core/rbac/can";
-import { canCreateProject, hasProjectAccess } from "@/core/rbac/permissions";
+import { canAnywhere, canCreateProject, hasProjectAccess } from "@/core/rbac/permissions";
 import { getConceptVisibility, listProjects } from "@/modules/projects/data";
 import { ProjectsList } from "@/modules/projects/components/projects-list";
 import { ConceptVisibilityMatrix } from "@/modules/projects/components/concept-visibility-matrix";
@@ -16,7 +16,7 @@ export default async function ProjectsPage() {
   const [projects, canCreate, canTemplates, canAdminAccess] = await Promise.all([
     listProjects(),
     canCreateProject(),
-    can("project.template", "read"),
+    canAnywhere("project.template", "read"),
     can("access", "update"),
   ]);
   // The Concept-visibility grid is an access-control setting, so it is only

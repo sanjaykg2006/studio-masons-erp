@@ -71,16 +71,28 @@ export async function hasProjectAccess(): Promise<boolean> {
 }
 
 /**
- * Whether the user may start a new project: their job title allows it, or they
- * hold a project role with Projects · Create — on any project, or on every
- * project. Backed by can_create_project(), the rule the projects insert policy
- * itself uses (a project role's grants are not in my_permissions, so can()
- * cannot answer this).
+ * For project-role abilities that aren't tied to one project (starting a
+ * project, the shared template library): true when the job title or a team tick
+ * grants it, OR a project role the user holds on ANY project — or on every
+ * project — does. A project role's grants are not in my_permissions, so can()
+ * cannot answer this. Backed by has_permission_anywhere(), the rule the
+ * matching RLS policies use.
  */
-export async function canCreateProject(): Promise<boolean> {
+export async function canAnywhere(
+  resource: Resource,
+  action: Action
+): Promise<boolean> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("can_create_project");
+  const { data, error } = await supabase.rpc("has_permission_anywhere", {
+    p_resource: resource,
+    p_action: action,
+  });
   return !error && data === true;
+}
+
+/** Whether the user may start a new project (Projects · Create, anywhere). */
+export async function canCreateProject(): Promise<boolean> {
+  return canAnywhere("project", "create");
 }
 
 /**

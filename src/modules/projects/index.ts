@@ -54,8 +54,12 @@ export const projectsModule: ModuleDefinition = {
       id: "project.template",
       label: "Project · Templates",
       actions: ["read", "create", "update", "approve", "delete"],
-      // The general template library is a shared, department-level capability.
-      departmentLevel: true,
+      // The shared library (brief question forms + the default project
+      // checklist) is set per project role. Like Projects · Create it isn't tied
+      // to one project: holding it on any project, or on every project, applies
+      // (has_permission_anywhere in 0079).
+      projectRole: true,
+      note: "Shared library — applies wherever the role is held",
     },
     {
       id: "folder.access",

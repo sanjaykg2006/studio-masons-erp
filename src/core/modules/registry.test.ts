@@ -83,16 +83,22 @@ describe("resourcesForModules", () => {
     // "Project roles" matrix = per-project work only.
     const roleRows = scoped.filter((r) => r.projectRole).map((r) => r.id);
     expect(new Set(roleRows)).toEqual(
-      new Set(["project", "project.brief", "project.member", "procurement.order"])
+      new Set([
+        "project",
+        "project.brief",
+        "project.member",
+        "project.template",
+        "procurement.order",
+      ])
     );
     // The bug report's offenders must be gone from the role matrix:
-    for (const gone of ["access", "audit", "dashboard", "project.template", "design.template"]) {
+    for (const gone of ["access", "audit", "dashboard", "design.template"]) {
       expect(roleRows).not.toContain(gone);
     }
 
     // "People & Access" matrix = department-wide abilities only.
     const deptRows = scoped.filter((r) => r.departmentLevel).map((r) => r.id);
-    expect(deptRows).toContain("project.template");
+    expect(deptRows).not.toContain("project.template");
     expect(deptRows).toContain("design.template");
     expect(deptRows).not.toContain("access");
     expect(deptRows).not.toContain("procurement.order");

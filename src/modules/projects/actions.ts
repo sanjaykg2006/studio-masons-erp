@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/core/supabase/server";
 import { createAdminClient } from "@/core/supabase/admin";
-import { authorize, authorizeProject } from "@/core/rbac/can";
+import { authorize, authorizeAnywhere, authorizeProject } from "@/core/rbac/can";
 import { canCreateProject } from "@/core/rbac/permissions";
 import { permissionMessage } from "@/core/rbac/types";
 import { getUser } from "@/core/auth/get-user";
@@ -925,7 +925,7 @@ export async function addTemplateStep(
   stage: string,
   label: string
 ): Promise<ActionResult> {
-  const denied = await authorize("project.template", "update");
+  const denied = await authorizeAnywhere("project.template", "update");
   if (denied) return denied;
   const t = label.trim();
   if (!t) return fail("Enter a step.");
@@ -953,7 +953,7 @@ export async function renameTemplateStep(
   stepId: string,
   label: string
 ): Promise<ActionResult> {
-  const denied = await authorize("project.template", "update");
+  const denied = await authorizeAnywhere("project.template", "update");
   if (denied) return denied;
   const t = label.trim();
   if (!t) return fail("Enter a step.");
@@ -969,7 +969,7 @@ export async function renameTemplateStep(
 }
 
 export async function deleteTemplateStep(stepId: string): Promise<ActionResult> {
-  const denied = await authorize("project.template", "update");
+  const denied = await authorizeAnywhere("project.template", "update");
   if (denied) return denied;
 
   const supabase = await createClient();

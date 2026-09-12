@@ -25,8 +25,8 @@ import {
   accountsApproveInvoice,
   bypassInvoiceCap,
   createInvoice,
+  decideInvoice,
   deleteInvoice,
-  directorApproveInvoice,
   getInvoiceDocumentUrl,
   raisePaymentRequest,
   rejectInvoice,
@@ -194,6 +194,11 @@ export function InvoiceTab({
                               <ShieldAlert className="size-3" /> over PO
                             </span>
                           )}
+                          {inv.status === "pending_director" && inv.stage_label && (
+                            <span className="text-muted-foreground block text-[10px]">
+                              waiting for {inv.stage_label}
+                            </span>
+                          )}
                         </td>
                         <td className="text-muted-foreground py-2">
                           {inv.days_due == null ? "—" : `${inv.days_due}d`}
@@ -223,15 +228,41 @@ export function InvoiceTab({
                               </Button>
                             )}
 
-                            {/* Director approval */}
-                            {inv.status === "pending_director" && inv.can_approve && (
+                            {/* The approval stage it is waiting on */}
+                            {inv.status === "pending_director" && inv.can_approve && inv.approval_id && (
                               <>
                                 <Button
                                   size="sm"
                                   disabled={pending}
-                                  onClick={() => run(() => directorApproveInvoice(projectId, inv.id))}
+                                  title={inv.stage_label ?? undefined}
+                                  onClick={() => run(() => decideInvoice(projectId, inv.approval_id!, true, ""))}
                                 >
                                   <Check className="size-4" /> Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={pending}
+                                  onClick={() => {
+                                    const note = prompt(`Reject invoice ${inv.invoice_no} — reason?`);
+                                    if (note === null) return;
+                                    run(() => decideInvoice(projectId, inv.approval_id!, false, note));
+                                  }}
+                                >
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+
+                            {/* Accounts booking (a fixed work step) */}
+                            {inv.status === "pending_accounts" && inv.can_book && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  disabled={pending}
+                                  onClick={() => setBooking((id) => (id === inv.id ? null : inv.id))}
+                                >
+                                  Book
                                 </Button>
                                 <Button
                                   size="sm"
@@ -242,17 +273,6 @@ export function InvoiceTab({
                                   Reject
                                 </Button>
                               </>
-                            )}
-
-                            {/* Accounts booking */}
-                            {inv.status === "pending_accounts" && inv.can_book && (
-                              <Button
-                                size="sm"
-                                disabled={pending}
-                                onClick={() => setBooking((id) => (id === inv.id ? null : inv.id))}
-                              >
-                                Book
-                              </Button>
                             )}
 
                             {/* Raise a payment request */}

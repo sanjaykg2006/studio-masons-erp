@@ -81,13 +81,15 @@ export function OrdersList({
                         </td>
                         <td className="py-2">{o.vendor_name}</td>
                         <td className="text-muted-foreground py-2 text-xs">
-                          <span className={cn(o.finance_reviewed_by ? "text-emerald-600" : "")}>
-                            Finance {o.finance_reviewed_by ? "✓" : "—"}
-                          </span>
-                          {" · "}
-                          <span className={cn(o.director_approved_by ? "text-emerald-600" : "")}>
-                            Director {o.director_approved_by ? "✓" : "—"}
-                          </span>
+                          {o.approval_status === "approved" ? (
+                            <span className="text-emerald-600">Signed off ✓</span>
+                          ) : o.approval_status === "rejected" ? (
+                            <span className="text-destructive">Refused</span>
+                          ) : o.stage_label ? (
+                            <span>Waiting for {o.stage_label}</span>
+                          ) : (
+                            <span>Not sent for approval</span>
+                          )}
                         </td>
                         <td className="text-muted-foreground py-2 text-right">{fmt(o.budget_total)}</td>
                         <td className={cn("py-2 text-right", over && "text-red-600 dark:text-red-400")}>

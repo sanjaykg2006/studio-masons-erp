@@ -35,7 +35,19 @@ describe("APPROVAL_FLOWS", () => {
       expect(placeholders, f.id).toBe(f.engineId ? 1 : 0);
     }
     expect(new Set(APPROVAL_FLOWS.filter((f) => f.engineId).map((f) => f.engineId))).toEqual(
-      new Set(["pettycash", "change_order", "intent", "vendor", "brief", "brief_revision"])
+      new Set([
+        "pettycash",
+        "change_order",
+        "intent",
+        "vendor",
+        "brief",
+        "brief_revision",
+        "invoice",
+        "payment",
+        "advance",
+        "retention_early",
+        "order",
+      ])
     );
   });
 });

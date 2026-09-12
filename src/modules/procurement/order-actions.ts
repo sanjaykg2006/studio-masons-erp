@@ -91,20 +91,48 @@ export async function generateOrdersFromIntent(
   return ok;
 }
 
-export async function reviewOrder(projectId: string, orderId: string): Promise<ActionResult> {
+/**
+ * Give (or refuse) the sign-off stage a PO is waiting on. Its stages — Finance
+ * review then Director approval by default — are set on Access Control →
+ * Approval flows. The last approval stamps the PO's sign-offs with whoever
+ * decided, and only then can it be released.
+ */
+export async function decideOrder(
+  projectId: string,
+  orderId: string,
+  approvalId: string,
+  approve: boolean,
+  note: string
+): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("review_order", { p_order: orderId });
+  const { error } = await supabase.rpc("approval_decide", {
+    p_request: approvalId,
+    p_approve: approve,
+    p_note: note,
+  });
   if (error) return fail(error.message);
-  await logAudit("procurement.order.review", "Finance signed off a PO", { projectId, orderId });
+  await logAudit(
+    approve ? "procurement.order.approve" : "procurement.order.reject",
+    approve ? "Gave a PO sign-off stage" : "Refused a PO sign-off",
+    { projectId, orderId, approvalId }
+  );
   refreshOne(projectId, orderId);
+  refreshList(projectId);
   return ok;
 }
 
-export async function approveOrder(projectId: string, orderId: string): Promise<ActionResult> {
+/** Send a refused (or not yet started) PO through its approval stages again. */
+export async function restartOrderApproval(
+  projectId: string,
+  orderId: string
+): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("approve_order", { p_order: orderId });
+  const { error } = await supabase.rpc("restart_order_approval", { p_order: orderId });
   if (error) return fail(error.message);
-  await logAudit("procurement.order.approve", "Director signed off a PO", { projectId, orderId });
+  await logAudit("procurement.order.reapproval", "Sent a PO for approval again", {
+    projectId,
+    orderId,
+  });
   refreshOne(projectId, orderId);
   return ok;
 }

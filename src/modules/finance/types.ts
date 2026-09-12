@@ -51,11 +51,15 @@ export type InvoiceSummary = {
   days_due: number | null;
   cap_bypassed: boolean;
   over_cap: boolean;
+  /** May decide the approval stage it is waiting on. */
   can_approve: boolean;
   can_book: boolean;
   can_manage: boolean;
   can_raise_payment: boolean;
   can_delete: boolean;
+  /** Its approval request and the stage it waits on (Access Control → Approval flows). */
+  approval_id: string | null;
+  stage_label: string | null;
 };
 
 /** The full invoice header from get_invoice. */
@@ -106,8 +110,11 @@ export type PaymentSummary = {
   status: PaymentStatus;
   notes: string | null;
   created_at: string;
+  /** May decide the approval stage it is waiting on. */
   can_approve: boolean;
   can_pay: boolean;
+  approval_id: string | null;
+  stage_label: string | null;
 };
 
 // ── Retention ────────────────────────────────────────────────────────────────
@@ -124,7 +131,10 @@ export type RetentionRow = {
   early_approved: boolean;
   can_pay: boolean;
   can_request_early: boolean;
+  /** May decide the early-release stage it is waiting on. */
   can_approve_early: boolean;
+  approval_id: string | null;
+  stage_label: string | null;
 };
 
 // ── POs & advances ───────────────────────────────────────────────────────────
@@ -150,8 +160,11 @@ export type FinanceOrder = {
   advance_approved_at: string | null;
   advance_paid_at: string | null;
   can_set_terms: boolean;
+  /** May decide the advance's approval stage. */
   can_approve_advance: boolean;
   can_pay_advance: boolean;
+  advance_approval_id: string | null;
+  advance_stage_label: string | null;
 };
 
 export type BillingBranch = {

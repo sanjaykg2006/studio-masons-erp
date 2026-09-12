@@ -24,14 +24,14 @@ import {
 } from "@/modules/procurement/types";
 import {
   amendOrderLine,
-  approveOrder,
   approveOrderCancel,
+  decideOrder,
   getOrderDocumentUrl,
   recordReceipt,
   rejectOrderCancel,
   releaseOrder,
   requestOrderCancel,
-  reviewOrder,
+  restartOrderApproval,
   seniorBypassOrder,
   cancelAmendment,
   startAmendment,
@@ -101,7 +101,8 @@ export function OrderDetailView({
 
   const isEditable = order.status === "draft" || order.status === "amending";
   const isAmending = order.status === "amending";
-  const signedOff = !!order.finance_reviewed_by && !!order.director_approved_by;
+  // Its approval stages (Access Control → Approval flows) decide the sign-off.
+  const signedOff = order.approval_status === "approved";
   // An over-budget PO also needs the senior sign-off before it can be released.
   const overBudgetBlocked = order.over_budget && !order.senior_bypass_by;
   const cancelRequested = order.status === "issued" && !!order.cancel_requested_by;
@@ -312,7 +313,7 @@ export function OrderDetailView({
               <CardDescription>
                 {isAmending
                   ? "Opened by mistake? Cancelling puts the PO back as it was, with its original sign-offs."
-                  : "Both sign-offs are needed before the PO can be released."}
+                  : "The PO goes through its approval stages before it can be released."}
               </CardDescription>
             </div>
             {isAmending && order.can_amend && (
@@ -327,20 +328,66 @@ export function OrderDetailView({
             )}
           </CardHeader>
           <CardContent className="flex flex-wrap items-center gap-4 text-sm">
-            <SignRow
-              label="Finance review"
-              byName={order.finance_reviewed_name}
-              canAct={order.can_review && !order.finance_reviewed_by}
-              pending={pending}
-              onAct={() => run(() => reviewOrder(projectId, order.id))}
-            />
-            <SignRow
-              label="Director approval"
-              byName={order.director_approved_name}
-              canAct={order.can_approve && !order.director_approved_by}
-              pending={pending}
-              onAct={() => run(() => approveOrder(projectId, order.id))}
-            />
+            {order.approval_status === "approved" ? (
+              <span className="text-emerald-600">
+                Signed off
+                {order.finance_reviewed_name && ` · ${order.finance_reviewed_name}`}
+                {order.director_approved_name &&
+                  order.director_approved_name !== order.finance_reviewed_name &&
+                  ` → ${order.director_approved_name}`}
+              </span>
+            ) : order.approval_status === "pending" ? (
+              <span className="flex flex-wrap items-center gap-2">
+                <span>Waiting for {order.stage_label ?? "approval"}</span>
+                {order.can_decide && order.approval_id && (
+                  <>
+                    <Button
+                      size="sm"
+                      disabled={pending}
+                      onClick={() =>
+                        run(() => decideOrder(projectId, order.id, order.approval_id!, true, ""))
+                      }
+                    >
+                      <Check className="size-4" /> Give sign-off
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={pending}
+                      onClick={() => {
+                        const note = window.prompt("Refuse this sign-off — reason?");
+                        if (note === null) return;
+                        run(() => decideOrder(projectId, order.id, order.approval_id!, false, note));
+                      }}
+                    >
+                      Refuse
+                    </Button>
+                  </>
+                )}
+              </span>
+            ) : (
+              <span className="flex flex-wrap items-center gap-2">
+                <span
+                  className={
+                    order.approval_status === "rejected" ? "text-destructive" : "text-muted-foreground"
+                  }
+                >
+                  {order.approval_status === "rejected"
+                    ? "Sign-off refused"
+                    : "Not sent for approval yet"}
+                </span>
+                {order.can_issue && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() => run(() => restartOrderApproval(projectId, order.id))}
+                  >
+                    Send for approval
+                  </Button>
+                )}
+              </span>
+            )}
             {order.over_budget && (
               <SignRow
                 label="Over-budget sign-off"
@@ -356,7 +403,7 @@ export function OrderDetailView({
                 disabled={pending || !signedOff || overBudgetBlocked}
                 title={
                   !signedOff
-                    ? "Needs both sign-offs"
+                    ? "Its approval isn't complete yet"
                     : overBudgetBlocked
                       ? "Over budget — needs the senior sign-off"
                       : undefined

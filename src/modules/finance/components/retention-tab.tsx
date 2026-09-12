@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { inr, type RetentionRow } from "@/modules/finance/types";
 import {
-  approveEarlyRetention,
+  decideEarlyRetention,
   markRetentionPaid,
   requestEarlyRetention,
 } from "@/modules/finance/actions";
@@ -81,7 +81,7 @@ export function RetentionTab({
                           </span>
                         ) : r.early_requested ? (
                           <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
-                            Early release requested
+                            {r.stage_label ? `Waiting for ${r.stage_label}` : "Early release requested"}
                           </span>
                         ) : (
                           <span className="text-muted-foreground text-[10px]">Held</span>
@@ -99,11 +99,34 @@ export function RetentionTab({
                               Request early
                             </Button>
                           )}
-                          {r.status === "held" && r.early_requested && !r.early_approved && r.can_approve_early && (
-                            <Button size="sm" disabled={pending} onClick={() => run(() => approveEarlyRetention(projectId, r.id))}>
-                              Approve early (MD)
-                            </Button>
-                          )}
+                          {r.status === "held" &&
+                            r.early_requested &&
+                            !r.early_approved &&
+                            r.can_approve_early &&
+                            r.approval_id && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  disabled={pending}
+                                  title={r.stage_label ?? undefined}
+                                  onClick={() => run(() => decideEarlyRetention(projectId, r.approval_id!, true, ""))}
+                                >
+                                  Approve early
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={pending}
+                                  onClick={() => {
+                                    const note = prompt("Turn down this early release — reason?");
+                                    if (note === null) return;
+                                    run(() => decideEarlyRetention(projectId, r.approval_id!, false, note));
+                                  }}
+                                >
+                                  Turn down
+                                </Button>
+                              </>
+                            )}
                         </div>
                       </td>
                     </tr>

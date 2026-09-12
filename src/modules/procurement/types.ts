@@ -237,6 +237,12 @@ export type OrderSummary = {
   can_receive: boolean;
   can_cancel: boolean;
   can_approve_cancel: boolean;
+  /** Its approval request: the stage it waits on and whether the viewer may
+   * decide it (Access Control → Approval flows). */
+  approval_id: string | null;
+  approval_status: "pending" | "approved" | "rejected" | null;
+  stage_label: string | null;
+  can_decide: boolean;
 };
 
 /** A PO header from get_order. */
@@ -280,6 +286,12 @@ export type OrderDetail = {
   can_approve_cancel: boolean;
   /** May clear an over-budget PO for release (the senior `manage` verb). */
   can_bypass: boolean;
+  /** Its approval request: the stage it waits on and whether the viewer may
+   * decide it (Access Control → Approval flows). */
+  approval_id: string | null;
+  approval_status: "pending" | "approved" | "rejected" | null;
+  stage_label: string | null;
+  can_decide: boolean;
 };
 
 /** A PO line from get_order_lines, with the budgeted rate and received-so-far. */

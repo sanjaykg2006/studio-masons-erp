@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { inr, type BillingBranch, type FinanceOrder } from "@/modules/finance/types";
 import {
-  approvePoAdvance,
+  decideAdvance,
   payPoAdvance,
   requestPoAdvance,
   setOrderTerms,
@@ -99,7 +99,13 @@ export function OrderAdvanceTab({
                               <>
                                 <div>{inr(o.advance_requested)} req.</div>
                                 <div className="text-muted-foreground">
-                                  {advPaid ? "paid" : advApproved ? "approved" : "awaiting approval"}
+                                  {advPaid
+                                    ? "paid"
+                                    : advApproved
+                                      ? "approved"
+                                      : o.advance_stage_label
+                                        ? `waiting for ${o.advance_stage_label}`
+                                        : "awaiting approval"}
                                   {(o.advance_consumed ?? 0) > 0 &&
                                     ` · ${inr(o.advance_consumed ?? 0)} used`}
                                 </div>
@@ -115,11 +121,35 @@ export function OrderAdvanceTab({
                                   Pay advance
                                 </Button>
                               )}
-                              {!advApproved && o.advance_requested && o.can_approve_advance && (
-                                <Button size="sm" disabled={pending} onClick={() => run(() => approvePoAdvance(projectId, o.id))}>
-                                  <Check className="size-4" /> Approve advance
-                                </Button>
-                              )}
+                              {!advApproved &&
+                                o.advance_requested &&
+                                o.can_approve_advance &&
+                                o.advance_approval_id && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      disabled={pending}
+                                      title={o.advance_stage_label ?? undefined}
+                                      onClick={() =>
+                                        run(() => decideAdvance(projectId, o.advance_approval_id!, true, ""))
+                                      }
+                                    >
+                                      <Check className="size-4" /> Approve advance
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={pending}
+                                      onClick={() => {
+                                        const note = prompt("Turn down this advance — reason?");
+                                        if (note === null) return;
+                                        run(() => decideAdvance(projectId, o.advance_approval_id!, false, note));
+                                      }}
+                                    >
+                                      Turn down
+                                    </Button>
+                                  </>
+                                )}
                               {o.can_set_terms && (
                                 <button
                                   type="button"

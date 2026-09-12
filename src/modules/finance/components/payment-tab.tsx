@@ -14,11 +14,7 @@ import {
   type PaymentStatus,
   type PaymentSummary,
 } from "@/modules/finance/types";
-import {
-  approvePaymentRequest,
-  markPaymentPaid,
-  rejectPaymentRequest,
-} from "@/modules/finance/actions";
+import { decidePayment, markPaymentPaid } from "@/modules/finance/actions";
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -101,15 +97,34 @@ export function PaymentTab({
                         >
                           {PAYMENT_STATUS_LABEL[p.status]}
                         </span>
+                        {p.status === "pending_director" && p.stage_label && (
+                          <span className="text-muted-foreground block text-[10px]">
+                            waiting for {p.stage_label}
+                          </span>
+                        )}
                       </td>
                       <td className="py-2">
                         <div className="flex items-center justify-end gap-1">
-                          {p.status === "pending_director" && p.can_approve && (
+                          {p.status === "pending_director" && p.can_approve && p.approval_id && (
                             <>
-                              <Button size="sm" disabled={pending} onClick={() => run(() => approvePaymentRequest(projectId, p.id))}>
+                              <Button
+                                size="sm"
+                                disabled={pending}
+                                title={p.stage_label ?? undefined}
+                                onClick={() => run(() => decidePayment(projectId, p.approval_id!, true, ""))}
+                              >
                                 <Check className="size-4" /> Approve
                               </Button>
-                              <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => rejectPaymentRequest(projectId, p.id))}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={pending}
+                                onClick={() => {
+                                  const note = prompt("Reject this payment request — reason?");
+                                  if (note === null) return;
+                                  run(() => decidePayment(projectId, p.approval_id!, false, note));
+                                }}
+                              >
                                 Reject
                               </Button>
                             </>

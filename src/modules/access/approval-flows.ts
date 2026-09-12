@@ -61,52 +61,61 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
   },
   {
     id: "invoice",
+    engineId: "invoice",
     label: "Vendor invoice",
     where: "Project → Finance",
     steps: [
       { label: "Enter the invoice", resource: "finance.invoice", action: "create" },
-      { label: "Project Director approval", resource: "finance.invoice", action: "approve" },
+      { label: "Approval stages", stages: true },
       { label: "Accounts books it", resource: "finance.invoice", action: "review" },
       {
         label: "Override the PO amount cap",
         resource: "finance.invoice",
         action: "manage",
         optional: true,
-        rule: "Only when the invoice is more than what is left on the PO.",
+        rule: "Only when the invoice is more than what is left on the PO; without it the last stage refuses to approve.",
       },
     ],
-    rules: ["An invoice is rejected at the approval or booking step, by whoever can do that step."],
+    rules: ["Accounts can also reject an invoice at the booking step."],
   },
   {
     id: "payment",
+    engineId: "payment",
     label: "Payment request",
     where: "Project → Finance",
     steps: [
       { label: "Raise the request", resource: "finance.payment", action: "create" },
-      { label: "Approve or reject", resource: "finance.payment", action: "approve" },
+      { label: "Approval stages", stages: true },
       { label: "Pay", resource: "finance.payment", action: "issue" },
     ],
+    rules: ["Rejecting frees the amount back on the invoice."],
   },
   {
     id: "advance",
+    engineId: "advance",
     label: "PO advance",
     where: "Project → Finance",
     steps: [
       { label: "Request the advance / set the PO terms", resource: "finance.advance", action: "update" },
-      { label: "Approve", resource: "finance.advance", action: "approve" },
+      { label: "Approval stages", stages: true },
       { label: "Pay", resource: "finance.advance", action: "issue" },
     ],
+    rules: ["Turning an advance down clears the request, so a fresh one can be made."],
   },
   {
     id: "retention",
+    engineId: "retention_early",
     label: "Early release of retention",
     where: "Project → Finance",
     steps: [
       { label: "Request early release", resource: "finance.retention", action: "update" },
-      { label: "Approve early release", resource: "finance.retention", action: "manage" },
+      { label: "Approval stages", stages: true },
       { label: "Pay", resource: "finance.retention", action: "issue" },
     ],
-    rules: ["Retention that reaches its 12-month date goes straight to Pay."],
+    rules: [
+      "Retention that reaches its 12-month date goes straight to Pay.",
+      "Turning a request down clears it, so it can be asked for again.",
+    ],
   },
   {
     id: "intent",
@@ -124,6 +133,7 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
   },
   {
     id: "order",
+    engineId: "order",
     label: "Purchase order",
     where: "Project → Purchase orders",
     steps: [
@@ -132,8 +142,7 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
         resource: "procurement.order",
         action: "issue",
       },
-      { label: "Finance review", resource: "procurement.order", action: "review" },
-      { label: "Director approval", resource: "procurement.order", action: "approve" },
+      { label: "Approval stages", stages: true },
       {
         label: "Senior sign-off",
         resource: "procurement.order",
@@ -144,7 +153,9 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
       { label: "Release the PO", resource: "procurement.order", action: "issue" },
     ],
     rules: [
-      "Finance review and Director approval can happen in either order; both are needed before release.",
+      "A PO can only be released once its approval is complete; the stages decide how many sign-offs that takes.",
+      "Refusing a stage leaves the PO a draft — it can be sent for approval again.",
+      "Amending an issued PO sends it through its stages afresh.",
       "Cancelling an issued PO is requested with Purchase orders → Edit and approved with Purchase orders → Approve.",
     ],
   },

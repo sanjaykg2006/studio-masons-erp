@@ -87,11 +87,30 @@ export async function createInvoice(projectId: string, formData: FormData): Prom
   return ok;
 }
 
-export async function directorApproveInvoice(projectId: string, invoiceId: string): Promise<ActionResult> {
+/**
+ * Approve or reject the stage an invoice is waiting on. Its stages, and who
+ * gives each, are set on Access Control → Approval flows; the last approval
+ * sends it to Accounts to book (and still refuses an invoice over the PO cap
+ * that has not been overridden).
+ */
+export async function decideInvoice(
+  projectId: string,
+  approvalId: string,
+  approve: boolean,
+  note: string
+): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("director_approve_invoice", { p_invoice: invoiceId });
+  const { error } = await supabase.rpc("approval_decide", {
+    p_request: approvalId,
+    p_approve: approve,
+    p_note: note,
+  });
   if (error) return fail(error.message);
-  await logAudit("finance.invoice.approve", "Director approved an invoice", { projectId, invoiceId });
+  await logAudit(
+    approve ? "finance.invoice.approve" : "finance.invoice.reject",
+    approve ? "Approved an invoice stage" : "Rejected an invoice",
+    { projectId, approvalId }
+  );
   refreshProject(projectId);
   return ok;
 }
@@ -201,11 +220,26 @@ export async function raisePaymentRequest(
   return ok;
 }
 
-export async function approvePaymentRequest(projectId: string, reqId: string): Promise<ActionResult> {
+/** Approve or reject the stage a payment request is waiting on. Rejecting frees
+ * the amount back on the invoice, as before. */
+export async function decidePayment(
+  projectId: string,
+  approvalId: string,
+  approve: boolean,
+  note: string
+): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("approve_payment_request", { p_req: reqId });
+  const { error } = await supabase.rpc("approval_decide", {
+    p_request: approvalId,
+    p_approve: approve,
+    p_note: note,
+  });
   if (error) return fail(error.message);
-  await logAudit("finance.payment.approve", "Director approved a payment request", { projectId, reqId });
+  await logAudit(
+    approve ? "finance.payment.approve" : "finance.payment.reject",
+    approve ? "Approved a payment-request stage" : "Rejected a payment request",
+    { projectId, approvalId }
+  );
   refreshProject(projectId);
   return ok;
 }
@@ -220,14 +254,6 @@ export async function markPaymentPaid(projectId: string, reqId: string): Promise
   return ok;
 }
 
-export async function rejectPaymentRequest(projectId: string, reqId: string): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("reject_payment_request", { p_req: reqId });
-  if (error) return fail(error.message);
-  await logAudit("finance.payment.reject", "Rejected a payment request", { projectId, reqId });
-  refreshProject(projectId);
-  return ok;
-}
 
 // ── Retention ────────────────────────────────────────────────────────────────
 
@@ -250,11 +276,26 @@ export async function requestEarlyRetention(projectId: string, retentionId: stri
   return ok;
 }
 
-export async function approveEarlyRetention(projectId: string, retentionId: string): Promise<ActionResult> {
+/** Approve or reject the stage an early-release request is waiting on.
+ * Rejecting clears the request, so it can be asked for again. */
+export async function decideEarlyRetention(
+  projectId: string,
+  approvalId: string,
+  approve: boolean,
+  note: string
+): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("approve_early_retention", { p_id: retentionId });
+  const { error } = await supabase.rpc("approval_decide", {
+    p_request: approvalId,
+    p_approve: approve,
+    p_note: note,
+  });
   if (error) return fail(error.message);
-  await logAudit("finance.retention.approve_early", "Approved early retention release", { projectId, retentionId });
+  await logAudit(
+    approve ? "finance.retention.approve_early" : "finance.retention.reject_early",
+    approve ? "Approved an early-release stage" : "Turned down an early release",
+    { projectId, approvalId }
+  );
   refreshProject(projectId);
   return ok;
 }
@@ -300,11 +341,26 @@ export async function requestPoAdvance(
   return ok;
 }
 
-export async function approvePoAdvance(projectId: string, orderId: string): Promise<ActionResult> {
+/** Approve or reject the stage a PO advance is waiting on. Rejecting clears the
+ * request so a fresh one can be made. */
+export async function decideAdvance(
+  projectId: string,
+  approvalId: string,
+  approve: boolean,
+  note: string
+): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("approve_po_advance", { p_order: orderId });
+  const { error } = await supabase.rpc("approval_decide", {
+    p_request: approvalId,
+    p_approve: approve,
+    p_note: note,
+  });
   if (error) return fail(error.message);
-  await logAudit("finance.advance.approve", "Approved a PO advance", { projectId, orderId });
+  await logAudit(
+    approve ? "finance.advance.approve" : "finance.advance.reject",
+    approve ? "Approved a PO-advance stage" : "Turned down a PO advance",
+    { projectId, approvalId }
+  );
   refreshProject(projectId);
   return ok;
 }

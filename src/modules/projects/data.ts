@@ -125,8 +125,6 @@ export type BriefDetail = {
   tree: TemplateTree;
   answers: Record<string, Record<string, string>>; // question_id -> { col: value }
   canEdit: boolean;
-  canReview: boolean;
-  canApprove: boolean;
   /** Post-freeze revision cycle (null = no revision in progress). */
   revisionState: RevisionState;
   revisionNo: number;
@@ -134,9 +132,35 @@ export type BriefDetail = {
   frozen: boolean;
   /** May start a revision now (frozen, no revision open, holds brief:update). */
   canProposeRevision: boolean;
-  /** May approve/return a submitted revision (dept lead OR project:approve). */
-  canApproveRevision: boolean;
+  /** The submitted brief's approval stage, and whether the viewer may decide it. */
+  briefApproval: ApprovalState | null;
+  /** The same for a submitted revision. */
+  revisionApproval: ApprovalState | null;
 };
+
+/** An item's place in its approval flow (Access Control → Approval flows). */
+export type ApprovalState = {
+  id: string;
+  stageLabel: string | null;
+  canDecide: boolean;
+};
+
+/** One item's approval request, or null when it has none. */
+async function approvalState(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  flow: string,
+  item: string
+): Promise<ApprovalState | null> {
+  const { data } = await supabase.rpc("get_approval", { p_flow: flow, p_item: item });
+  const row = ((data ?? []) as {
+    id: string;
+    status: string;
+    stage_label: string | null;
+    can_act: boolean;
+  }[])[0];
+  if (!row || row.status !== "pending") return null;
+  return { id: row.id, stageLabel: row.stage_label, canDecide: row.can_act };
+}
 
 /** A brief with its questionnaire tree, current answers, and the caller's verbs. */
 export async function getBriefDetail(
@@ -152,21 +176,28 @@ export async function getBriefDetail(
     .maybeSingle();
   if (!brief) return null;
 
-  const [{ data: project }, tree, { data: answerRows }, permSet, { data: canApproveRev }] =
-    await Promise.all([
-      supabase
-        .from("projects")
-        .select("id, name, status, phase")
-        .eq("id", brief.project_id)
-        .single(),
-      loadVersionTree(brief.template_version_id),
-      supabase
-        .from("project_brief_answers")
-        .select("question_id, values, draft_values")
-        .eq("brief_id", briefId),
-      getProjectPermissions(brief.project_id),
-      supabase.rpc("can_approve_brief_revision", { p_project: brief.project_id }),
-    ]);
+  const [
+    { data: project },
+    tree,
+    { data: answerRows },
+    permSet,
+    briefApproval,
+    revisionApproval,
+  ] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("id, name, status, phase")
+      .eq("id", brief.project_id)
+      .single(),
+    loadVersionTree(brief.template_version_id),
+    supabase
+      .from("project_brief_answers")
+      .select("question_id, values, draft_values")
+      .eq("brief_id", briefId),
+    getProjectPermissions(brief.project_id),
+    approvalState(supabase, "brief", briefId),
+    approvalState(supabase, "brief_revision", briefId),
+  ]);
   if (!tree || !project) return null;
 
   const revisionState = (brief.revision_state ?? null) as RevisionState;
@@ -188,7 +219,6 @@ export async function getBriefDetail(
     permSet.has(permissionKey("*", action as never));
 
   const frozen = (project as { phase?: string }).phase === "execution";
-  const canApproveRevision = Boolean(canApproveRev);
 
   return {
     brief: brief as DesignBrief,
@@ -199,13 +229,12 @@ export async function getBriefDetail(
     canEdit: revising
       ? has("update")
       : has("update") && (brief.status as BriefStatus) !== "approved" && !frozen,
-    canReview: has("review"),
-    canApprove: has("approve"),
     revisionState,
     revisionNo: (brief.revision_no as number) ?? 0,
     frozen,
     canProposeRevision: has("update") && frozen && !revisionState,
-    canApproveRevision,
+    briefApproval,
+    revisionApproval,
   };
 }
 

@@ -344,33 +344,39 @@ export async function submitBriefRevision(briefId: string): Promise<ActionResult
   return ok;
 }
 
-/** Approver returns a submitted revision to the reviser for changes. */
-export async function returnBriefRevision(briefId: string): Promise<ActionResult> {
+/**
+ * Approve or reject the stage a submitted revision is waiting on. Its stages
+ * are set on Access Control → Approval flows; the last approval publishes the
+ * draft over the answers, and a rejection returns it to draft.
+ */
+export async function decideBriefRevision(
+  briefId: string,
+  approvalId: string,
+  approve: boolean,
+  note: string
+): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("return_brief_revision", { p_brief: briefId });
-  if (error) return fail(error.message);
-  const projectId = await briefProject(briefId);
-  await logAudit("project.brief.revision.return", "Returned a brief revision for changes", { briefId });
-  if (projectId) revalidatePath(`/projects/${projectId}/brief/${briefId}`);
-  return ok;
-}
-
-/** Approve & publish: the draft replaces the published answers. */
-export async function approveBriefRevision(briefId: string): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("approve_brief_revision", { p_brief: briefId });
+  const { data, error } = await supabase.rpc("approval_decide", {
+    p_request: approvalId,
+    p_approve: approve,
+    p_note: note,
+  });
   if (error) return fail(error.message);
   const projectId = await briefProject(briefId);
 
   // Re-file the updated brief PDF (best-effort — must not undo the publish).
-  if (projectId) {
+  if (data === "approved" && projectId) {
     try {
       await fileApprovedBriefPdf(briefId, projectId, (await getUser())?.id ?? null);
     } catch (e) {
       console.error("Failed to re-file revised brief PDF:", e);
     }
   }
-  await logAudit("project.brief.revision.publish", "Published a brief revision", { briefId });
+  await logAudit(
+    approve ? "project.brief.revision.publish" : "project.brief.revision.return",
+    approve ? "Approved a brief-revision stage" : "Returned a brief revision for changes",
+    { briefId, approvalId }
+  );
   if (projectId) {
     revalidatePath(`/projects/${projectId}/brief/${briefId}`);
     revalidatePath(`/projects/${projectId}/folder/project_brief`);
@@ -411,28 +417,6 @@ export async function submitBriefForReview(briefId: string): Promise<ActionResul
   return ok;
 }
 
-/** Reviewer sends a submitted brief back to the team for changes (review verb). */
-export async function returnBriefForChanges(briefId: string): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { data: brief } = await supabase
-    .from("project_briefs")
-    .select("project_id, status")
-    .eq("id", briefId)
-    .single();
-  if (!brief) return fail("Brief not found.");
-  const denied = await authorizeProject(brief.project_id, "project.brief", "review");
-  if (denied) return denied;
-  if (brief.status !== "in_review") return fail("Only a brief in review can be returned.");
-
-  const { error } = await supabase
-    .from("project_briefs")
-    .update({ status: "in_progress" })
-    .eq("id", briefId);
-  if (error) return fail(error.message);
-  await logAudit("project.brief.return", "Returned a brief for changes", { briefId });
-  revalidatePath(`/projects/${brief.project_id}/brief/${briefId}`);
-  return ok;
-}
 
 /** Render the approved brief as a PDF and file it into the Project Brief folder.
  * System-generated, so it uses the service role (the approver may not hold
@@ -488,50 +472,47 @@ async function fileApprovedBriefPdf(
   });
 }
 
-export async function approveBrief(briefId: string): Promise<ActionResult> {
+/**
+ * Approve or reject the stage a submitted brief is waiting on. Its stages are
+ * set on Access Control → Approval flows; the last approval marks the brief
+ * approved (and the project brief-approved once every brief is), while a
+ * rejection sends it back for changes.
+ */
+export async function decideBrief(
+  briefId: string,
+  approvalId: string,
+  approve: boolean,
+  note: string
+): Promise<ActionResult> {
   const supabase = await createClient();
-  const { data: brief } = await supabase
-    .from("project_briefs")
-    .select("project_id, status")
-    .eq("id", briefId)
-    .single();
-  if (!brief) return fail("Brief not found.");
-  const denied = await authorizeProject(brief.project_id, "project.brief", "approve");
-  if (denied) return denied;
-  if (brief.status === "approved") return fail("This brief is already approved.");
-
-  const user = await getUser();
-  const { error } = await supabase
-    .from("project_briefs")
-    .update({ status: "approved", approved_by: user?.id ?? null, approved_at: new Date().toISOString() })
-    .eq("id", briefId);
+  const { data, error } = await supabase.rpc("approval_decide", {
+    p_request: approvalId,
+    p_approve: approve,
+    p_note: note,
+  });
   if (error) return fail(error.message);
-
-  // When every brief on the project is approved, advance the project.
-  const { data: remaining } = await supabase
-    .from("project_briefs")
-    .select("id")
-    .eq("project_id", brief.project_id)
-    .neq("status", "approved");
-  if ((remaining?.length ?? 0) === 0) {
-    await supabase
-      .from("projects")
-      .update({ status: "brief_approved" })
-      .eq("id", brief.project_id);
-  }
+  const projectId = await briefProject(briefId);
 
   // Archive the signed-off brief as a PDF in the Project Brief folder.
   // Best-effort: a failure here must never undo the approval.
-  try {
-    await fileApprovedBriefPdf(briefId, brief.project_id, user?.id ?? null);
-  } catch (e) {
-    console.error("Failed to file approved brief PDF:", e);
+  if (data === "approved" && projectId) {
+    try {
+      await fileApprovedBriefPdf(briefId, projectId, (await getUser())?.id ?? null);
+    } catch (e) {
+      console.error("Failed to file approved brief PDF:", e);
+    }
   }
 
-  await logAudit("project.brief.approve", "Approved a brief", { briefId });
-  revalidatePath(`/projects/${brief.project_id}/brief/${briefId}`);
-  revalidatePath(`/projects/${brief.project_id}`);
-  revalidatePath(`/projects/${brief.project_id}/folder/project_brief`);
+  await logAudit(
+    approve ? "project.brief.approve" : "project.brief.return",
+    approve ? "Approved a brief stage" : "Returned a brief for changes",
+    { briefId, approvalId }
+  );
+  if (projectId) {
+    revalidatePath(`/projects/${projectId}/brief/${briefId}`);
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/folder/project_brief`);
+  }
   return ok;
 }
 

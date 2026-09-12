@@ -24,6 +24,7 @@ import {
 } from "@/modules/procurement/types";
 import {
   createVendor,
+  decideVendor,
   deleteVendor,
   setVendorStatus,
   updateVendor,
@@ -179,10 +180,45 @@ export function VendorDirectory({
                         >
                           {VENDOR_STATUS_LABEL[v.status]}
                         </span>
+                        {v.status === "draft" && v.stage_label && (
+                          <span className="text-muted-foreground block text-[10px]">
+                            waiting for {v.stage_label}
+                          </span>
+                        )}
                       </td>
                       <td className="py-2">
                         <div className="flex items-center justify-end gap-1">
-                          {canApprove && v.status !== "approved" && (
+                          {/* Waiting on its approval stages: decided there. */}
+                          {v.status === "draft" && v.can_approve && v.approval_id && (
+                            <>
+                              <button
+                                type="button"
+                                disabled={pending}
+                                onClick={() => run(() => decideVendor(v.approval_id!, true, ""))}
+                                className="text-muted-foreground hover:text-emerald-600"
+                                title={v.stage_label ? `Give: ${v.stage_label}` : "Approve"}
+                                aria-label={`Approve ${v.name}`}
+                              >
+                                <Check className="size-4" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={pending}
+                                onClick={() => {
+                                  const note = prompt(`Reject "${v.name}" — reason?`);
+                                  if (note === null) return;
+                                  run(() => decideVendor(v.approval_id!, false, note));
+                                }}
+                                className="text-muted-foreground hover:text-destructive"
+                                title="Reject"
+                                aria-label={`Reject ${v.name}`}
+                              >
+                                <X className="size-4" />
+                              </button>
+                            </>
+                          )}
+                          {/* Already decided: Finance may still re-status it. */}
+                          {canApprove && v.status === "rejected" && (
                             <button
                               type="button"
                               disabled={pending}
@@ -194,7 +230,7 @@ export function VendorDirectory({
                               <Check className="size-4" />
                             </button>
                           )}
-                          {canApprove && v.status !== "rejected" && (
+                          {canApprove && v.status === "approved" && (
                             <button
                               type="button"
                               disabled={pending}

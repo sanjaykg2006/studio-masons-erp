@@ -34,10 +34,9 @@ describe("APPROVAL_FLOWS", () => {
       const placeholders = f.steps.filter((s) => s.stages).length;
       expect(placeholders, f.id).toBe(f.engineId ? 1 : 0);
     }
-    expect(APPROVAL_FLOWS.filter((f) => f.engineId).map((f) => f.engineId)).toEqual([
-      "pettycash",
-      "change_order",
-    ]);
+    expect(new Set(APPROVAL_FLOWS.filter((f) => f.engineId).map((f) => f.engineId))).toEqual(
+      new Set(["pettycash", "change_order", "intent", "vendor", "brief", "brief_revision"])
+    );
   });
 });
 
@@ -54,6 +53,7 @@ describe("stageRules", () => {
     skip_job_title_ids: ["md", "cf"],
     min_amount: 2000,
     block_own: true,
+    or_dept_lead: false,
   };
   const titles: Record<string, string> = { md: "Managing Director", cf: "Co-Founder" };
 

@@ -110,15 +110,16 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
   },
   {
     id: "intent",
+    engineId: "intent",
     label: "Purchase intent",
     where: "Project → Purchase intents",
     steps: [
       { label: "Raise the intent", resource: "procurement.intent", action: "create" },
-      {
-        label: "Approve, reject or withdraw",
-        resource: "procurement.intent",
-        action: "approve",
-      },
+      { label: "Approval stages", stages: true },
+    ],
+    rules: [
+      "Approving the last stage also folds any line that already has a live PO into that PO's amendment.",
+      "The person who raised an intent can still withdraw it while it is pending.",
     ],
   },
   {
@@ -162,11 +163,15 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
   },
   {
     id: "vendor",
+    engineId: "vendor",
     label: "Vendor in the directory",
     where: "Procurement → Vendor directory",
     steps: [
       { label: "Add a vendor", resource: "procurement.vendor", action: "create" },
-      { label: "Approve or reject", resource: "procurement.vendor", action: "approve" },
+      { label: "Approval stages", stages: true },
+    ],
+    rules: [
+      "Once decided, anyone with Vendors → Approve can still re-status a vendor (e.g. strike one off).",
     ],
   },
   {
@@ -186,31 +191,29 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
   },
   {
     id: "brief",
+    engineId: "brief",
     label: "Brief",
     where: "Project → Briefs",
     steps: [
       { label: "Fill in and submit for review", resource: "project.brief", action: "update" },
-      {
-        label: "Send back for changes",
-        resource: "project.brief",
-        action: "review",
-        optional: true,
-      },
-      { label: "Approve", resource: "project.brief", action: "approve" },
+      { label: "Approval stages", stages: true },
+    ],
+    rules: [
+      "Rejecting a stage sends the brief back for changes; submitting it again starts the stages afresh.",
+      "Approving the last stage files the brief PDF and, once every brief is approved, moves the project to Brief approved.",
     ],
   },
   {
     id: "brief-revision",
+    engineId: "brief_revision",
     label: "Brief revision (after the Design Freeze)",
     where: "Project → Briefs",
     steps: [
       { label: "Propose, edit and submit a revision", resource: "project.brief", action: "update" },
-      {
-        label: "Approve and publish, or return",
-        resource: "project",
-        action: "approve",
-        rule: "Also allowed: the lead of the department that owns the project.",
-      },
+      { label: "Approval stages", stages: true },
+    ],
+    rules: [
+      "Approving the last stage publishes the draft over the answers and re-files the brief PDF; rejecting returns it to draft.",
     ],
   },
   {

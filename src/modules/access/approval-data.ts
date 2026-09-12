@@ -79,7 +79,7 @@ export async function getApprovalFlows(): Promise<{
     supabase
       .from("approval_stages")
       .select(
-        "id, flow_id, position, label, approver, resource, action, job_title_id, skip_job_title_ids, min_amount, block_own"
+        "id, flow_id, position, label, approver, resource, action, job_title_id, skip_job_title_ids, min_amount, block_own, or_dept_lead"
       )
       .order("position"),
     getStoredHomes(),
@@ -191,18 +191,21 @@ export async function getApprovalFlows(): Promise<{
   // An engine stage as a step: its tick (if any), its rules, and who can give it.
   const stageStep = (s: ApprovalStageRow): StepView => {
     const rule = stageRules(s, titleLabel).join(" ") || undefined;
+    const leadsWho = () =>
+      leads
+        .filter((l) => personName.has(l.user_id))
+        .map((l) => ({ department: deptLabel.get(l.department_id) ?? "—", person: personName.get(l.user_id)! }));
+
     if ((s.approver === "tick" || s.approver === "senior") && s.resource && s.action) {
-      return { ...tickStep({ label: s.label, resource: s.resource, action: s.action }), rule };
+      const step = tickStep({ label: s.label, resource: s.resource, action: s.action });
+      if (s.or_dept_lead && step.who) step.who.leads = leadsWho();
+      return { ...step, rule };
     }
     const who = emptyWho(wildcardFor(null));
     if (s.approver === "job_title" && s.job_title_id) {
       who.jobTitles = [{ label: titleLabel(s.job_title_id), people: holders(s.job_title_id) }];
     }
-    if (s.approver === "dept_lead") {
-      who.leads = leads
-        .filter((l) => personName.has(l.user_id))
-        .map((l) => ({ department: deptLabel.get(l.department_id) ?? "—", person: personName.get(l.user_id)! }));
-    }
+    if (s.approver === "dept_lead" || s.or_dept_lead) who.leads = leadsWho();
     return {
       label: s.label,
       rule,

@@ -18,16 +18,15 @@ import type { RevisionState } from "@/modules/projects/data";
 import type { TemplateTree } from "@/modules/design/data";
 import type { DesignBrief } from "@/modules/projects/types";
 import {
-  approveBrief,
-  approveBriefRevision,
+  decideBrief,
+  decideBriefRevision,
   discardBriefRevision,
   proposeBriefRevision,
-  returnBriefForChanges,
-  returnBriefRevision,
   saveBriefAnswer,
   submitBriefForReview,
   submitBriefRevision,
 } from "@/modules/projects/actions";
+import type { ApprovalState } from "@/modules/projects/data";
 import { BriefStatusBadge } from "@/modules/projects/components/status-badge";
 
 type Props = {
@@ -37,13 +36,13 @@ type Props = {
   tree: TemplateTree;
   answers: Record<string, Record<string, string>>;
   canEdit: boolean;
-  canReview: boolean;
-  canApprove: boolean;
   frozen: boolean;
   revisionState: RevisionState;
   revisionNo: number;
   canProposeRevision: boolean;
-  canApproveRevision: boolean;
+  /** The stage the submitted brief / revision waits on, if any. */
+  briefApproval: ApprovalState | null;
+  revisionApproval: ApprovalState | null;
 };
 
 export function BriefForm({
@@ -53,13 +52,12 @@ export function BriefForm({
   tree,
   answers: initial,
   canEdit,
-  canReview,
-  canApprove,
   frozen,
   revisionState,
   revisionNo,
   canProposeRevision,
-  canApproveRevision,
+  briefApproval,
+  revisionApproval,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -122,15 +120,29 @@ export function BriefForm({
               <Send className="size-4" /> Submit for review
             </Button>
           )}
-          {!frozen && canReview && brief.status === "in_review" && (
-            <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => returnBriefForChanges(brief.id))}>
-              <RotateCcw className="size-4" /> Return for changes
-            </Button>
-          )}
-          {!frozen && canApprove && brief.status !== "approved" && (
-            <Button size="sm" disabled={pending} onClick={() => run(() => approveBrief(brief.id))}>
-              <CheckCircle2 className="size-4" /> Approve brief
-            </Button>
+          {!frozen && briefApproval?.canDecide && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  const note = prompt("Send back for changes — reason?");
+                  if (note === null) return;
+                  run(() => decideBrief(brief.id, briefApproval.id, false, note));
+                }}
+              >
+                <RotateCcw className="size-4" /> Return for changes
+              </Button>
+              <Button
+                size="sm"
+                disabled={pending}
+                onClick={() => run(() => decideBrief(brief.id, briefApproval.id, true, ""))}
+                title={briefApproval.stageLabel ?? undefined}
+              >
+                <CheckCircle2 className="size-4" /> Approve brief
+              </Button>
+            </>
           )}
 
           {/* Post-freeze revision cycle. */}
@@ -144,17 +156,31 @@ export function BriefForm({
               <Send className="size-4" /> Submit revision
             </Button>
           )}
-          {revisionState === "in_review" && canApproveRevision && (
+          {revisionState === "in_review" && revisionApproval?.canDecide && (
             <>
-              <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => returnBriefRevision(brief.id))}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  const note = prompt("Return this revision — reason?");
+                  if (note === null) return;
+                  run(() => decideBriefRevision(brief.id, revisionApproval.id, false, note));
+                }}
+              >
                 <RotateCcw className="size-4" /> Return for changes
               </Button>
-              <Button size="sm" disabled={pending} onClick={() => run(() => approveBriefRevision(brief.id))}>
+              <Button
+                size="sm"
+                disabled={pending}
+                onClick={() => run(() => decideBriefRevision(brief.id, revisionApproval.id, true, ""))}
+                title={revisionApproval.stageLabel ?? undefined}
+              >
                 <CheckCircle2 className="size-4" /> Approve &amp; publish
               </Button>
             </>
           )}
-          {revisionState && (canApproveRevision || canEdit) && (
+          {revisionState && (revisionApproval?.canDecide || canEdit) && (
             <Button
               size="sm"
               variant="outline"
@@ -175,8 +201,8 @@ export function BriefForm({
           <Pencil className="mt-0.5 size-4 shrink-0" />
           <span>
             {revisionState === "draft"
-              ? "Revision in progress — you're editing a draft copy. The published design stays unchanged until the department lead approves it."
-              : "Revision submitted — awaiting the department lead's approval to publish. Editing is locked until it's decided."}
+              ? "Revision in progress — you're editing a draft copy. The published design stays unchanged until the revision is approved."
+              : `Revision submitted${revisionApproval?.stageLabel ? ` — waiting for ${revisionApproval.stageLabel}` : ""}. Editing is locked until it's decided.`}
           </span>
         </div>
       )}

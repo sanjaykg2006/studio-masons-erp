@@ -24,10 +24,9 @@ import {
   type ReleasedBudgetLine,
 } from "@/modules/procurement/types";
 import {
-  approveIntent,
+  decideIntent,
   loadIntentLines,
   raiseIntent,
-  rejectIntent,
   withdrawIntent,
 } from "@/modules/procurement/intent-actions";
 
@@ -161,6 +160,7 @@ export function Intents({
                     {it.raiser_name ?? "Someone"}
                     {it.needed_by && ` · needed by ${it.needed_by}`}
                     {it.approver_name && ` · ${it.status} by ${it.approver_name}`}
+                    {it.status === "pending" && it.stage_label && ` · waiting for ${it.stage_label}`}
                   </div>
                 </button>
                 <div className="flex shrink-0 items-center gap-1">
@@ -171,12 +171,26 @@ export function Intents({
                       </Link>
                     </Button>
                   )}
-                  {it.status === "pending" && it.can_approve && (
+                  {it.status === "pending" && it.can_approve && it.approval_id && (
                     <>
-                      <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => approveIntent(projectId, it.id))}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={pending}
+                        onClick={() => run(() => decideIntent(projectId, it.approval_id!, true, ""))}
+                      >
                         <Check className="size-4" /> Approve
                       </Button>
-                      <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => rejectIntent(projectId, it.id))}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={pending}
+                        onClick={() => {
+                          const note = prompt("Reject this intent — reason?");
+                          if (note === null) return;
+                          run(() => decideIntent(projectId, it.approval_id!, false, note));
+                        }}
+                      >
                         <X className="size-4" /> Reject
                       </Button>
                     </>

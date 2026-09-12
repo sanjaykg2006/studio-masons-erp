@@ -32,6 +32,11 @@ export type Vendor = {
   approved_by_name: string | null;
   approved_at: string | null;
   created_at: string;
+  /** Its approval request, the stage it waits on, and whether the viewer may
+   * decide that stage (Access Control → Approval flows). */
+  approval_id: string | null;
+  stage_label: string | null;
+  can_approve: boolean;
 };
 
 /** The editable fields on a vendor (create + update share this shape). */
@@ -143,8 +148,12 @@ export type Intent = {
   line_count: number;
   total_qty: number;
   over_budget_any: boolean;
+  /** The viewer may decide the approval stage it is waiting on. */
   can_approve: boolean;
   can_withdraw: boolean;
+  /** Its approval request, and the stage it waits on (Access Control → Approval flows). */
+  approval_id: string | null;
+  stage_label: string | null;
 };
 
 /** A line within an intent (from get_intent_lines). */

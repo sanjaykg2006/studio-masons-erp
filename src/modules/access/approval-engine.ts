@@ -31,6 +31,8 @@ export type ApprovalStageRow = {
   skip_job_title_ids: string[];
   min_amount: number | null;
   block_own: boolean;
+  /** The requester's department lead may give this stage as well. */
+  or_dept_lead: boolean;
 };
 
 /** A flow on the engine, as the Approval flows page and its editor need it. */
@@ -59,6 +61,9 @@ export function stageRules(
         ? `Anyone with the job title ${titleLabel(s.job_title_id)}.`
         : "Its job title was deleted — only administrators can approve it now."
     );
+  }
+  if (s.or_dept_lead && s.approver !== "dept_lead") {
+    rules.push("The requester's department lead may give it too.");
   }
   if (s.skip_job_title_ids.length) {
     rules.push(`Skipped for: ${s.skip_job_title_ids.map(titleLabel).join(", ")}.`);

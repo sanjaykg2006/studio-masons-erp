@@ -39,20 +39,30 @@ export async function raiseIntent(
   return ok;
 }
 
-export async function approveIntent(projectId: string, intentId: string): Promise<ActionResult> {
+/**
+ * Approve or reject the stage an intent is waiting on. Its stages, and who
+ * gives each, are set on Access Control → Approval flows; approving the last
+ * one applies the approval — including folding lines into a live PO's
+ * amendment, exactly as before.
+ */
+export async function decideIntent(
+  projectId: string,
+  approvalId: string,
+  approve: boolean,
+  note: string
+): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("approve_intent", { p_intent: intentId });
+  const { error } = await supabase.rpc("approval_decide", {
+    p_request: approvalId,
+    p_approve: approve,
+    p_note: note,
+  });
   if (error) return fail(error.message);
-  await logAudit("procurement.intent.approve", "Approved a purchase intent", { projectId, intentId });
-  refresh(projectId);
-  return ok;
-}
-
-export async function rejectIntent(projectId: string, intentId: string): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("reject_intent", { p_intent: intentId });
-  if (error) return fail(error.message);
-  await logAudit("procurement.intent.reject", "Rejected a purchase intent", { projectId, intentId });
+  await logAudit(
+    approve ? "procurement.intent.approve" : "procurement.intent.reject",
+    approve ? "Approved an intent stage" : "Rejected a purchase intent",
+    { projectId, approvalId }
+  );
   refresh(projectId);
   return ok;
 }

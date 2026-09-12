@@ -210,6 +210,7 @@ function StageForm({
   const [skips, setSkips] = useState<string[]>(stage?.skip_job_title_ids ?? []);
   const [minAmount, setMinAmount] = useState(stage?.min_amount != null ? String(stage.min_amount) : "");
   const [blockOwn, setBlockOwn] = useState(stage?.block_own ?? true);
+  const [orDeptLead, setOrDeptLead] = useState(stage?.or_dept_lead ?? false);
 
   const needsTick = approver === "tick" || approver === "senior";
   const chosen = resources.find((r) => r.id === resource);
@@ -230,6 +231,7 @@ function StageForm({
           skipJobTitleIds: skips,
           minAmount: flow.has_amount && minAmount.trim() !== "" ? Number(minAmount) : null,
           blockOwn,
+          orDeptLead,
         });
       }}
     >
@@ -337,6 +339,18 @@ function StageForm({
             aria-label="Minimum amount"
           />
           <span className="text-muted-foreground text-xs">or more (leave empty for every amount)</span>
+        </label>
+      )}
+
+      {approver !== "dept_lead" && (
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            className="size-4 accent-primary"
+            checked={orDeptLead}
+            onChange={(e) => setOrDeptLead(e.target.checked)}
+          />
+          The requester&apos;s department lead may give it too
         </label>
       )}
 

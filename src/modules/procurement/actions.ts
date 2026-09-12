@@ -81,6 +81,31 @@ export async function setVendorStatus(vendorId: string, status: VendorStatus): P
   return ok;
 }
 
+/**
+ * Approve or reject the stage a new vendor is waiting on. Its stages are set on
+ * Access Control → Approval flows; the last approval marks the vendor approved.
+ */
+export async function decideVendor(
+  approvalId: string,
+  approve: boolean,
+  note: string
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("approval_decide", {
+    p_request: approvalId,
+    p_approve: approve,
+    p_note: note,
+  });
+  if (error) return fail(error.message);
+  await logAudit(
+    "procurement.vendor.status",
+    approve ? "Approved a vendor stage" : "Rejected a vendor",
+    { approvalId }
+  );
+  refresh();
+  return ok;
+}
+
 /** Remove a vendor from the directory (delete verb). */
 export async function deleteVendor(vendorId: string): Promise<ActionResult> {
   const denied = await authorize("procurement.vendor", "delete");

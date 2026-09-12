@@ -27,6 +27,7 @@ export type StageInput = {
   skipJobTitleIds: string[];
   minAmount: number | null;
   blockOwn: boolean;
+  orDeptLead: boolean;
 };
 
 /**
@@ -65,6 +66,7 @@ export async function saveApprovalStage(input: StageInput): Promise<ActionResult
     skip_job_title_ids: input.skipJobTitleIds,
     min_amount: input.minAmount,
     block_own: input.blockOwn,
+    or_dept_lead: input.orDeptLead,
   };
 
   const supabase = await createClient();

@@ -44,6 +44,8 @@ describe("moduleResources", () => {
     for (const id of ["procurement.intent", "finance.payment", "finance.advance", "project.change"]) {
       expect(get(id).actions, id).not.toContain("approve");
     }
+    // Early release of retention became a stage too, so its "manage" went with it.
+    expect(get("finance.retention").actions).not.toContain("manage");
   });
 });
 

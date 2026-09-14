@@ -21,8 +21,7 @@ import type { ModuleDefinition } from "@/core/modules/registry";
  *                     one) · approve → also lets Accounts reject · manage →
  *                     PD/MD (PO-cap override)
  *   finance.payment   create → PM · issue → Accounts (pay)
- *   finance.retention issue → Accounts (pay) · update → Director (request early) ·
- *                     manage → MD (approve early release)
+ *   finance.retention issue → Accounts (pay) · update → Director (request early)
  *   finance.advance   update → request/terms · issue → Accounts (pay)
  *   finance.settings  manage → Finance/Billing (billing branches)
  */
@@ -53,7 +52,8 @@ export const financeModule: ModuleDefinition = {
     {
       id: "finance.retention",
       label: "Finance · Retention",
-      actions: ["read", "update", "issue", "manage"],
+      actions: ["read", "update", "issue"],
+      note: "Who approves an early release is set on Access Control → Approval flows",
       homes: ["project", "department"],
     },
     {

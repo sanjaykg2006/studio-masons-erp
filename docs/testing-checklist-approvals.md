@@ -1,11 +1,11 @@
 # Testing checklist — access & approvals (11–12 Sep 2026)
 
 Everything built on 11 and 12 September, in the order it is easiest to test.
-Migrations **0078–0092**. Tick as you go; anything that fails, note what you saw.
+Migrations **0078–0094**. Tick as you go; anything that fails, note what you saw.
 
 **Before you start**
 
-- [ ] All migrations applied: `npx supabase migration list --linked` shows 0078–0092 on both sides.
+- [ ] All migrations applied: `npx supabase migration list --linked` shows 0078–0094 on both sides.
 - [ ] The site has rebuilt on Vercel since the last push.
 - [ ] You are signed in as **Sanjay (Administrator)** — full access, so most things are visible.
 - [ ] Have a second account to hand (e.g. **Prem Kumar**, Director) to check what a non-admin sees.
@@ -146,6 +146,20 @@ Default stages reproduce the old behaviour, so these should all work as they alw
       **IT → Activity Log** shows an **"Administrator override"** entry naming the stage.
 - [ ] An approval you *do* hold the role for is **not** logged as an override.
 - [ ] "The requester's department lead may give it too" is **gone** from the stage editor.
+
+## 9b. The matrix says what a tick does (0093, 0094)
+
+- [ ] **Purchase intents**, **Payment requests**, **Advances**, **Briefs** and **Change orders**
+      no longer have an **Approve** box; **Purchase orders** has no **Review** box and
+      **Retention** no **Manage** box. Each row instead reads
+      "Who approves … is set on Access Control → Approval flows".
+- [ ] **Petty Cash** no longer has **Billing check** or **Senior approval** rows. Everyone who
+      held one can still see every claim — check with someone who did.
+- [ ] The **Approve** boxes that remain say what they do: **Vendors** (re-status a decided
+      vendor), **Purchase orders** (approve a cancellation), **Vendor invoices** (also lets
+      Accounts reject at booking). Each still works.
+- [ ] A box left ticked for a retired verb shows with a tooltip saying it does nothing —
+      untick it to clear. (There should be none; 0093/0094 cleared them.)
 
 ## 10. Things that should NOT have changed
 

@@ -74,9 +74,16 @@ optional minimum amount, and whether the requester is blocked from their own ite
 
 Three rules apply to every stage:
 
-- **One role, nobody else.** Ticks no longer open a stage; `approve` verbs still
-  gate the surrounding work steps (rejecting an invoice at booking, re-statusing
-  a vendor, approving a PO cancellation), not the stages.
+- **One role, nobody else.** Ticks no longer open a stage. The `approve` verbs
+  that only ever fed a stage were retired with the grants people held
+  (`0093`, `0094`): Purchase intents, Payment requests, Advances, Briefs and
+  Change orders lost `approve`, Purchase orders lost `review`, Retention lost
+  `manage`, and Petty Cash's "Billing check" and "Senior approval" rows folded
+  into "See all claims" (their only remaining effect was widening who could see
+  claims). The `approve` verbs that survive gate the work AROUND a stage, and
+  each row says so in the matrix: Vendors re-status a decided vendor, Purchase
+  orders approve a cancellation, Vendor invoices let Accounts reject one at
+  booking.
 - **A fresh pair of eyes.** Whoever decided an earlier stage of the same item
   cannot decide a later one — administrators included.
 - **The administrator backup is recorded.** A full-access administrator can still

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { moduleResources } from "@/core/modules/registry";
-import { stageRules, type ApprovalStageRow } from "@/modules/access/approval-engine";
+import {
+  stageNeedsRole,
+  stageRules,
+  type ApprovalStageRow,
+  type RoleOption,
+} from "@/modules/access/approval-engine";
 import { APPROVAL_FLOWS } from "@/modules/access/approval-flows";
 
 describe("APPROVAL_FLOWS", () => {
@@ -20,6 +25,17 @@ describe("APPROVAL_FLOWS", () => {
         expect(r, `${flow.id}: ${step.label} → ${step.resource}`).toBeDefined();
         expect(r!.actions, `${flow.id}: ${step.label}`).toContain(step.action);
       }
+    }
+  });
+
+  it("names a real module on every flow whose items sit on a project", () => {
+    // The module decides which departments' project roles a stage may name, so
+    // a typo here would quietly offer the wrong department's roles.
+    const offProject = new Set(["pettycash", "vendor"]);
+    for (const f of APPROVAL_FLOWS) {
+      if (!f.engineId || offProject.has(f.engineId)) continue;
+      expect(f.module, f.id).toBeDefined();
+      expect(byId.get(f.module!), `${f.id} → ${f.module}`).toBeDefined();
     }
   });
 
@@ -58,30 +74,45 @@ describe("stageRules", () => {
     flow_id: "pettycash",
     position: 1,
     label: "Senior approval",
-    approver: "senior",
-    resource: "pettycash.senior",
-    action: "approve",
-    job_title_id: null,
+    approver: "role",
+    role_id: "md",
     skip_job_title_ids: ["md", "cf"],
     min_amount: 2000,
     block_own: true,
-    or_dept_lead: false,
   };
   const titles: Record<string, string> = { md: "Managing Director", cf: "Co-Founder" };
+  const roles: Record<string, RoleOption> = {
+    md: { id: "md", label: "Managing Director", department: null, departmentId: null },
+    pd: { id: "pd", label: "Project Director", department: "Project Management", departmentId: "d1" },
+  };
+  const rulesFor = (s: ApprovalStageRow) =>
+    stageRules(s, (id) => roles[id] ?? null, (id) => titles[id]).join(" ");
 
-  it("spells out seniority, skips, the amount and the own-item rule", () => {
-    const rules = stageRules(base, (id) => titles[id]);
-    expect(rules.join(" ")).toMatch(/above the requester/);
-    expect(rules.join(" ")).toMatch(/Skipped for: Managing Director, Co-Founder/);
-    expect(rules.join(" ")).toMatch(/₹2,000 or more/);
-    expect(rules.join(" ")).toMatch(/can't approve their own/);
+  it("names the one role, the skips, the amount and the own-item rule", () => {
+    const rules = rulesFor(base);
+    expect(rules).toMatch(/Only Managing Director can give it/);
+    expect(rules).toMatch(/Skipped for: Managing Director, Co-Founder/);
+    expect(rules).toMatch(/₹2,000 or more/);
+    expect(rules).toMatch(/can't approve their own/);
+    expect(rules).toMatch(/can't give this one/);
   });
 
-  it("says plainly when a job-title stage lost its job title", () => {
-    const rules = stageRules(
-      { ...base, approver: "job_title", job_title_id: null, skip_job_title_ids: [], min_amount: null, block_own: false },
-      (id) => titles[id]
+  it("ties a project role to its department and the item's project", () => {
+    expect(rulesFor({ ...base, role_id: "pd" })).toMatch(
+      /Only Project Management's Project Director, on the project the item belongs to/
     );
-    expect(rules).toEqual(["Its job title was deleted — only administrators can approve it now."]);
+  });
+
+  it("says plainly when a stage has no usable role", () => {
+    expect(rulesFor({ ...base, role_id: null })).toMatch(/No approving role chosen yet/);
+    expect(rulesFor({ ...base, role_id: "gone" })).toMatch(/Its role was deleted/);
+    expect(stageNeedsRole({ ...base, role_id: null })).toBe(true);
+    expect(stageNeedsRole(base)).toBe(false);
+  });
+
+  it("leaves a department-lead stage to the lead alone", () => {
+    expect(rulesFor({ ...base, approver: "dept_lead", role_id: null })).toMatch(
+      /Only a lead of the requester's department/
+    );
   });
 });

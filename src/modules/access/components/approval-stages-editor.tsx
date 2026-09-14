@@ -4,17 +4,17 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 
-import { ACTION_LABEL, type Action } from "@/core/rbac/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import {
   APPROVERS,
   APPROVER_LABEL,
+  stageNeedsRole,
   stageRules,
   type ApprovalStageRow,
   type Approver,
   type EngineFlow,
+  type RoleOption,
 } from "@/modules/access/approval-engine";
 import {
   deleteApprovalStage,
@@ -24,23 +24,40 @@ import {
 } from "@/modules/access/approval-actions";
 
 type Option = { id: string; label: string };
-type ResourceOption = { id: string; label: string; actions: Action[] };
 
 const field = "border-input bg-background h-9 rounded-md border px-2 text-sm";
 
+/** Job titles, then one group per department's project roles. */
+function roleGroups(roles: RoleOption[], hasProject: boolean) {
+  const titles = roles.filter((r) => !r.departmentId);
+  const groups: { label: string; roles: RoleOption[] }[] = [
+    { label: "Job titles", roles: titles },
+  ];
+  if (hasProject) {
+    for (const r of roles.filter((x) => x.departmentId)) {
+      const name = `${r.department} — project roles`;
+      const group = groups.find((g) => g.label === name);
+      if (group) group.roles.push(r);
+      else groups.push({ label: name, roles: [r] });
+    }
+  }
+  return groups.filter((g) => g.roles.length > 0);
+}
+
 /**
- * Add, remove, reorder and configure one flow's approval stages. The fixed
- * work steps (log, pay, raise…) are not here. Changes apply to items raised
- * from now on; items already in progress keep the stages they started with.
+ * Add, remove, reorder and configure one flow's approval stages. Each stage
+ * names ONE role and only that role may give it. The fixed work steps (log,
+ * pay, raise…) are not here. Changes apply to items raised from now on; items
+ * already in progress keep the stages they started with.
  */
 export function ApprovalStagesEditor({
   flow,
   jobTitles,
-  resources,
+  roles,
 }: {
   flow: EngineFlow;
   jobTitles: Option[];
-  resources: ResourceOption[];
+  roles: RoleOption[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -48,6 +65,7 @@ export function ApprovalStagesEditor({
   const [editing, setEditing] = useState<string | "new" | null>(null);
 
   const titleLabel = (id: string) => jobTitles.find((t) => t.id === id)?.label ?? "a deleted job title";
+  const roleOption = (id: string) => roles.find((r) => r.id === id) ?? null;
 
   const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) =>
     startTransition(async () => {
@@ -65,8 +83,9 @@ export function ApprovalStagesEditor({
       <div>
         <p className="text-sm font-medium">Edit the approval stages</p>
         <p className="text-muted-foreground text-xs">
-          Changes apply to items raised from now on. Items already in progress
-          keep the stages they started with.
+          Each stage is given by one role and nobody else. Changes apply to items
+          raised from now on; items already in progress keep the stages they
+          started with.
         </p>
       </div>
 
@@ -90,7 +109,6 @@ export function ApprovalStagesEditor({
                 flow={flow}
                 stage={s}
                 jobTitles={jobTitles}
-                resources={resources}
                 pending={pending}
                 onCancel={() => setEditing(null)}
                 onSave={(input) => run(() => saveApprovalStage(input), () => setEditing(null))}
@@ -121,18 +139,13 @@ export function ApprovalStagesEditor({
               <div className="min-w-0 flex-1">
                 <p className="font-medium">
                   {i + 1}. {s.label}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  {APPROVER_LABEL[s.approver]}
-                  {s.resource && s.action && (
-                    <>
-                      {" — tick: "}
-                      {resources.find((r) => r.id === s.resource)?.label ?? s.resource} →{" "}
-                      {ACTION_LABEL[s.action]}
-                    </>
+                  {stageNeedsRole(s) && (
+                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+                      needs a role
+                    </span>
                   )}
                 </p>
-                {stageRules(s, titleLabel).map((r) => (
+                {stageRules(s, roleOption, titleLabel).map((r) => (
                   <p key={r} className="text-muted-foreground text-xs">
                     {r}
                   </p>
@@ -171,7 +184,6 @@ export function ApprovalStagesEditor({
           flow={flow}
           stage={null}
           jobTitles={jobTitles}
-          resources={resources}
           pending={pending}
           onCancel={() => setEditing(null)}
           onSave={(input) => run(() => saveApprovalStage(input), () => setEditing(null))}
@@ -189,7 +201,6 @@ function StageForm({
   flow,
   stage,
   jobTitles,
-  resources,
   pending,
   onCancel,
   onSave,
@@ -197,23 +208,20 @@ function StageForm({
   flow: EngineFlow;
   stage: ApprovalStageRow | null;
   jobTitles: Option[];
-  resources: ResourceOption[];
   pending: boolean;
   onCancel: () => void;
   onSave: (input: StageInput) => void;
 }) {
   const [label, setLabel] = useState(stage?.label ?? "");
-  const [approver, setApprover] = useState<Approver>(stage?.approver ?? "tick");
-  const [resource, setResource] = useState(stage?.resource ?? "");
-  const [action, setAction] = useState<Action | "">(stage?.action ?? "");
-  const [jobTitleId, setJobTitleId] = useState(stage?.job_title_id ?? "");
+  const [approver, setApprover] = useState<Approver>(stage?.approver ?? "role");
+  const [roleId, setRoleId] = useState(stage?.role_id ?? "");
   const [skips, setSkips] = useState<string[]>(stage?.skip_job_title_ids ?? []);
   const [minAmount, setMinAmount] = useState(stage?.min_amount != null ? String(stage.min_amount) : "");
   const [blockOwn, setBlockOwn] = useState(stage?.block_own ?? true);
-  const [orDeptLead, setOrDeptLead] = useState(stage?.or_dept_lead ?? false);
 
-  const needsTick = approver === "tick" || approver === "senior";
-  const chosen = resources.find((r) => r.id === resource);
+  // Only the roles this flow may name: job titles, plus project roles from the
+  // departments allotted its module.
+  const groups = roleGroups(flow.roles, flow.has_project);
 
   return (
     <form
@@ -225,13 +233,10 @@ function StageForm({
           flowId: flow.id,
           label,
           approver,
-          resource: needsTick ? resource || null : null,
-          action: needsTick ? (action || null) : null,
-          jobTitleId: approver === "job_title" ? jobTitleId || null : null,
+          roleId: approver === "role" ? roleId || null : null,
           skipJobTitleIds: skips,
           minAmount: flow.has_amount && minAmount.trim() !== "" ? Number(minAmount) : null,
           blockOwn,
-          orDeptLead,
         });
       }}
     >
@@ -257,55 +262,32 @@ function StageForm({
         </select>
       </label>
 
-      {needsTick && (
-        <div className="flex flex-col gap-2 sm:flex-row">
+      {approver === "role" && (
+        <label className="flex flex-col gap-1">
+          <span className="text-muted-foreground text-xs">
+            The one role that gives this stage
+            {!flow.has_project
+              ? " — these items don't belong to a project, so only job titles can give them"
+              : " — project roles come from the departments allotted this module"}
+          </span>
           <select
-            className={cn(field, "sm:flex-1")}
-            value={resource}
-            onChange={(e) => {
-              setResource(e.target.value);
-              setAction("");
-            }}
-            aria-label="Tick module"
+            className={field}
+            value={roleId}
+            onChange={(e) => setRoleId(e.target.value)}
+            aria-label="Approving role"
           >
-            <option value="">The tick that allows it…</option>
-            {resources.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.label}
-              </option>
+            <option value="">Choose the role…</option>
+            {groups.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.roles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.label}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
-          <select
-            className={cn(field, "sm:w-40")}
-            value={action}
-            onChange={(e) => setAction(e.target.value as Action)}
-            disabled={!chosen}
-            aria-label="Tick verb"
-          >
-            <option value="">Verb…</option>
-            {chosen?.actions.map((a) => (
-              <option key={a} value={a}>
-                {ACTION_LABEL[a]}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {approver === "job_title" && (
-        <select
-          className={field}
-          value={jobTitleId}
-          onChange={(e) => setJobTitleId(e.target.value)}
-          aria-label="Approving job title"
-        >
-          <option value="">Choose the job title…</option>
-          {jobTitles.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.label}
-            </option>
-          ))}
-        </select>
+        </label>
       )}
 
       <div className="space-y-1">
@@ -339,18 +321,6 @@ function StageForm({
             aria-label="Minimum amount"
           />
           <span className="text-muted-foreground text-xs">or more (leave empty for every amount)</span>
-        </label>
-      )}
-
-      {approver !== "dept_lead" && (
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            className="size-4 accent-primary"
-            checked={orDeptLead}
-            onChange={(e) => setOrDeptLead(e.target.checked)}
-          />
-          The requester&apos;s department lead may give it too
         </label>
       )}
 

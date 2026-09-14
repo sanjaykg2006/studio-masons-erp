@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { can, requirePermission } from "@/core/rbac/can";
-import { moduleResources } from "@/core/modules/registry";
 import {
   Card,
   CardContent,
@@ -18,6 +17,7 @@ const nobody = (who: StepWho) =>
   who.jobTitles.length === 0 &&
   who.projectRoles.length === 0 &&
   who.people.length === 0 &&
+  who.allProjects.length === 0 &&
   who.leads.length === 0;
 
 const withPeople = (x: { label: string; people: string[] }) =>
@@ -31,13 +31,14 @@ const withPeople = (x: { label: string; people: string[] }) =>
  */
 export default async function ApprovalFlowsPage() {
   await requirePermission("access", "read");
-  const [{ flows, jobTitles }, canEdit] = await Promise.all([
+  const [{ flows, jobTitles, roles }, canEdit] = await Promise.all([
     getApprovalFlows(),
     can("access", "update"),
   ]);
-  const resources = moduleResources()
-    .filter((r) => !r.everyDepartment)
-    .map((r) => ({ id: r.id, label: r.label, actions: r.actions }));
+  // Stages nobody but an administrator can give, because no role is chosen.
+  const unset = flows.flatMap((f) =>
+    f.steps.filter((s) => s.needsRole).map((s) => `${f.label}: ${s.label}`)
+  );
 
   return (
     <div className="space-y-6">
@@ -52,10 +53,26 @@ export default async function ApprovalFlowsPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Approval flows</h1>
         <p className="text-muted-foreground">
           Every approval chain in the ERP, step by step: who can do each step
-          right now, and where to change it. Petty Cash and Change orders have
-          editable approval stages; the others are being moved over.
+          right now, and where to change it. Every approval stage is given by
+          one named role and nobody else; a different person has to give each
+          stage of the same item.
         </p>
       </div>
+
+      {unset.length > 0 && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          <p className="font-medium">These stages still need a role</p>
+          <p className="mt-1 text-xs">
+            Until one is chosen, only a full-access administrator can give them,
+            and every such approval is recorded as an override.
+          </p>
+          <ul className="mt-2 list-disc space-y-0.5 pl-5 text-xs">
+            {unset.map((u) => (
+              <li key={u}>{u}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {flows.map((flow) => (
         <Card key={flow.id}>
@@ -123,6 +140,16 @@ export default async function ApprovalFlowsPage() {
                                   .join("; ")}
                               </li>
                             )}
+                            {step.who.allProjects.length > 0 && (
+                              <li>
+                                <span className="text-muted-foreground">
+                                  Holds it on every project:{" "}
+                                </span>
+                                {step.who.allProjects
+                                  .map((p) => `${p.person} (${p.department})`)
+                                  .join("; ")}
+                              </li>
+                            )}
                             {step.who.leads.length > 0 && (
                               <li>
                                 <span className="text-muted-foreground">Department leads: </span>
@@ -135,7 +162,8 @@ export default async function ApprovalFlowsPage() {
                         )}
                         {step.who.fullAccess.length > 0 && (
                           <p className="text-muted-foreground mt-0.5">
-                            Full access: {step.who.fullAccess.map(withPeople).join("; ")}
+                            Administrator backup (recorded as an override):{" "}
+                            {step.who.fullAccess.map(withPeople).join("; ")}
                           </p>
                         )}
                       </div>
@@ -171,7 +199,7 @@ export default async function ApprovalFlowsPage() {
               <ApprovalStagesEditor
                 flow={flow.engine}
                 jobTitles={jobTitles}
-                resources={resources}
+                roles={roles}
               />
             )}
           </CardContent>

@@ -1,11 +1,11 @@
 # Testing checklist — access & approvals (11–12 Sep 2026)
 
 Everything built on 11 and 12 September, in the order it is easiest to test.
-Migrations **0078–0091**. Tick as you go; anything that fails, note what you saw.
+Migrations **0078–0092**. Tick as you go; anything that fails, note what you saw.
 
 **Before you start**
 
-- [ ] All migrations applied: `npx supabase migration list --linked` shows 0078–0091 on both sides.
+- [ ] All migrations applied: `npx supabase migration list --linked` shows 0078–0092 on both sides.
 - [ ] The site has rebuilt on Vercel since the last push.
 - [ ] You are signed in as **Sanjay (Administrator)** — full access, so most things are visible.
 - [ ] Have a second account to hand (e.g. **Prem Kumar**, Director) to check what a non-admin sees.
@@ -76,13 +76,11 @@ Migrations **0078–0091**. Tick as you go; anything that fails, note what you s
 - [ ] Flows with **editable stages** are badged, and show an **"Edit the approval stages"** box:
       Petty Cash, Change orders, Purchase intent, Vendor, Brief, Brief revision, Vendor invoice,
       Payment request, PO advance, Early release of retention, Purchase order.
-- [ ] **Add a stage** to Petty Cash — e.g. "Director sign-off", *Anyone with a tick* →
-      Petty Cash · Senior approval → Approve, **only for amounts of ₹5,000 or more** — and reorder it.
+- [ ] **Add a stage** to Petty Cash — e.g. "Director sign-off", role **Director**,
+      **only for amounts of ₹5,000 or more** — and reorder it.
 - [ ] A claim **below** that amount skips the new stage; one **above** it waits for it.
 - [ ] Editing stages does **not** disturb claims already in progress (they keep the stages they started with).
-- [ ] Try each "who approves" kind once: **a tick**, **someone senior to the requester**,
-      **the requester's department lead**, **a specific job title**.
-- [ ] Tick **"the requester's department lead may give it too"** on a stage and check that lead can approve.
+- [ ] Try both "who approves" kinds once: **one named role** and **the requester's department lead**.
 - [ ] With **"the requester can't approve their own"** on, the requester sees no buttons and gets a
       clear message if they try.
 - [ ] Delete a stage you added; the flow returns to its old shape for new items.
@@ -123,12 +121,33 @@ Default stages reproduce the old behaviour, so these should all work as they alw
 ## 8. Safety checks
 
 - [ ] Nobody can approve **their own** item where the stage says so (including you as Administrator).
-- [ ] A person without a stage's tick sees **no buttons**, and a clear message if they try anyway
-      (e.g. "This is waiting for 'Director approval', which you can't give").
+- [ ] Someone who is **not** the stage's role sees **no buttons**, and a clear message if they try
+      anyway (e.g. "This is waiting for 'Director approval' — only Director can give it").
 - [ ] As Administrator you can act on **any** stage as a backup.
 - [ ] The **Activity Log** (IT → Activity Log) records approvals, rejections and stage edits.
 
-## 9. Things that should NOT have changed
+## 9. One role per stage (0092)
+
+- [ ] **Access Control → Approval flows**: every stage now reads **"Only <Role> can give it"** — no
+      stage says "anyone with a tick".
+- [ ] If the top of the page warns **"These stages still need a role"**, open each one listed and
+      choose its role. (This happens where the old tick was held by several roles, or none, so the
+      migration could not pick one for you.)
+- [ ] Edit a stage on a **project** flow (e.g. Purchase order): the role list offers **Job titles**
+      plus **project roles only from departments allotted that module** — no unrelated department.
+- [ ] Edit a stage on **Petty Cash**: only job titles are offered (claims don't belong to a project).
+- [ ] Name **Project Management → Project Director** on a project flow. Someone holding that role
+      **on that project** can approve; the same role on a *different* project cannot.
+- [ ] Someone holding the module's **Approve tick** but *not* the named role can no longer approve —
+      only the named role can.
+- [ ] **Two stages, two people:** on a Purchase order, whoever gives **Finance review** cannot also
+      give **Director approval** — they get "You already gave an earlier step of this approval".
+- [ ] **Administrator override:** approve a stage you don't hold the role for. It works, and
+      **IT → Activity Log** shows an **"Administrator override"** entry naming the stage.
+- [ ] An approval you *do* hold the role for is **not** logged as an override.
+- [ ] "The requester's department lead may give it too" is **gone** from the stage editor.
+
+## 10. Things that should NOT have changed
 
 - [ ] Invoice booking maths: base, GST, other charges, TDS, advance, 5% retention, amount payable.
 - [ ] The PO document (numbering, billing branch, GST block).

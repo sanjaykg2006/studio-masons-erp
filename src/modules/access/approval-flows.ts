@@ -1,6 +1,10 @@
 /**
  * Every approval flow in the ERP, step by step, with the tick each step needs.
  *
+ * Approval STAGES no longer work off ticks: each names one role and only that
+ * role may give it (0092). This file describes the fixed WORK steps around
+ * them, which are still tick-gated.
+ *
  * The flows themselves are fixed in the database (each step is its own RPC
  * with its own status), so this is a DESCRIPTION of them, not a switch: the
  * "Approval flows" page reads it, then fills in from live data who can do each
@@ -21,7 +25,8 @@ export type FlowStep = {
   /** Only happens in some cases (e.g. an over-budget PO). */
   optional?: boolean;
   /** Placeholder: the flow's editable approval stages (from the database) go
-   * here. Only in flows with an `engineId`. */
+   * here — each names the one role that may give it. Only in flows with an
+   * `engineId`. */
   stages?: boolean;
 };
 
@@ -29,6 +34,13 @@ export type ApprovalFlow = {
   id: string;
   /** The approval_flows id when its approval stages are editable (0089). */
   engineId?: string;
+  /**
+   * The module its items belong to, for a flow whose items sit on a project.
+   * Only departments allotted this module may have one of their project roles
+   * named on a stage — a department that doesn't run the module has no business
+   * approving it. Checked against the registry by approval-flows.test.ts.
+   */
+  module?: string;
   label: string;
   /** Where in the ERP it happens. */
   where: string;
@@ -54,14 +66,15 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
       },
     ],
     rules: [
-      "A claim is approved or rejected by whoever can give the stage it is waiting on.",
-      "Full-access administrators can act on any stage, as a backup — never on their own claim.",
+      "A claim is approved or rejected by the one role the stage it is waiting on names.",
+      "Full-access administrators are the backup on any stage — never on their own claim, and every such decision is recorded as an override.",
       "A claim keeps the stages it started with; editing them affects new claims only.",
     ],
   },
   {
     id: "invoice",
     engineId: "invoice",
+    module: "finance.invoice",
     label: "Vendor invoice",
     where: "Project → Finance",
     steps: [
@@ -81,6 +94,7 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
   {
     id: "payment",
     engineId: "payment",
+    module: "finance.payment",
     label: "Payment request",
     where: "Project → Finance",
     steps: [
@@ -93,6 +107,7 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
   {
     id: "advance",
     engineId: "advance",
+    module: "finance.advance",
     label: "PO advance",
     where: "Project → Finance",
     steps: [
@@ -105,6 +120,7 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
   {
     id: "retention",
     engineId: "retention_early",
+    module: "finance.retention",
     label: "Early release of retention",
     where: "Project → Finance",
     steps: [
@@ -120,6 +136,7 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
   {
     id: "intent",
     engineId: "intent",
+    module: "procurement.intent",
     label: "Purchase intent",
     where: "Project → Purchase intents",
     steps: [
@@ -134,6 +151,7 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
   {
     id: "order",
     engineId: "order",
+    module: "procurement.order",
     label: "Purchase order",
     where: "Project → Purchase orders",
     steps: [
@@ -188,6 +206,7 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
   {
     id: "change",
     engineId: "change_order",
+    module: "project.change",
     label: "Change order",
     where: "Project → Change Order Register",
     steps: [
@@ -195,14 +214,15 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
       { label: "Approval stages", stages: true },
     ],
     rules: [
-      "Ticks are checked on the change order's project.",
-      "Full-access administrators can act on any stage, as a backup.",
+      "A project role named on a stage is checked on the change order's own project.",
+      "Full-access administrators are the backup on any stage; every such decision is recorded as an override.",
       "A change order keeps the stages it started with; editing them affects new ones only.",
     ],
   },
   {
     id: "brief",
     engineId: "brief",
+    module: "project.brief",
     label: "Brief",
     where: "Project → Briefs",
     steps: [
@@ -217,6 +237,7 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
   {
     id: "brief-revision",
     engineId: "brief_revision",
+    module: "project.brief",
     label: "Brief revision (after the Design Freeze)",
     where: "Project → Briefs",
     steps: [

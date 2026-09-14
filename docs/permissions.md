@@ -55,14 +55,38 @@ Every approval chain is described on Access Control → **Approval flows**
 (`/access/approvals`, `src/modules/access/approval-flows.ts`). Each flow has fixed
 WORK steps (log, pay, raise, book…) and APPROVAL stages between them.
 
-Flows on the approval engine (0089 — so far Petty Cash and Change orders) have
-editable stages (`approval_stages`): who approves (`tick` / `senior` to the
-requester / the requester's `dept_lead` / a `job_title`), which job titles skip
-it, an optional minimum amount, and whether the requester is blocked from their
-own item. Raising an item snapshots its applicable stages into an
-`approval_requests` row; `approval_decide()` moves it on and `approval_finish()`
-applies the outcome to the item. Full-access administrators can act on any stage,
-never on their own item. The remaining flows move onto the engine in batches.
+Flows on the approval engine (0089-0091) have editable stages
+(`approval_stages`). Since `0092` a stage **names one role and only that role may
+give it** (`approver = 'role'`, `role_id`):
+
+- a **job title** (`roles.department_id is null`) — held on `profiles.role_id`;
+- a department's **project role** — held on the item's OWN project, through
+  `project_members` or a "sees all projects" team membership
+  (`holds_role(role, project)`). A project role can only be named on a flow whose
+  items sit on a project (`approval_flows.has_project`), and only from a
+  department allotted that flow's module (`ApprovalFlow.module` →
+  `department_modules`) — a department that doesn't run the module has no
+  business approving it.
+
+The only other kind is `dept_lead` (the requester's department lead), which
+already named one position. A stage also carries the job titles that skip it, an
+optional minimum amount, and whether the requester is blocked from their own item.
+
+Three rules apply to every stage:
+
+- **One role, nobody else.** Ticks no longer open a stage; `approve` verbs still
+  gate the surrounding work steps (rejecting an invoice at booking, re-statusing
+  a vendor, approving a PO cancellation), not the stages.
+- **A fresh pair of eyes.** Whoever decided an earlier stage of the same item
+  cannot decide a later one — administrators included.
+- **The administrator backup is recorded.** A full-access administrator can still
+  act on any stage so nothing is ever stranded, but the decision is stamped
+  `approval_decisions.is_override` and written to the Activity Log as
+  `approval.override`.
+
+Raising an item snapshots its applicable stages into an `approval_requests` row;
+`approval_decide()` moves it on and `approval_finish()` applies the outcome to
+the item.
 
 ## Department leads
 

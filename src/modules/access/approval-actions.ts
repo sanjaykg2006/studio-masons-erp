@@ -4,10 +4,9 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/core/supabase/server";
 import { authorize } from "@/core/rbac/can";
-import { moduleResources } from "@/core/modules/registry";
 import { logAudit } from "@/modules/audit/log";
-import type { Action } from "@/core/rbac/types";
 import { APPROVERS, type Approver } from "@/modules/access/approval-engine";
+import { APPROVAL_FLOWS } from "@/modules/access/approval-flows";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 const ok: ActionResult = { ok: true };
@@ -21,19 +20,19 @@ export type StageInput = {
   flowId: string;
   label: string;
   approver: Approver;
-  resource: string | null;
-  action: Action | null;
-  jobTitleId: string | null;
+  /** The one role that may give the stage; required unless a department lead does. */
+  roleId: string | null;
   skipJobTitleIds: string[];
   minAmount: number | null;
   blockOwn: boolean;
-  orDeptLead: boolean;
 };
 
 /**
- * Add or edit an approval stage. Items already in progress keep the stages
- * they started with; this changes new ones only. The table's RLS re-checks
- * access:update.
+ * Add or edit an approval stage. A stage names ONE role and only that role may
+ * give it, so the role is required. A project role may only be named on a flow
+ * whose items belong to a project — off a project nobody could ever hold it.
+ * Items already in progress keep the stages they started with; this changes new
+ * ones only. The table's RLS re-checks access:update.
  */
 export async function saveApprovalStage(input: StageInput): Promise<ActionResult> {
   const denied = await authorize("access", "update");
@@ -42,34 +41,52 @@ export async function saveApprovalStage(input: StageInput): Promise<ActionResult
   const label = input.label.trim();
   if (!label) return fail("Give the stage a name.");
   if (!APPROVERS.includes(input.approver)) return fail("Choose who approves this stage.");
-  const needsTick = input.approver === "tick" || input.approver === "senior";
-  if (needsTick) {
-    const r = moduleResources().find((x) => x.id === input.resource);
-    if (!r || !input.action || !r.actions.includes(input.action)) {
-      return fail("Choose the tick that allows this stage.");
-    }
-  }
-  if (input.approver === "job_title" && !input.jobTitleId) {
-    return fail("Choose the job title that approves this stage.");
-  }
   if (input.minAmount != null && !(input.minAmount >= 0)) {
     return fail("The amount can't be negative.");
+  }
+
+  const supabase = await createClient();
+
+  if (input.approver === "role") {
+    if (!input.roleId) return fail("Choose the one role that approves this stage.");
+    const [{ data: role }, { data: flow }] = await Promise.all([
+      supabase.from("roles").select("label, department_id").eq("id", input.roleId).maybeSingle(),
+      supabase.from("approval_flows").select("has_project").eq("id", input.flowId).maybeSingle(),
+    ]);
+    if (!role) return fail("That role no longer exists.");
+    const r = role as { label: string; department_id: string | null };
+    if (r.department_id) {
+      if (!(flow as { has_project: boolean } | null)?.has_project) {
+        return fail(
+          `${r.label} is a project role, and these items don't belong to a project. Choose a job title instead.`
+        );
+      }
+      // Only a department that runs the module may approve its items.
+      const moduleId = APPROVAL_FLOWS.find((f) => f.engineId === input.flowId)?.module;
+      const { data: allotted } = await supabase
+        .from("department_modules")
+        .select("module_id")
+        .eq("department_id", r.department_id)
+        .eq("module_id", moduleId ?? "")
+        .maybeSingle();
+      if (!allotted) {
+        return fail(
+          `That department isn't allotted this module, so its ${r.label} can't approve these items.`
+        );
+      }
+    }
   }
 
   const row = {
     flow_id: input.flowId,
     label,
     approver: input.approver,
-    resource: needsTick ? input.resource : null,
-    action: needsTick ? input.action : null,
-    job_title_id: input.approver === "job_title" ? input.jobTitleId : null,
+    role_id: input.approver === "role" ? input.roleId : null,
     skip_job_title_ids: input.skipJobTitleIds,
     min_amount: input.minAmount,
     block_own: input.blockOwn,
-    or_dept_lead: input.orDeptLead,
   };
 
-  const supabase = await createClient();
   if (input.id) {
     const { error } = await supabase.from("approval_stages").update(row).eq("id", input.id);
     if (error) return fail(error.message);

@@ -5,9 +5,11 @@ import { effectiveHome, moduleResources } from "@/core/modules/registry";
 import { getStoredHomes } from "@/core/modules/homes";
 import { ACTION_LABEL, type Action } from "@/core/rbac/types";
 import {
+  stageNeedsRole,
   stageRules,
   type ApprovalStageRow,
   type EngineFlow,
+  type RoleOption,
 } from "@/modules/access/approval-engine";
 import {
   APPROVAL_FLOWS,
@@ -23,6 +25,8 @@ export type StepWho = {
   projectRoles: { department: string; role: string }[];
   /** People ticked on a department's People & Access. */
   people: { department: string; person: string }[];
+  /** People who hold a stage's project role on every project in a department. */
+  allProjects: { department: string; role: string; person: string }[];
   /** Department leads (for a "requester's department lead" stage). */
   leads: { department: string; person: string }[];
 };
@@ -33,6 +37,8 @@ export type StepView = FlowStep & {
   who: StepWho | null;
   /** Where the tick is given, per the module's current home. */
   changeAt: { label: string; href: string }[];
+  /** An approval stage with no usable role — only an administrator can give it. */
+  needsRole?: boolean;
 };
 
 export type FlowView = Omit<ApprovalFlow, "steps"> & {
@@ -54,6 +60,8 @@ type TeamRow = { department_id: string; user_id: string; resource: string; actio
 export async function getApprovalFlows(): Promise<{
   flows: FlowView[];
   jobTitles: { id: string; label: string }[];
+  /** Every role a stage can name, job titles first. */
+  roles: RoleOption[];
 }> {
   const supabase = await createClient();
   const [
@@ -64,6 +72,7 @@ export async function getApprovalFlows(): Promise<{
     deptsRes,
     deptModsRes,
     leadsRes,
+    allProjectsRes,
     flowsRes,
     stagesRes,
     homes,
@@ -75,11 +84,15 @@ export async function getApprovalFlows(): Promise<{
     supabase.from("departments").select("id, key, label"),
     supabase.from("department_modules").select("department_id, module_id"),
     supabase.from("department_leads").select("department_id, user_id"),
-    supabase.from("approval_flows").select("id, label, has_amount"),
+    supabase
+      .from("team_members")
+      .select("department_id, user_id, all_projects_role_id")
+      .eq("all_projects", true),
+    supabase.from("approval_flows").select("id, label, has_amount, has_project"),
     supabase
       .from("approval_stages")
       .select(
-        "id, flow_id, position, label, approver, resource, action, job_title_id, skip_job_title_ids, min_amount, block_own, or_dept_lead"
+        "id, flow_id, position, label, approver, role_id, skip_job_title_ids, min_amount, block_own"
       )
       .order("position"),
     getStoredHomes(),
@@ -100,12 +113,26 @@ export async function getApprovalFlows(): Promise<{
   const depts = (deptsRes.data ?? []) as { id: string; key: string; label: string }[];
   const deptMods = (deptModsRes.data ?? []) as { department_id: string; module_id: string }[];
   const leads = (leadsRes.data ?? []) as { department_id: string; user_id: string }[];
-  const engineFlows = (flowsRes.data ?? []) as Omit<EngineFlow, "stages">[];
+  const allProjects = (allProjectsRes.data ?? []) as {
+    department_id: string;
+    user_id: string;
+    all_projects_role_id: string | null;
+  }[];
+  const engineFlows = (flowsRes.data ?? []) as Omit<EngineFlow, "stages" | "roles">[];
   const stages = (stagesRes.data ?? []) as ApprovalStageRow[];
 
   const jobTitles = roles.filter((r) => !r.department_id);
   const titleLabel = (id: string) => jobTitles.find((t) => t.id === id)?.label ?? "a deleted job title";
   const deptLabel = new Map(depts.map((d) => [d.id, d.label]));
+  // Every role a stage can name: job titles first, then each department's
+  // project roles, so "Project Director" always reads with its department.
+  const roleOptions: RoleOption[] = roles.map((r) => ({
+    id: r.id,
+    label: r.label,
+    department: r.department_id ? deptLabel.get(r.department_id) ?? "—" : null,
+    departmentId: r.department_id,
+  }));
+  const roleOption = (id: string) => roleOptions.find((r) => r.id === id) ?? null;
   const name = (p: { full_name: string | null; email: string | null; id: string }) =>
     p.full_name ?? p.email ?? p.id;
   const holders = (roleId: string) => people.filter((p) => p.role_id === roleId).map(name);
@@ -127,6 +154,7 @@ export async function getApprovalFlows(): Promise<{
     jobTitles: [],
     projectRoles: [],
     people: [],
+    allProjects: [],
     leads: [],
   });
 
@@ -188,42 +216,83 @@ export async function getApprovalFlows(): Promise<{
         }
       : { ...step, tick: null, who: null, changeAt: [] };
 
-  // An engine stage as a step: its tick (if any), its rules, and who can give it.
+  // An engine stage as a step: the one role that may give it, its rules, and
+  // who holds that role right now.
   const stageStep = (s: ApprovalStageRow): StepView => {
-    const rule = stageRules(s, titleLabel).join(" ") || undefined;
-    const leadsWho = () =>
-      leads
-        .filter((l) => personName.has(l.user_id))
-        .map((l) => ({ department: deptLabel.get(l.department_id) ?? "—", person: personName.get(l.user_id)! }));
-
-    if ((s.approver === "tick" || s.approver === "senior") && s.resource && s.action) {
-      const step = tickStep({ label: s.label, resource: s.resource, action: s.action });
-      if (s.or_dept_lead && step.who) step.who.leads = leadsWho();
-      return { ...step, rule };
-    }
+    const rule = stageRules(s, roleOption, titleLabel).join(" ") || undefined;
     const who = emptyWho(wildcardFor(null));
-    if (s.approver === "job_title" && s.job_title_id) {
-      who.jobTitles = [{ label: titleLabel(s.job_title_id), people: holders(s.job_title_id) }];
+
+    if (s.approver === "dept_lead") {
+      who.leads = leads
+        .filter((l) => personName.has(l.user_id))
+        .map((l) => ({
+          department: deptLabel.get(l.department_id) ?? "—",
+          person: personName.get(l.user_id)!,
+        }));
+      return {
+        label: s.label,
+        rule,
+        tick: null,
+        who,
+        changeAt: [{ label: "Access Control → department leads", href: "/access" }],
+      };
     }
-    if (s.approver === "dept_lead" || s.or_dept_lead) who.leads = leadsWho();
+
+    const role = s.role_id ? roleOption(s.role_id) : null;
+    if (role && !role.departmentId) {
+      who.jobTitles = [{ label: role.label, people: holders(role.id) }];
+    } else if (role) {
+      // A project role is held per project, so the people who hold it on every
+      // project are the only ones that can be named here.
+      who.projectRoles = [{ department: role.department ?? "—", role: role.label }];
+      who.allProjects = allProjects
+        .filter((t) => t.all_projects_role_id === role.id && personName.has(t.user_id))
+        .map((t) => ({
+          department: deptLabel.get(t.department_id) ?? "—",
+          role: role.label,
+          person: personName.get(t.user_id)!,
+        }));
+    }
+
     return {
       label: s.label,
       rule,
       tick: null,
       who,
-      changeAt: [
-        {
-          label: s.approver === "dept_lead" ? "Access Control → department leads" : "Access Control → Members",
-          href: "/access",
-        },
-      ],
+      needsRole: stageNeedsRole(s) || (s.role_id !== null && role === null),
+      changeAt: role?.departmentId
+        ? [
+            { label: "Each project → Team", href: "/projects" },
+            {
+              label: `${role.department} → People & Access`,
+              href: `/departments/${role.departmentId}/people`,
+            },
+          ]
+        : [{ label: "Access Control → Members", href: "/access" }],
     };
+  };
+
+  // The roles a flow's stages may name: every job title, plus — for items that
+  // sit on a project — the project roles of the departments allotted that
+  // module. A department that doesn't run the module has no business approving
+  // it, so its roles are never offered.
+  const pickableRoles = (flow: ApprovalFlow, hasProject: boolean): RoleOption[] => {
+    const titles = roleOptions.filter((r) => !r.departmentId);
+    if (!hasProject || !flow.module) return titles;
+    const allotted = new Set(
+      deptMods.filter((m) => m.module_id === flow.module).map((m) => m.department_id)
+    );
+    return [...titles, ...roleOptions.filter((r) => r.departmentId && allotted.has(r.departmentId))];
   };
 
   const flows = APPROVAL_FLOWS.map((flow): FlowView => {
     const meta = flow.engineId ? engineFlows.find((f) => f.id === flow.engineId) : undefined;
     const engine: EngineFlow | undefined = meta
-      ? { ...meta, stages: stages.filter((s) => s.flow_id === meta.id) }
+      ? {
+          ...meta,
+          stages: stages.filter((s) => s.flow_id === meta.id),
+          roles: pickableRoles(flow, meta.has_project),
+        }
       : undefined;
     return {
       ...flow,
@@ -246,5 +315,9 @@ export async function getApprovalFlows(): Promise<{
     };
   });
 
-  return { flows, jobTitles: jobTitles.map((t) => ({ id: t.id, label: t.label })) };
+  return {
+    flows,
+    jobTitles: jobTitles.map((t) => ({ id: t.id, label: t.label })),
+    roles: roleOptions,
+  };
 }

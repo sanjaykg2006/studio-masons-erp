@@ -27,6 +27,7 @@ export const procurementModule: ModuleDefinition = {
       id: "procurement.vendor",
       label: "Procurement · Vendors",
       actions: ["read", "create", "update", "approve", "delete"],
+      note: "Approve = re-status a decided vendor; the first approval is set on Approval flows",
       homes: ["department", "company"],
     },
     {
@@ -40,17 +41,19 @@ export const procurementModule: ModuleDefinition = {
     {
       id: "procurement.intent",
       label: "Procurement · Purchase intents",
-      // approve = the Director's sign-off on a raised intent.
-      actions: ["read", "create", "approve"],
+      actions: ["read", "create"],
+      note: "Who signs an intent off is set on Access Control → Approval flows",
       homes: ["project", "department"],
       projectLink: { segment: "intents", icon: FileText },
     },
     {
       id: "procurement.order",
       label: "Procurement · Purchase orders",
-      // issue = record/release a PO; review = Finance; approve = Director;
+      // issue = record/release a PO; approve = approve a cancellation;
       // manage = the senior sign-off that clears an over-budget PO for release.
-      actions: ["read", "update", "review", "approve", "issue", "manage"],
+      // Signing a PO off is an approval stage, not a tick.
+      actions: ["read", "update", "approve", "issue", "manage"],
+      note: "Approve = approve a cancellation; signing a PO off is set on Approval flows",
       homes: ["project", "department"],
       projectLink: { segment: "orders", icon: ShoppingCart },
     },

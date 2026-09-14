@@ -145,15 +145,16 @@ $$;
 revoke execute on function public.holds_role(uuid, uuid) from public, anon, authenticated;
 
 -- ── 4. Who may act on the stage an item is waiting on ────────────────────────
--- NULL = they may. p_strict leaves out the administrator backup, so
--- approval_decide can tell a real approval from an override.
-drop function if exists public.approval_block_reason(uuid);
-
-create or replace function public.approval_block_reason(
-  p_request uuid,
-  p_strict  boolean default false
-)
-returns text
+-- Split in two so a decision can tell a real approval from an administrator
+-- stepping in. approval_block_reason keeps its exact signature: RLS policies
+-- depend on it (pettycash_entries_select), so it can only be replaced in place.
+--
+-- Some reasons are ABSOLUTE — nobody passes them, administrators included:
+-- your own request, and a stage when you already gave an earlier one of the
+-- same item. The rest are the stage's own rule, which the administrator backup
+-- may pass, and approval_decide then records that as an override.
+create or replace function public.approval_stage_block(p_request uuid)
+returns table (reason text, is_absolute boolean)
 language plpgsql stable security definer set search_path = public
 as $$
 declare
@@ -164,14 +165,18 @@ declare
   v_who   text;
 begin
   select * into r from public.approval_requests where id = p_request;
-  if not found then return 'Approval not found'; end if;
-  if r.status <> 'pending' then return 'This is no longer waiting for approval'; end if;
+  if not found then return query select 'Approval not found', true; return; end if;
+  if r.status <> 'pending' then
+    return query select 'This is no longer waiting for approval', true; return;
+  end if;
   s := r.stages -> r.current;
-  if s is null then return 'Nothing is waiting for approval'; end if;
+  if s is null then
+    return query select 'Nothing is waiting for approval', true; return;
+  end if;
   v_label := s ->> 'label';
 
   if coalesce((s ->> 'block_own')::boolean, true) and r.requester = auth.uid() then
-    return 'You can''t approve or reject your own request';
+    return query select 'You can''t approve or reject your own request', true; return;
   end if;
 
   -- Every stage needs a fresh pair of eyes — administrators included.
@@ -179,8 +184,10 @@ begin
     select 1 from public.approval_decisions d
     where d.request_id = p_request and d.decided_by = auth.uid()
   ) then
-    return 'You already gave an earlier step of this approval — "' || v_label
-           || '" needs a different person';
+    return query select
+      'You already gave an earlier step of this approval — "' || v_label
+      || '" needs a different person', true;
+    return;
   end if;
 
   if s ->> 'approver' = 'dept_lead' then
@@ -196,12 +203,14 @@ begin
           )
         )
     ) then
-      return null;
+      return query select null::text, false; return;
     end if;
     v_who := 'only the requester''s department lead can give it';
   else
     v_role := nullif(s ->> 'role_id', '')::uuid;
-    if public.holds_role(v_role, r.project_id) then return null; end if;
+    if public.holds_role(v_role, r.project_id) then
+      return query select null::text, false; return;
+    end if;
     v_who := case
       when v_role is null then
         'it has no approving role yet — one is chosen on Access Control, Approval flows'
@@ -211,10 +220,24 @@ begin
     end;
   end if;
 
-  -- The backup, so an approval can never be stranded. Recorded as an override.
-  if not p_strict and public.has_full_access() then return null; end if;
-  return 'This is waiting for "' || v_label || '" — ' || v_who;
+  return query select 'This is waiting for "' || v_label || '" — ' || v_who, false;
 end;
+$$;
+
+revoke execute on function public.approval_stage_block(uuid) from public, anon, authenticated;
+
+-- What the screens and policies ask: the stage's rule, plus the full-access
+-- administrator backup so an approval can never be stranded.
+create or replace function public.approval_block_reason(p_request uuid)
+returns text
+language sql stable security definer set search_path = public
+as $$
+  select case
+    when b.reason is null then null
+    when not b.is_absolute and public.has_full_access() then null
+    else b.reason
+  end
+  from public.approval_stage_block(p_request) b;
 $$;
 
 -- ── 5. Snapshotting and deciding ─────────────────────────────────────────────
@@ -284,7 +307,7 @@ begin
   if v_reason is not null then raise exception '%', v_reason; end if;
 
   -- Did they satisfy the stage themselves, or step in as an administrator?
-  v_override := public.approval_block_reason(p_request, true) is not null;
+  v_override := (select b.reason from public.approval_stage_block(p_request) b) is not null;
   v_label := r.stages -> r.current ->> 'label';
 
   insert into public.approval_decisions

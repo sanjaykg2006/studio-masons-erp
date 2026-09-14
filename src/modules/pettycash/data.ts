@@ -11,12 +11,11 @@ export async function listPettyCashEntries(): Promise<PettyCashEntry[]> {
 }
 
 /** Whether the caller sees everyone's entries, not just their own: "See all
- * claims", or any of the three steps — the same rule as pettycash_sees_all(). */
+ * claims" or Pay — the same rule as pettycash_sees_all(). Whoever an approval
+ * stage is waiting on sees that one claim through its own policy. */
 export async function canSeeAllPettyCash(): Promise<boolean> {
   const checks = await Promise.all([
     can("pettycash.entry", "read"),
-    can("pettycash.billing", "approve"),
-    can("pettycash.senior", "approve"),
     can("pettycash.pay", "issue"),
   ]);
   return checks.some(Boolean);

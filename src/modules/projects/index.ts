@@ -47,7 +47,8 @@ export const projectsModule: ModuleDefinition = {
     {
       id: "project.brief",
       label: "Project · Briefs",
-      actions: ["read", "create", "update", "review", "approve", "delete"],
+      actions: ["read", "create", "update", "review", "delete"],
+      note: "Who approves a brief or a revision is set on Access Control → Approval flows",
       homes: ["project"],
       whyNot: MEMBERSHIP_ONLY,
     },
@@ -63,10 +64,10 @@ export const projectsModule: ModuleDefinition = {
     {
       id: "project.change",
       label: "Project · Change orders",
-      // read = see the Change Order Register · create = raise one ·
-      // approve = approve or reject one (0087). Project-scoped, so it may also
-      // be ticked per person (then on every project).
-      actions: ["read", "create", "approve"],
+      // read = see the Change Order Register · create = raise one. Project-
+      // scoped, so it may also be ticked per person (then on every project).
+      actions: ["read", "create"],
+      note: "Who approves a change order is set on Access Control → Approval flows",
       homes: ["project", "department"],
     },
     {

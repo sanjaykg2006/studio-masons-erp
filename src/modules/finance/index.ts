@@ -14,13 +14,16 @@ import type { ModuleDefinition } from "@/core/modules/registry";
  * `finance.invoice` projectLink surfaces a "Finance" card). Every verb here
  * mirrors what migration 0060 enforces.
  *
- *   finance.invoice   create → PM · approve → Project Director · review → Accounts
- *                     (books it) · manage → PD/MD (PO-cap override)
- *   finance.payment   create → PM · approve → Project Director · issue → Accounts (pay)
+ * Since 0092 the sign-offs themselves are approval STAGES, each naming one role
+ * on Access Control → Approval flows — not ticks. What is left here is the work
+ * either side of a stage:
+ *   finance.invoice   create → PM · review → Accounts (books it, and may reject
+ *                     one) · approve → also lets Accounts reject · manage →
+ *                     PD/MD (PO-cap override)
+ *   finance.payment   create → PM · issue → Accounts (pay)
  *   finance.retention issue → Accounts (pay) · update → Director (request early) ·
  *                     manage → MD (approve early release)
- *   finance.advance   update → request/terms · approve → Project Director · issue →
- *                     Accounts (pay)
+ *   finance.advance   update → request/terms · issue → Accounts (pay)
  *   finance.settings  manage → Finance/Billing (billing branches)
  */
 export const financeModule: ModuleDefinition = {
@@ -36,13 +39,15 @@ export const financeModule: ModuleDefinition = {
       id: "finance.invoice",
       label: "Finance · Vendor invoices",
       actions: ["read", "create", "approve", "review", "manage", "delete"],
+      note: "Approve = may also reject at booking; the sign-off itself is set on Approval flows",
       homes: ["project", "department"],
       projectLink: { segment: "finance", icon: Receipt },
     },
     {
       id: "finance.payment",
       label: "Finance · Payment requests",
-      actions: ["read", "create", "approve", "issue"],
+      actions: ["read", "create", "issue"],
+      note: "Who approves a request is set on Access Control → Approval flows",
       homes: ["project", "department"],
     },
     {
@@ -54,7 +59,8 @@ export const financeModule: ModuleDefinition = {
     {
       id: "finance.advance",
       label: "Finance · Advances & PO terms",
-      actions: ["read", "update", "approve", "issue"],
+      actions: ["read", "update", "issue"],
+      note: "Who approves an advance is set on Access Control → Approval flows",
       homes: ["project", "department"],
     },
     {

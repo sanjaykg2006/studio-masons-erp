@@ -34,6 +34,7 @@ export default async function AccessPage() {
       id: r.id,
       label: r.label,
       actions: r.actions,
+      ...(r.note ? { note: r.note } : {}),
       home: effectiveHome(r, homes.get(r.id)),
       homes: r.homes,
       whyNot: r.whyNot,

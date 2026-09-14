@@ -13,6 +13,8 @@ export type AccessResource = {
   id: string;
   label: string;
   actions: Action[];
+  /** A short hint under the row label — what a tick here actually does. */
+  note?: string;
   /** Where it is set now (stored choice, else its default); null = no matrix
    * row of its own (e.g. Controlled Folder Access). Set by the Access page. */
   home?: ModuleHome | null;
@@ -86,14 +88,21 @@ export function PermissionMatrix({
                     (general)
                   </span>
                 )}
+                {res.note && (
+                  <span className="text-muted-foreground block text-xs font-normal">
+                    {res.note}
+                  </span>
+                )}
               </td>
               {ACTIONS.map((action) => {
-                // Business modules are fully open (every verb grantable);
-                // general/admin modules keep their declared verb set.
-                const supported = generalSet.has(res.id)
-                  ? res.actions.includes(action)
-                  : true;
+                // Only the verbs a module declares; a tick on any other would
+                // have no effect. A grant left over from before a verb was
+                // retired still shows, so it can be cleared.
                 const isWildcard = wildcard.has(`${role.id}:${action}`);
+                const stale =
+                  !res.actions.includes(action) &&
+                  granted.has(grantKey(role.id, res.id, action));
+                const supported = res.actions.includes(action) || stale;
                 const checked =
                   isWildcard || granted.has(grantKey(role.id, res.id, action));
                 return (
@@ -104,7 +113,13 @@ export function PermissionMatrix({
                         className="size-4 accent-primary"
                         checked={checked}
                         disabled={disabled || isWildcard}
-                        title={isWildcard ? "Granted system-wide (★)" : undefined}
+                        title={
+                          isWildcard
+                            ? "Granted system-wide (★)"
+                            : stale
+                              ? "Left over — this verb no longer does anything here. Untick to clear it."
+                              : undefined
+                        }
                         onChange={(e) =>
                           onToggle(res.id, action, e.target.checked)
                         }

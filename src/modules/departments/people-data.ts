@@ -93,7 +93,12 @@ export async function getDepartmentPeopleData(
           (allotted.has(r.id) && effectiveHome(r, homes.get(r.id)) === "department")
       )
       .sort((a, b) => Number(Boolean(b.everyDepartment)) - Number(Boolean(a.everyDepartment)))
-      .map((r) => ({ id: r.id, label: r.label, actions: r.actions })),
+      .map((r) => ({
+        id: r.id,
+        label: r.label,
+        actions: r.actions,
+        ...(r.note ? { note: r.note } : {}),
+      })),
     subteams: (subteamsRes.data ?? []) as SubteamRef[],
     subteamMembers: (subMembersRes.data ?? []) as SubteamMembership[],
   };

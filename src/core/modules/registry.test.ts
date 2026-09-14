@@ -34,12 +34,16 @@ describe("moduleResources", () => {
     expect(get("access").actions).toEqual(["create", "read", "update", "delete"]);
   });
 
-  it("exposes the enforced governance verbs on the brief resource", () => {
+  it("declares only verbs something actually checks", () => {
     const brief = get("project.brief");
     expect(brief.actions).toContain("review");
-    expect(brief.actions).toContain("approve");
-    // "issue" was removed — it was declared but never checked anywhere.
+    // "issue" was never checked anywhere; "approve" stopped being checked when
+    // approving a brief became an approval stage naming one role (0092).
     expect(brief.actions).not.toContain("issue");
+    expect(brief.actions).not.toContain("approve");
+    for (const id of ["procurement.intent", "finance.payment", "finance.advance", "project.change"]) {
+      expect(get(id).actions, id).not.toContain("approve");
+    }
   });
 });
 
@@ -66,14 +70,15 @@ describe("where each module is set", () => {
     expect(effectiveHome(get("procurement.order"))).toBe("project");
     expect(effectiveHome(get("finance.invoice"))).toBe("project");
     expect(effectiveHome(get("project.template"))).toBe("project");
-    // Change orders have their own row (0087): view, raise and approve.
+    // Change orders have their own row (0087): view and raise. Approving one
+    // is an approval stage, not a tick (0092).
     expect(effectiveHome(get("project.change"))).toBe("project");
-    expect(get("project.change").actions).toEqual(["read", "create", "approve"]);
+    expect(get("project.change").actions).toEqual(["read", "create"]);
     expect(effectiveHome(get("procurement.vendor"))).toBe("department");
     expect(effectiveHome(get("inventory.asset"))).toBe("department");
     expect(effectiveHome(get("audit"))).toBe("department");
     expect(effectiveHome(get("dashboard"))).toBe("company");
-    expect(effectiveHome(get("pettycash.senior"))).toBe("company");
+    expect(effectiveHome(get("pettycash.entry"))).toBe("company");
   });
 
   it("keeps project visibility on project roles only", () => {
@@ -96,7 +101,7 @@ describe("where each module is set", () => {
       "inventory.asset",
       "finance.settings",
       "design.template",
-      "pettycash.billing",
+      "pettycash.entry",
       "pettycash.pay",
       "audit",
       "errorlog",

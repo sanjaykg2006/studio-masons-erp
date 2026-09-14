@@ -340,14 +340,23 @@ export function PeopleAccessView({
                         <tbody>
                           {resources.map((res) => (
                             <tr key={res.id} className="border-b last:border-0">
-                              <td className="py-2 font-medium">{res.label}</td>
+                              <td className="py-2 font-medium">
+                                {res.label}
+                                {res.note && (
+                                  <span className="text-muted-foreground block text-xs font-normal">
+                                    {res.note}
+                                  </span>
+                                )}
+                              </td>
                               {ACTIONS.map((action) => {
-                                if (!res.actions.includes(action)) {
-                                  return <td key={action} />;
-                                }
                                 const checked = granted.has(
                                   cellKey(selectedUserId, res.id, action)
                                 );
+                                // Only the verbs this area declares; a leftover
+                                // grant still shows so it can be cleared.
+                                if (!res.actions.includes(action) && !checked) {
+                                  return <td key={action} />;
+                                }
                                 return (
                                   <td key={action} className="py-2 text-center">
                                     <input

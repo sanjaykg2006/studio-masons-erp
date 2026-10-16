@@ -42,6 +42,13 @@ export async function getOrder(
   ]);
   const order = ((header ?? []) as OrderDetail[])[0];
   if (!order) return null;
+  order.wait_reason = null;
+  if (order.approval_status === "pending" && !order.can_decide && order.approval_id) {
+    const { data: reason } = await supabase.rpc("approval_wait_reason", {
+      p_request: order.approval_id,
+    });
+    order.wait_reason = (reason as string | null) ?? null;
+  }
   return { order, lines: (lines ?? []) as OrderLine[] };
 }
 

@@ -292,6 +292,8 @@ export type OrderDetail = {
   approval_status: "pending" | "approved" | "rejected" | null;
   stage_label: string | null;
   can_decide: boolean;
+  /** Why the viewer can't decide the waiting stage (set by getOrder). */
+  wait_reason: string | null;
 };
 
 /** A PO line from get_order_lines, with the budgeted rate and received-so-far. */

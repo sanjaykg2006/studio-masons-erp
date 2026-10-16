@@ -339,6 +339,11 @@ export function OrderDetailView({
             ) : order.approval_status === "pending" ? (
               <span className="flex flex-wrap items-center gap-2">
                 <span>Waiting for {order.stage_label ?? "approval"}</span>
+                {order.wait_reason && (
+                  <span className="text-muted-foreground basis-full text-xs">
+                    {order.wait_reason}
+                  </span>
+                )}
                 {order.can_decide && order.approval_id && (
                   <>
                     <Button

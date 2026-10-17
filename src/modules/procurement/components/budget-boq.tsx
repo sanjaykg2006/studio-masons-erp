@@ -21,6 +21,7 @@ import {
   addPackage,
   deleteLine,
   deletePackage,
+  discardBudgetDraft,
   newBudgetVersion,
   releaseBudget,
   renamePackage,
@@ -59,6 +60,23 @@ export function BudgetBoq({
   // Editing is only possible on a DRAFT version, by someone with the edit verb.
   const editable = canEdit && current?.status === "draft";
   const isLatest = current && versions[0]?.id === current.id;
+  // Whoever could make this draft may throw it away: create for v1, approve after.
+  const canDiscard =
+    current?.status === "draft" && (current.version_no === 1 ? canCreate : canApprove);
+
+  const discard = () => {
+    const msg =
+      current!.version_no === 1
+        ? "Discard this budget draft? Its packages and lines are deleted and the project goes back to having no budget."
+        : `Discard draft v${current!.version_no}? Its changes are deleted and v${current!.version_no - 1} stays the current budget.`;
+    if (!confirm(msg)) return;
+    startTransition(async () => {
+      setError(null);
+      const res = await discardBudgetDraft(projectId, current!.id);
+      if (!res.ok) setError(res.error);
+      else router.push(`/projects/${projectId}/budget`);
+    });
+  };
 
   const run = (fn: () => Promise<Result>) =>
     startTransition(async () => {
@@ -125,6 +143,11 @@ export function BudgetBoq({
               onClick={() => run(() => releaseBudget(projectId, current!.id))}
             >
               Release
+            </Button>
+          )}
+          {canDiscard && (
+            <Button size="sm" variant="outline" disabled={pending} onClick={discard}>
+              <Trash2 className="size-4" /> Discard draft
             </Button>
           )}
           {current?.status === "released" && isLatest && canApprove && (

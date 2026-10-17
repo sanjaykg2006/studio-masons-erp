@@ -35,6 +35,16 @@ export async function releaseBudget(projectId: string, budgetId: string): Promis
   return ok;
 }
 
+/** Throw away an unreleased draft started by mistake (refused once anything uses it). */
+export async function discardBudgetDraft(projectId: string, budgetId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("discard_budget_draft", { p_budget: budgetId });
+  if (error) return fail(error.message);
+  await logAudit("procurement.budget.discard", "Discarded a budget draft", { projectId, budgetId });
+  refresh(projectId);
+  return ok;
+}
+
 /** Open a fresh draft copied from the latest released version (needs approve). */
 export async function newBudgetVersion(projectId: string): Promise<ActionResult> {
   const supabase = await createClient();

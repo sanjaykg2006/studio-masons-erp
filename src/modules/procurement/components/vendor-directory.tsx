@@ -5,6 +5,7 @@ import { Fragment, type FormEvent, useState, useTransition } from "react";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import type { RejectionNote } from "@/modules/access/rejection-notes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -68,12 +69,15 @@ export function VendorDirectory({
   canUpdate,
   canApprove,
   canDelete,
+  rejections,
 }: {
   vendors: Vendor[];
   canCreate: boolean;
   canUpdate: boolean;
   canApprove: boolean;
   canDelete: boolean;
+  /** Why each rejected vendor was turned down, by vendor id. */
+  rejections: Record<string, RejectionNote>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -183,6 +187,11 @@ export function VendorDirectory({
                         {v.status === "draft" && v.stage_label && (
                           <span className="text-muted-foreground block text-[10px]">
                             waiting for {v.stage_label}
+                          </span>
+                        )}
+                        {v.status === "rejected" && rejections[v.id]?.note && (
+                          <span className="text-destructive block text-[10px]">
+                            “{rejections[v.id].note}”
                           </span>
                         )}
                       </td>

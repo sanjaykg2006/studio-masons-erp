@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { requirePermission, can } from "@/core/rbac/can";
 import { listVendors } from "@/modules/procurement/data";
+import { getRejectionNotes } from "@/modules/access/rejection-notes";
 import { VendorDirectory } from "@/modules/procurement/components/vendor-directory";
 
 /** The Procurement department's global vendor directory (slice 1). */
@@ -15,6 +16,10 @@ export default async function ProcurementVendorsPage() {
     can("procurement.vendor", "approve"),
     can("procurement.vendor", "delete"),
   ]);
+  const rejections = await getRejectionNotes(
+    "vendor",
+    vendors.filter((v) => v.status === "rejected").map((v) => v.id)
+  );
   return (
     <div className="space-y-6">
       <Link
@@ -29,6 +34,7 @@ export default async function ProcurementVendorsPage() {
         canUpdate={canUpdate}
         canApprove={canApprove}
         canDelete={canDelete}
+        rejections={rejections}
       />
     </div>
   );

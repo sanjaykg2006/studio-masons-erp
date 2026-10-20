@@ -4,6 +4,7 @@ import { createClient } from "@/core/supabase/server";
 import { requireProjectPermission, canOnProject } from "@/core/rbac/can";
 import { listProjectIntents, listReleasedBudgetLines } from "@/modules/procurement/intent-data";
 import { Intents } from "@/modules/procurement/components/intents";
+import { getRejectionNotes } from "@/modules/access/rejection-notes";
 
 /** A project's purchase intents (Procurement slice 3). */
 export default async function ProjectIntentsPage({
@@ -28,6 +29,10 @@ export default async function ProjectIntentsPage({
     canOnProject(projectId, "procurement.intent", "create"),
     canOnProject(projectId, "procurement.order", "issue"),
   ]);
+  const rejections = await getRejectionNotes(
+    "intent",
+    intents.filter((i) => i.status === "rejected").map((i) => i.id)
+  );
 
   return (
     <Intents
@@ -37,6 +42,7 @@ export default async function ProjectIntentsPage({
       releasedLines={releasedLines}
       canCreate={canCreate}
       canOrder={canOrder}
+      rejections={rejections}
     />
   );
 }

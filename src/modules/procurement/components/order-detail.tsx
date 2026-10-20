@@ -7,6 +7,8 @@ import { ArrowLeft, Check, Download, Undo2, Upload } from "lucide-react";
 
 import { sendWithFiles } from "@/core/uploads/client";
 import { cn } from "@/lib/utils";
+import { RejectionNote } from "@/modules/access/components/rejection-note";
+import type { RejectionNote as Rejection } from "@/modules/access/rejection-notes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -65,6 +67,7 @@ export function OrderDetailView({
   branches,
   receipts,
   invoices,
+  rejection,
 }: {
   projectId: string;
   order: OrderDetail;
@@ -76,6 +79,8 @@ export function OrderDetailView({
   receipts: OrderReceipt[];
   /** Invoices already booked against this PO, for the receipt picker. */
   invoices: { id: string; label: string; vendor_invoice_date: string }[];
+  /** Why sign-off was last refused, while it stands refused. */
+  rejection?: Rejection;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -219,6 +224,8 @@ export function OrderDetailView({
           )}
         </div>
       </div>
+
+      <RejectionNote note={rejection} label="Sign-off refused" />
 
       {error && (
         <div className="border-destructive/50 bg-destructive/10 text-destructive rounded-md border px-4 py-2 text-sm">

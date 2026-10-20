@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { requireProjectPermission } from "@/core/rbac/can";
+import { getRejectionNotes } from "@/modules/access/rejection-notes";
 import { getBriefDetail } from "@/modules/projects/data";
 import { BriefForm } from "@/modules/projects/components/brief-form";
 
@@ -14,6 +15,10 @@ export default async function BriefPage({
 
   const detail = await getBriefDetail(briefId);
   if (!detail || detail.brief.project_id !== projectId) notFound();
+  const [briefNotes, revisionNotes] = await Promise.all([
+    getRejectionNotes("brief", [briefId]),
+    getRejectionNotes("brief_revision", [briefId]),
+  ]);
 
   return (
     <BriefForm
@@ -29,6 +34,7 @@ export default async function BriefPage({
       canProposeRevision={detail.canProposeRevision}
       briefApproval={detail.briefApproval}
       revisionApproval={detail.revisionApproval}
+      rejection={revisionNotes[briefId] ?? briefNotes[briefId]}
     />
   );
 }

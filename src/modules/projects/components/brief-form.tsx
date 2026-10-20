@@ -28,6 +28,8 @@ import {
 } from "@/modules/projects/actions";
 import type { ApprovalState } from "@/modules/projects/data";
 import { BriefStatusBadge } from "@/modules/projects/components/status-badge";
+import { RejectionNote } from "@/modules/access/components/rejection-note";
+import type { RejectionNote as Rejection } from "@/modules/access/rejection-notes";
 
 type Props = {
   projectId: string;
@@ -43,6 +45,8 @@ type Props = {
   /** The stage the submitted brief / revision waits on, if any. */
   briefApproval: ApprovalState | null;
   revisionApproval: ApprovalState | null;
+  /** Why it was last sent back, while it stands sent back. */
+  rejection?: Rejection;
 };
 
 export function BriefForm({
@@ -58,6 +62,7 @@ export function BriefForm({
   canProposeRevision,
   briefApproval,
   revisionApproval,
+  rejection,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -217,6 +222,8 @@ export function BriefForm({
               : "You have read-only access to this brief."}
         </div>
       )}
+
+      <RejectionNote note={rejection} label="Sent back for changes" />
 
       {error && (
         <div className="border-destructive/50 bg-destructive/10 text-destructive rounded-md border px-4 py-2 text-sm">

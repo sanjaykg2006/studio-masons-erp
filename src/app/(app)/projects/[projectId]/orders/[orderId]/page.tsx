@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { requireProjectPermission } from "@/core/rbac/can";
+import { getRejectionNotes } from "@/modules/access/rejection-notes";
 import {
   getOrder,
   getOrderProjectHeader,
@@ -19,13 +20,14 @@ export default async function OrderPage({
   const { projectId, orderId } = await params;
   await requireProjectPermission(projectId, "procurement.order", "read");
 
-  const [loaded, project, branches, receipts, invoices] = await Promise.all([
+  const [loaded, project, branches, receipts, invoices, refusals] = await Promise.all([
     getOrder(orderId),
     getOrderProjectHeader(projectId),
     // The PO billing block prints from Finance's list, never from a copy in code.
     listBillingBranches(true),
     listOrderReceipts(orderId),
     listOrderInvoices(orderId),
+    getRejectionNotes("order", [orderId]),
   ]);
   if (!loaded) notFound();
 
@@ -38,6 +40,7 @@ export default async function OrderPage({
       receipts={receipts}
       invoices={invoices}
       branches={branches}
+      rejection={refusals[orderId]}
     />
   );
 }

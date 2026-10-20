@@ -6,6 +6,7 @@ import { type FormEvent, useState, useTransition } from "react";
 import { ArrowLeft, Check, Plus, Trash2, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import type { RejectionNote } from "@/modules/access/rejection-notes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -49,6 +50,7 @@ export function Intents({
   releasedLines,
   canCreate,
   canOrder,
+  rejections,
 }: {
   projectId: string;
   projectName: string;
@@ -57,6 +59,8 @@ export function Intents({
   canCreate: boolean;
   /** Procurement Manager (procurement.order:issue) — may enter vendor rates. */
   canOrder: boolean;
+  /** Why each rejected intent was turned down, by intent id. */
+  rejections: Record<string, RejectionNote>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -161,6 +165,9 @@ export function Intents({
                     {it.needed_by && ` · needed by ${it.needed_by}`}
                     {it.approver_name && ` · ${it.status} by ${it.approver_name}`}
                     {it.status === "pending" && it.stage_label && ` · waiting for ${it.stage_label}`}
+                    {it.status === "rejected" && rejections[it.id]?.note && (
+                      <span className="text-destructive"> · “{rejections[it.id].note}”</span>
+                    )}
                   </div>
                 </button>
                 <div className="flex shrink-0 items-center gap-1">

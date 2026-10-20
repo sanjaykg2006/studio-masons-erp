@@ -41,7 +41,23 @@ async function authorizeAnyTemplate(
 
 // ============================== TEMPLATES ====================================
 
-/** Create a new template in the given library with an empty draft v1. */
+/** The answer columns a new template starts with — those of the seeded ones. */
+const DEFAULT_COLUMNS: Record<Discipline, { key: string; label: string; kind: string }[]> = {
+  interior: [
+    { key: "yes_no", label: "Yes / No", kind: "yes_no" },
+    { key: "response", label: "Response", kind: "longtext" },
+    { key: "remarks", label: "Remarks", kind: "text" },
+  ],
+  mep: [
+    { key: "option_1", label: "Option-1", kind: "text" },
+    { key: "option_2", label: "Option-2", kind: "text" },
+    { key: "consultant_rec", label: "Consultant's Recommendation", kind: "longtext" },
+    { key: "client_response", label: "Client Response", kind: "longtext" },
+    { key: "remarks", label: "Remarks", kind: "text" },
+  ],
+};
+
+/** Create a new template in the given library with a draft v1 (columns, no questions). */
 export async function createTemplate(
   label: string,
   discipline: Discipline,
@@ -73,10 +89,19 @@ export async function createTemplate(
   if (error)
     return fail(error.code === "23505" ? "A template with that name exists." : error.message);
 
-  const { error: vErr } = await supabase
+  const { data: ver, error: vErr } = await supabase
     .from("design_template_versions")
-    .insert({ template_id: tpl.id, version_no: 1, status: "draft" });
+    .insert({ template_id: tpl.id, version_no: 1, status: "draft" })
+    .select("id")
+    .single();
   if (vErr) return fail(vErr.message);
+
+  // There is no column editor, so a template would otherwise have no answer
+  // fields at all. Start it with the same columns as the built-in one.
+  const { error: cErr } = await supabase
+    .from("design_template_columns")
+    .insert(DEFAULT_COLUMNS[discipline].map((c, sort) => ({ ...c, sort, version_id: ver.id })));
+  if (cErr) return fail(cErr.message);
 
   await logAudit("design.template.create", `Created template "${trimmed}"`, { key });
   revalidatePath(scope === "design" ? "/design/templates" : "/projects/templates");

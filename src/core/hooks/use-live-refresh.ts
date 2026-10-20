@@ -12,6 +12,41 @@ const DEFAULT_INTERVAL_MS = 30_000;
 const MIN_GAP_MS = 2_000;
 
 /**
+ * How long after a click or keypress a background refresh waits. A refresh
+ * that lands while a save is still in flight makes Next drop the save's reply:
+ * the data is saved but the screen stays greyed out until a reload. Saves
+ * start on a click or Enter, so holding refreshes back until the person has
+ * been idle this long keeps them out of each other's way.
+ */
+const QUIET_MS = 4_000;
+
+let lastInput = 0;
+let deferred: ReturnType<typeof setTimeout> | null = null;
+if (typeof window !== "undefined") {
+  const mark = () => {
+    lastInput = Date.now();
+  };
+  // Capture phase, so it is stamped before the click's own handlers (and
+  // before the window "focus" a click from another app fires).
+  window.addEventListener("pointerdown", mark, true);
+  window.addEventListener("keydown", mark, true);
+}
+
+/** router.refresh(), but never within QUIET_MS of the person's last input. */
+function refreshWhenQuiet(refresh: () => void) {
+  const wait = lastInput + QUIET_MS - Date.now();
+  if (wait <= 0) {
+    refresh();
+    return;
+  }
+  if (deferred) return; // one is already waiting; it will catch this change too
+  deferred = setTimeout(() => {
+    deferred = null;
+    refreshWhenQuiet(refresh);
+  }, wait);
+}
+
+/**
  * Keep the current page reasonably fresh without the user reloading.
  *
  * The ERP is server-rendered: your OWN actions re-render the page via
@@ -33,7 +68,7 @@ export function useAutoRefresh(intervalMs: number = DEFAULT_INTERVAL_MS) {
       const now = Date.now();
       if (now - lastRef.current < MIN_GAP_MS) return;
       lastRef.current = now;
-      router.refresh();
+      refreshWhenQuiet(() => router.refresh());
     };
 
     const start = () => {
@@ -116,7 +151,7 @@ export function useRealtimeRefresh(
         "postgres_changes",
         { event: "*", schema: "public", table, ...(filter ? { filter } : {}) },
         () => {
-          router.refresh();
+          refreshWhenQuiet(() => router.refresh());
           onChangeRef.current?.();
         }
       );

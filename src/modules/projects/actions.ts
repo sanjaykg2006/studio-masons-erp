@@ -96,7 +96,8 @@ export async function updateProject(
     })
     .eq("id", projectId);
   if (error) return fail(error.message);
-  await logAudit("project.update", "Updated a project", { projectId });
+  await logAudit("project.update", `Updated project "${name}"`, { projectId });
+  revalidatePath("/projects");
   revalidatePath(`/projects/${projectId}`);
   return ok;
 }

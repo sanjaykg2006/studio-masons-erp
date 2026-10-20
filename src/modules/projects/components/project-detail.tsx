@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ArrowLeft, FileText, Lock, Snowflake, Trash2, UserPlus } from "lucide-react";
+import { ArrowLeft, FileText, Lock, Pencil, Snowflake, Trash2, UserPlus } from "lucide-react";
 
 import { projectLinkModules } from "@/core/modules/registry";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -35,6 +36,7 @@ import {
   freezeProject,
   removeMember,
   unfreezeProject,
+  updateProject,
 } from "@/modules/projects/actions";
 import {
   BriefStatusBadge,
@@ -104,13 +106,22 @@ export function ProjectDetail({
   const [memberUser, setMemberUser] = useState("");
   const [memberRole, setMemberRole] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [details, setDetails] = useState<{
+    name: string;
+    code: string;
+    client: string;
+    location: string;
+  } | null>(null);
 
-  const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) =>
+  const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) =>
     startTransition(async () => {
       setError(null);
       const res = await fn();
       if (!res.ok) setError(res.error);
-      else router.refresh();
+      else {
+        after?.();
+        router.refresh();
+      }
     });
 
   const visibleModuleIds = new Set(visibleModuleResourceIds);
@@ -148,6 +159,22 @@ export function ProjectDetail({
           </p>
         </div>
         <div className="flex gap-2">
+          {canUpdate && !details && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                setDetails({
+                  name: project.name,
+                  code: project.code ?? "",
+                  client: project.client ?? "",
+                  location: project.location ?? "",
+                })
+              }
+            >
+              <Pencil className="size-4" /> Edit details
+            </Button>
+          )}
           {canFreeze && project.phase === "concept" && (
             <Button
               size="sm"
@@ -199,6 +226,49 @@ export function ProjectDetail({
           )}
         </div>
       </div>
+
+      {details && (
+        <form
+          className="grid gap-2 rounded-md border p-3 sm:grid-cols-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            run(() => updateProject(project.id, details), () => setDetails(null));
+          }}
+        >
+          <Input
+            value={details.name}
+            onChange={(e) => setDetails({ ...details, name: e.target.value })}
+            placeholder="Project name"
+            aria-label="Project name"
+          />
+          <Input
+            value={details.code}
+            onChange={(e) => setDetails({ ...details, code: e.target.value })}
+            placeholder="Code (e.g. HCA)"
+            aria-label="Project code"
+          />
+          <Input
+            value={details.client}
+            onChange={(e) => setDetails({ ...details, client: e.target.value })}
+            placeholder="Client"
+            aria-label="Client"
+          />
+          <Input
+            value={details.location}
+            onChange={(e) => setDetails({ ...details, location: e.target.value })}
+            placeholder="Location"
+            aria-label="Location"
+          />
+          <div className="flex gap-2 sm:col-span-2">
+            <Button type="submit" size="sm" disabled={pending}>
+              Save
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setDetails(null)}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
 
       {error && (
         <div className="border-destructive/50 bg-destructive/10 text-destructive rounded-md border px-4 py-2 text-sm">

@@ -20,6 +20,10 @@ export function FinanceDashboard({
   vendors: VendorOutstanding[];
   ageing: InvoiceAgeing[];
 }) {
+  // The Tally export keeps every approved invoice; the ageing table is for
+  // what is still owed.
+  const unpaid = ageing.filter((a) => a.outstanding > 0);
+
   const exportTally = () => {
     const headers = [
       "Invoice No", "Vendor", "Project", "Base", "GST", "TDS",
@@ -111,8 +115,8 @@ export function FinanceDashboard({
           <CardTitle className="text-base">Invoice ageing</CardTitle>
         </CardHeader>
         <CardContent>
-          {ageing.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No approved invoices.</p>
+          {unpaid.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No unpaid invoices.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -127,7 +131,7 @@ export function FinanceDashboard({
                   </tr>
                 </thead>
                 <tbody>
-                  {ageing.map((a) => (
+                  {unpaid.map((a) => (
                     <tr key={a.invoice_no} className="border-b last:border-0">
                       <td className="py-2 font-medium">{a.invoice_no}</td>
                       <td className="text-muted-foreground py-2">{a.vendor_name}</td>

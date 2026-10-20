@@ -326,7 +326,6 @@ function VendorForm({
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) return;
     onSubmit(form);
   };
 

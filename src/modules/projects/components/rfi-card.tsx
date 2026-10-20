@@ -99,7 +99,8 @@ export function RfiCard({
 
   const submitNew = (e: FormEvent) => {
     e.preventDefault();
-    if (!subject.trim() || !toDept) return;
+    if (!toDept) return setError("Pick a department to ask.");
+    if (!subject.trim()) return setError("Enter a subject.");
     const fd = filesFrom(newFilesRef);
     run(
       () => sendWithFiles(fd, (f) => raiseRfi(projectId, toDept, subject, body, toRole, f)),
@@ -149,7 +150,7 @@ export function RfiCard({
   );
 
   const sendReply = (rfi: RfiRow, asAnswer: boolean) => {
-    if (!reply.trim()) return;
+    if (!reply.trim()) return setError("Write a message.");
     const fd = filesFrom(replyFilesRef);
     run(
       () => sendWithFiles(fd, (f) => postRfiMessage(projectId, rfi.id, reply, asAnswer, f)),

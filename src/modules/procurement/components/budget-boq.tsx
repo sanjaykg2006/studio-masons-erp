@@ -546,7 +546,6 @@ function AddLineRow({
   const set = (patch: Partial<BudgetLineInput>) => setForm((f) => ({ ...f, ...patch }));
 
   const submit = () => {
-    if (!form.description.trim()) return;
     run(() => addLine(projectId, packageId, form));
     setForm(EMPTY_LINE);
   };
@@ -606,7 +605,6 @@ function AddPackageForm({
   const [name, setName] = useState("");
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
     onAdd(name);
     setName("");
   };

@@ -239,7 +239,6 @@ export function TemplateEditor({
               className="flex gap-2"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (!newSection.trim()) return;
                 run(async () => {
                   const res = await addSection(tree.version.id, newSection);
                   if (res.ok) setNewSection("");
@@ -277,7 +276,6 @@ function AddQuestion({
       className="flex gap-2 pt-1"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!text.trim()) return;
         onAdd(async () => {
           const res = await addQuestion(sectionId, text);
           if (res.ok) setText("");

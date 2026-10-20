@@ -103,7 +103,6 @@ export function TasksView({
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim()) return;
     const found = findTaskClashes(
       {
         assigneeId: form.assigneeId || null,

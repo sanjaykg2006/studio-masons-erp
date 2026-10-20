@@ -148,7 +148,6 @@ export function ProjectRolesEditor({
             className="flex gap-2 pt-3"
             onSubmit={(e) => {
               e.preventDefault();
-              if (!newRole.trim()) return;
               const label = newRole;
               setNewRole("");
               run(() => onCreate(label));

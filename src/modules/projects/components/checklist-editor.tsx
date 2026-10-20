@@ -134,7 +134,6 @@ export function ChecklistEditor({
                 className="flex items-center gap-2"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (!newLabel.trim()) return;
                   run(() => onAdd(stage, newLabel));
                 }}
               >

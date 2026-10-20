@@ -38,7 +38,6 @@ export function ProjectsList({
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) return;
     startTransition(async () => {
       setError(null);
       const res = await createProject(form.name, form.code, form.client, form.location);

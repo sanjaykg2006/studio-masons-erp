@@ -439,7 +439,6 @@ function AssetForm({
   const set = (patch: Partial<AssetInput>) => setForm((f) => ({ ...f, ...patch }));
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) return;
     onSubmit(form);
   };
   return (

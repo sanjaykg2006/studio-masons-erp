@@ -81,7 +81,6 @@ export function ChangeRequestsCard({
             className="space-y-2 rounded-md border p-3"
             onSubmit={(e) => {
               e.preventDefault();
-              if (!form.title.trim()) return;
               run(async () => {
                 const res = await raiseChangeRequest(
                   projectId,

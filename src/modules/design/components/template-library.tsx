@@ -47,7 +47,6 @@ export function TemplateLibrary({
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
     startTransition(async () => {
       setError(null);
       const res = await createTemplate(name, discipline, scope);

@@ -446,7 +446,6 @@ export function AccessView({
               className="flex gap-2 pt-3"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (!newDept.trim()) return;
                 run(() => createDepartment(newDept));
                 setNewDept("");
               }}
@@ -689,7 +688,6 @@ export function AccessView({
                   className="flex gap-2 pt-3"
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (!newRole.trim()) return;
                     run(() => createRole(newRole, null));
                     setNewRole("");
                   }}

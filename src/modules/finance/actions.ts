@@ -409,6 +409,11 @@ export async function setBillingBranchActive(branchId: string, active: boolean):
   const supabase = await createClient();
   const { error } = await supabase.rpc("set_billing_branch_active", { p_id: branchId, p_active: active });
   if (error) return fail(error.message);
+  await logAudit(
+    "finance.settings.branch",
+    active ? "Activated a billing branch" : "Deactivated a billing branch",
+    { branchId }
+  );
   revalidatePath("/finance/settings");
   return ok;
 }

@@ -264,6 +264,7 @@ export async function addSection(versionId: string, title: string): Promise<Acti
 export async function updateSection(sectionId: string, title: string): Promise<ActionResult> {
   const denied = await templateUpdate();
   if (denied) return denied;
+  if (!title.trim()) return fail("Enter a section title.");
   const supabase = await createClient();
   const { error } = await supabase
     .from("design_template_sections")
@@ -308,6 +309,7 @@ export async function addQuestion(sectionId: string, text: string): Promise<Acti
 export async function updateQuestion(questionId: string, text: string): Promise<ActionResult> {
   const denied = await templateUpdate();
   if (denied) return denied;
+  if (!text.trim()) return fail("Enter a question.");
   const supabase = await createClient();
   const { error } = await supabase
     .from("design_template_questions")

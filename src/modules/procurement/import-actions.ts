@@ -29,8 +29,9 @@ export async function previewBudgetImport(
   if (!buf) return { ok: false, error: "Choose a spreadsheet (.xlsx)." };
   try {
     return { ok: true, preview: await parseBudgetWorkbook(buf) };
-  } catch (e) {
-    return { ok: false, error: `Could not read the workbook: ${(e as Error).message}` };
+  } catch {
+    // Anything that isn't an .xlsx (a .txt, an old .xls, a CSV) fails to unzip.
+    return { ok: false, error: "Choose a spreadsheet (.xlsx)." };
   }
 }
 

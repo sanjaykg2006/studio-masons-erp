@@ -118,6 +118,7 @@ export async function deletePettyCash(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("delete_pettycash", { p_id: id });
   if (error) return fail(error.message);
+  await logAudit("pettycash.delete", "Removed a petty-cash entry", { id });
   refresh();
   return ok;
 }
@@ -148,6 +149,7 @@ export async function savePettyCashCategory(id: string | null, name: string): Pr
   const supabase = await createClient();
   const { error } = await supabase.rpc("upsert_pettycash_category", { p_id: id, p_name: name });
   if (error) return fail(error.message);
+  await logAudit("pettycash.category.save", `Saved petty-cash category "${name.trim()}"`, { id });
   refresh();
   return ok;
 }
@@ -158,6 +160,11 @@ export async function setPettyCashCategoryActive(id: string, active: boolean): P
   const supabase = await createClient();
   const { error } = await supabase.rpc("set_pettycash_category_active", { p_id: id, p_active: active });
   if (error) return fail(error.message);
+  await logAudit(
+    "pettycash.category.active",
+    active ? "Activated a petty-cash category" : "Deactivated a petty-cash category",
+    { id }
+  );
   refresh();
   return ok;
 }

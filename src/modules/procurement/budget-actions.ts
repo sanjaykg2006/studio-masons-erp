@@ -105,6 +105,13 @@ export async function deletePackage(projectId: string, packageId: string): Promi
   return ok;
 }
 
+/** Why a budget line can't be saved, or null when it can. */
+const invalidLine = (input: BudgetLineInput): string | null => {
+  if (!input.description.trim()) return "Enter a line description.";
+  if (input.qty < 0 || input.rate < 0) return "Quantity and rate must be zero or more.";
+  return null;
+};
+
 const lineColumns = (input: BudgetLineInput) => ({
   ref: input.ref.trim() || null,
   description: input.description.trim(),
@@ -118,7 +125,8 @@ export async function addLine(
   packageId: string,
   input: BudgetLineInput
 ): Promise<ActionResult> {
-  if (!input.description.trim()) return fail("Enter a line description.");
+  const invalid = invalidLine(input);
+  if (invalid) return fail(invalid);
   const denied = await authorizeProject(projectId, "procurement.budget", "update");
   if (denied) return denied;
   const supabase = await createClient();
@@ -142,7 +150,8 @@ export async function updateLine(
   input: BudgetLineInput,
   clearSplit = false
 ): Promise<ActionResult> {
-  if (!input.description.trim()) return fail("Enter a line description.");
+  const invalid = invalidLine(input);
+  if (invalid) return fail(invalid);
   const denied = await authorizeProject(projectId, "procurement.budget", "update");
   if (denied) return denied;
   const supabase = await createClient();

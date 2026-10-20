@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { type ChangeEvent, useRef, useState, useTransition } from "react";
 import { AlertTriangle, Check, Upload } from "lucide-react";
 
+import { sendWithFiles } from "@/core/uploads/client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -55,7 +56,7 @@ export function BudgetImport({ projectId }: { projectId: string }) {
     startTransition(async () => {
       setError(null);
       setPreview(null);
-      const res = await previewBudgetImport(fd);
+      const res = await sendWithFiles(fd, previewBudgetImport);
       if (!res.ok) setError(res.error);
       else setPreview(res.preview);
     });

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { ArrowLeft, Download, FileText, Lock, Send, Trash2, Upload } from "lucide-react";
 
+import { sendWithFiles } from "@/core/uploads/client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -64,7 +65,7 @@ export function FolderDetail({
     const data = new FormData();
     data.set("file", file);
     run(async () => {
-      const res = await uploadFile(projectId, folder.folder_key, data);
+      const res = await sendWithFiles(data, (f) => uploadFile(projectId, folder.folder_key, f));
       if (fileInput.current) fileInput.current.value = "";
       return res;
     });

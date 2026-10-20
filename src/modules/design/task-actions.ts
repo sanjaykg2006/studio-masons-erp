@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/core/supabase/server";
 import { createAdminClient } from "@/core/supabase/admin";
 import { getUser } from "@/core/auth/get-user";
+import { takeUpload } from "@/core/uploads/server";
 import { logAudit } from "@/modules/audit/log";
 import type { TaskAttachment, TaskStatus } from "@/modules/design/task-types";
 
@@ -180,7 +181,7 @@ export async function uploadTaskAttachment(
   taskId: string,
   formData: FormData
 ): Promise<ActionResult> {
-  const file = formData.get("file");
+  const file = await takeUpload(formData, "file");
   if (!(file instanceof File) || file.size === 0) return fail("Choose a file.");
   if (file.size > MAX_DOC_BYTES) return fail("File is larger than 25 MB.");
 

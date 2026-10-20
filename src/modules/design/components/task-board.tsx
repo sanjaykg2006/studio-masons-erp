@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { Download, Paperclip, Pause, Pencil, Play, Share2, Trash2, X } from "lucide-react";
 
+import { sendWithFiles } from "@/core/uploads/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -159,7 +160,7 @@ function TaskCard({ task: t, people, subteams, projects, canManage, onError }: {
     onError(null);
     const fd = new FormData();
     fd.append("file", file);
-    const res = await uploadTaskAttachment(t.id, fd);
+    const res = await sendWithFiles(fd, (f) => uploadTaskAttachment(t.id, f));
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";
     if (!res.ok) {

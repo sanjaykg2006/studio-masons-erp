@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/core/supabase/server";
 import { createAdminClient } from "@/core/supabase/admin";
+import { takeUpload } from "@/core/uploads/server";
 import { logAudit } from "@/modules/audit/log";
 import type { OrderLineAssignment, ReceiptLineDraft } from "@/modules/procurement/types";
 
@@ -45,7 +46,7 @@ export async function generateOrdersFromIntent(
   const vendorDocs: { vendor_id: string; support_file: string }[] = [];
 
   for (const vendorId of vendorIds) {
-    const file = formData.get(`doc_${vendorId}`);
+    const file = await takeUpload(formData, `doc_${vendorId}`);
     if (!(file instanceof File) || file.size === 0) {
       await admin.storage.from(DOCS_BUCKET).remove(uploaded);
       return fail("Attach a supporting document for every vendor.");
@@ -163,7 +164,7 @@ export async function uploadOrderDocument(
   kind: OrderDocKind,
   formData: FormData
 ): Promise<ActionResult> {
-  const file = formData.get("file");
+  const file = await takeUpload(formData, "file");
   if (!(file instanceof File) || file.size === 0) return fail("Choose a file.");
   if (file.size > MAX_DOC_BYTES) return fail("File is larger than 25 MB.");
 

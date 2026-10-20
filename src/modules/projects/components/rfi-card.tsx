@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 
+import { sendWithFiles } from "@/core/uploads/client";
 import { useRealtimeRefresh } from "@/core/hooks/use-live-refresh";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -101,7 +102,7 @@ export function RfiCard({
     if (!subject.trim() || !toDept) return;
     const fd = filesFrom(newFilesRef);
     run(
-      () => raiseRfi(projectId, toDept, subject, body, toRole, fd),
+      () => sendWithFiles(fd, (f) => raiseRfi(projectId, toDept, subject, body, toRole, f)),
       () => {
         setSubject("");
         setBody("");
@@ -151,7 +152,7 @@ export function RfiCard({
     if (!reply.trim()) return;
     const fd = filesFrom(replyFilesRef);
     run(
-      () => postRfiMessage(projectId, rfi.id, reply, asAnswer, fd),
+      () => sendWithFiles(fd, (f) => postRfiMessage(projectId, rfi.id, reply, asAnswer, f)),
       () => {
         setReply("");
         if (replyFilesRef.current) replyFilesRef.current.value = "";

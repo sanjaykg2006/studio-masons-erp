@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/core/supabase/server";
 import { createAdminClient } from "@/core/supabase/admin";
 import { authorize, authorizeProject } from "@/core/rbac/can";
+import { takeUpload } from "@/core/uploads/server";
 import { logAudit } from "@/modules/audit/log";
 import type { TaxLine } from "@/modules/finance/types";
 import {
@@ -61,7 +62,7 @@ export async function createInvoice(projectId: string, formData: FormData): Prom
 
   // Optional invoice document.
   let filePath: string | null = null;
-  const file = formData.get("file");
+  const file = await takeUpload(formData, "file");
   if (file instanceof File && file.size > 0) {
     const up = await uploadDoc(`invoice/${orderId}`, file);
     if (!up.ok) return fail(up.error);

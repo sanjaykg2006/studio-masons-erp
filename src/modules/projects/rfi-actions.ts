@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/core/supabase/server";
 import { createAdminClient } from "@/core/supabase/admin";
 import { getUser } from "@/core/auth/get-user";
+import { hasUpload, takeUploads } from "@/core/uploads/server";
 import { logAudit } from "@/modules/audit/log";
 import type { RfiAttachment, RfiMessage } from "@/modules/projects/rfi-types";
 
@@ -22,7 +23,7 @@ const MAX_DOC_BYTES = 25 * 1024 * 1024; // 25 MB
  * rfi_attachments row is the real security boundary. Returns an error string on
  * the first failure, or null when everything (or nothing) was uploaded. */
 async function attachFiles(messageId: string, formData: FormData): Promise<string | null> {
-  const files = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
+  const files = (await takeUploads(formData, "files")).filter((f) => f.size > 0);
   if (files.length === 0) return null;
 
   const admin = createAdminClient();
@@ -72,7 +73,7 @@ export async function raiseRfi(
 ): Promise<ActionResult> {
   if (!subject.trim()) return fail("Enter a subject.");
   if (!toDepartmentId) return fail("Pick a department to ask.");
-  const hasFiles = !!formData && formData.getAll("files").some((f) => f instanceof File && f.size > 0);
+  const hasFiles = !!formData && hasUpload(formData, "files");
   if (hasFiles && !body.trim()) return fail("Write your question so the file has a message to attach to.");
 
   const supabase = await createClient();

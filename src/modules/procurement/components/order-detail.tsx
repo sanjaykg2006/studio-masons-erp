@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type ChangeEvent, useRef, useState, useTransition } from "react";
 import { ArrowLeft, Check, Download, Undo2, Upload } from "lucide-react";
 
+import { sendWithFiles } from "@/core/uploads/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -140,7 +141,7 @@ export function OrderDetailView({
   const upload = (kind: "po" | "acceptance", file: File) => {
     const fd = new FormData();
     fd.append("file", file);
-    run(() => uploadOrderDocument(projectId, order.id, kind, fd));
+    run(() => sendWithFiles(fd, (f) => uploadOrderDocument(projectId, order.id, kind, f)));
   };
 
   const submitReceipt = () => {

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/core/supabase/server";
 import { createAdminClient } from "@/core/supabase/admin";
 import { authorize } from "@/core/rbac/can";
+import { takeUpload } from "@/core/uploads/server";
 import { logAudit } from "@/modules/audit/log";
 import { validatePettyCash } from "@/modules/pettycash/validation";
 import { todayInIndia } from "@/modules/pettycash/analytics";
@@ -36,7 +37,7 @@ export async function createPettyCash(formData: FormData): Promise<ActionResult>
   const description = String(formData.get("description") ?? "");
 
   let filePath: string | null = null;
-  const file = formData.get("file");
+  const file = await takeUpload(formData, "file");
   if (file instanceof File && file.size > 0) {
     if (file.size > MAX_DOC_BYTES) return fail("File is larger than 25 MB.");
     const safeName = file.name.replace(/[^\w.\- ]+/g, "_");

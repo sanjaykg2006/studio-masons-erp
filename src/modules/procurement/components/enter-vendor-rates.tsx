@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type ChangeEvent, useMemo, useRef, useState, useTransition } from "react";
 import { ArrowLeft, Paperclip, X } from "lucide-react";
 
+import { sendWithFiles } from "@/core/uploads/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,7 +83,7 @@ export function EnterVendorRates({
 
     startTransition(async () => {
       setError(null);
-      const res = await generateOrdersFromIntent(projectId, intentId, fd);
+      const res = await sendWithFiles(fd, (f) => generateOrdersFromIntent(projectId, intentId, f));
       if (!res.ok) setError(res.error);
       else router.push(`/projects/${projectId}/orders`);
     });

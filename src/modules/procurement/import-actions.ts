@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/core/supabase/server";
+import { takeUpload } from "@/core/uploads/server";
 import { logAudit } from "@/modules/audit/log";
 import { parseBudgetWorkbook } from "@/modules/procurement/import/parse";
 import type {
@@ -14,7 +15,7 @@ export type ActionResult = { ok: true } | { ok: false; error: string };
 const fail = (error: string): ActionResult => ({ ok: false, error });
 
 async function fileBuffer(formData: FormData): Promise<ArrayBuffer | null> {
-  const file = formData.get("file");
+  const file = await takeUpload(formData, "file");
   if (!(file instanceof File) || file.size === 0) return null;
   return file.arrayBuffer();
 }

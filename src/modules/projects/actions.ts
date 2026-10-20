@@ -8,6 +8,7 @@ import { authorize, authorizeAnywhere, authorizeProject } from "@/core/rbac/can"
 import { canCreateProject } from "@/core/rbac/permissions";
 import { permissionMessage } from "@/core/rbac/types";
 import { getUser } from "@/core/auth/get-user";
+import { takeUpload } from "@/core/uploads/server";
 import { logAudit } from "@/modules/audit/log";
 import { getBriefForPdf } from "@/modules/projects/data";
 import { renderBriefPdf } from "@/modules/projects/brief-pdf";
@@ -646,7 +647,7 @@ export async function uploadFile(
   folderKey: string,
   formData: FormData
 ): Promise<ActionResult> {
-  const file = formData.get("file");
+  const file = await takeUpload(formData, "file");
   if (!(file instanceof File) || file.size === 0) return fail("Choose a file.");
   if (!(await canWriteFolder(projectId, folderKey)))
     return fail("This folder is read-only for you, or it's locked at this stage.");

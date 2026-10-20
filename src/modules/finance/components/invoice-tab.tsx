@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Fragment, type FormEvent, useMemo, useState, useTransition } from "react";
 import { Check, FileText, Plus, ShieldAlert, Trash2, X } from "lucide-react";
 
+import { sendWithFiles } from "@/core/uploads/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -413,7 +414,7 @@ function CreateInvoiceForm({
     if (file) fd.set("file", file);
 
     startSubmit(async () => {
-      const res = await createInvoice(projectId, fd);
+      const res = await sendWithFiles(fd, (f) => createInvoice(projectId, f));
       if (!res.ok) onError(res.error);
       else onSubmitted();
     });

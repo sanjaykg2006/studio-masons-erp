@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Fragment, type FormEvent, useState, useTransition } from "react";
 import { Check, Download, FileText, Plus, Trash2 } from "lucide-react";
 
+import { sendWithFiles } from "@/core/uploads/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -341,7 +342,7 @@ function LogForm({
     fd.set("description", description);
     if (file) fd.set("file", file);
     startSubmit(async () => {
-      const res = await createPettyCash(fd);
+      const res = await sendWithFiles(fd, createPettyCash);
       if (!res.ok) onError(res.error);
       else onDone();
     });

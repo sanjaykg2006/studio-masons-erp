@@ -63,6 +63,7 @@ describe("APPROVAL_FLOWS", () => {
         "advance",
         "retention_early",
         "order",
+        "budget",
       ])
     );
   });

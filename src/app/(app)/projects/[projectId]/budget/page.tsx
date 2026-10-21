@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/core/supabase/server";
 import { requireProjectPermission, canOnProject } from "@/core/rbac/can";
 import { getBudgetSpend, getProjectBudget } from "@/modules/procurement/budget-data";
+import { approvalState } from "@/modules/projects/data";
+import { getRejectionNotes } from "@/modules/access/rejection-notes";
 import { BudgetBoq } from "@/modules/procurement/components/budget-boq";
 import { BudgetImport } from "@/modules/procurement/components/budget-import";
 import { BudgetSpendSummary } from "@/modules/procurement/components/budget-spend-summary";
@@ -35,6 +37,16 @@ export default async function ProjectBudgetPage({
     canOnProject(projectId, "procurement.budget", "approve"),
   ]);
 
+  // A submitted draft waits on its "Budget version" stage; a draft that was
+  // sent back carries the reason until it is submitted again.
+  const current = budget.current;
+  const [approval, sentBack] = await Promise.all([
+    current?.submitted_at ? approvalState(supabase, "budget", current.id) : null,
+    current?.status === "draft" && !current.submitted_at
+      ? getRejectionNotes("budget", [current.id])
+      : Promise.resolve({} as Awaited<ReturnType<typeof getRejectionNotes>>),
+  ]);
+
   const showImport = canCreate && (!budget.current || budget.current.status === "released");
   // The headline only makes sense once a budget has been released (or something ordered).
   const showSpend = spend.budgetTotal > 0 || spend.expenditureTotal > 0;
@@ -49,6 +61,8 @@ export default async function ProjectBudgetPage({
         canCreate={canCreate}
         canEdit={canEdit}
         canApprove={canApprove}
+        approval={approval}
+        rejection={current ? sentBack[current.id] : undefined}
       />
       {showImport && <BudgetImport projectId={projectId} />}
     </div>

@@ -146,7 +146,7 @@ export type ApprovalState = {
 };
 
 /** One item's approval request, or null when it has none. */
-async function approvalState(
+export async function approvalState(
   supabase: Awaited<ReturnType<typeof createClient>>,
   flow: string,
   item: string

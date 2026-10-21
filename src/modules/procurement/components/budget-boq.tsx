@@ -6,6 +6,9 @@ import { type FormEvent, useState, useTransition } from "react";
 import { ArrowLeft, Check, Pencil, Plus, Trash2, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { RejectionNote } from "@/modules/access/components/rejection-note";
+import type { RejectionNote as Rejection } from "@/modules/access/rejection-notes";
+import type { ApprovalState } from "@/modules/projects/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +25,7 @@ import {
   deleteLine,
   deletePackage,
   discardBudgetDraft,
+  decideBudget,
   newBudgetVersion,
   releaseBudget,
   renamePackage,
@@ -44,6 +48,8 @@ export function BudgetBoq({
   canCreate,
   canEdit,
   canApprove,
+  approval,
+  rejection,
 }: {
   projectId: string;
   projectName: string;
@@ -51,18 +57,24 @@ export function BudgetBoq({
   canCreate: boolean;
   canEdit: boolean;
   canApprove: boolean;
+  /** The stage a submitted version waits on, if any. */
+  approval: ApprovalState | null;
+  /** Why it was last sent back, while it stands sent back. */
+  rejection?: Rejection;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const { versions, current } = budget;
+  // A submitted draft is locked while it waits on its approval stage.
+  const waiting = current?.status === "draft" && !!current.submitted_at;
   // Editing is only possible on a DRAFT version, by someone with the edit verb.
-  const editable = canEdit && current?.status === "draft";
+  const editable = canEdit && current?.status === "draft" && !waiting;
   const isLatest = current && versions[0]?.id === current.id;
   // Whoever could make this draft may throw it away: create for v1, approve after.
   const canDiscard =
-    current?.status === "draft" && (current.version_no === 1 ? canCreate : canApprove);
+    current?.status === "draft" && !waiting && (current.version_no === 1 ? canCreate : canApprove);
 
   const discard = () => {
     const msg =
@@ -133,7 +145,7 @@ export function BudgetBoq({
                   : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
               )}
             >
-              v{current.version_no} · {BUDGET_STATUS_LABEL[current.status]}
+              v{current.version_no} · {waiting ? "Waiting for approval" : BUDGET_STATUS_LABEL[current.status]}
             </span>
           )}
           {editable && (
@@ -142,8 +154,31 @@ export function BudgetBoq({
               disabled={pending}
               onClick={() => run(() => releaseBudget(projectId, current!.id))}
             >
-              Release
+              Send for approval
             </Button>
+          )}
+          {waiting && approval?.canDecide && (
+            <>
+              <Button
+                size="sm"
+                disabled={pending}
+                onClick={() => run(() => decideBudget(projectId, approval.id, true, ""))}
+              >
+                <Check className="size-4" /> Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  const note = prompt("Send this budget version back — reason?");
+                  if (note === null) return;
+                  run(() => decideBudget(projectId, approval.id, false, note));
+                }}
+              >
+                <X className="size-4" /> Send back
+              </Button>
+            </>
           )}
           {canDiscard && (
             <Button size="sm" variant="outline" disabled={pending} onClick={discard}>
@@ -162,6 +197,14 @@ export function BudgetBoq({
           )}
         </div>
       </div>
+
+      {waiting && (
+        <p className="text-muted-foreground text-sm">
+          Sent for approval{approval?.stageLabel ? ` — waiting for ${approval.stageLabel}` : ""}. It
+          becomes the project&apos;s budget once approved, and is locked until then.
+        </p>
+      )}
+      <RejectionNote note={rejection} label="Sent back" />
 
       {error && (
         <div className="border-destructive/50 bg-destructive/10 text-destructive rounded-md border px-4 py-2 text-sm">

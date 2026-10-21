@@ -179,15 +179,18 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
   },
   {
     id: "budget",
-    label: "Budget BOQ",
+    engineId: "budget",
+    module: "procurement.budget",
+    label: "Budget version",
     where: "Project → Budget BOQ",
     steps: [
-      { label: "Release the budget", resource: "procurement.budget", action: "update" },
-      {
-        label: "Re-version a released budget",
-        resource: "procurement.budget",
-        action: "approve",
-      },
+      { label: "Send a version for approval", resource: "procurement.budget", action: "update" },
+      { label: "Approval stages", stages: true },
+    ],
+    rules: [
+      "Every version, v1 included, becomes the project's budget only when the last stage approves it; it is locked while it waits.",
+      "Sending it back returns it to an editable draft with the reason shown.",
+      "Starting a new version from a released one still needs Budget BOQ → Approve.",
     ],
   },
   {

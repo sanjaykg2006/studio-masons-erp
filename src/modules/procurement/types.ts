@@ -98,6 +98,8 @@ export type BudgetVersion = {
   version_no: number;
   status: BudgetStatus;
   released_at: string | null;
+  /** Set while a draft waits on its "Budget version" approval; locked meanwhile. */
+  submitted_at: string | null;
   created_at: string;
 };
 

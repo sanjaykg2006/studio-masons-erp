@@ -30,7 +30,30 @@ export async function releaseBudget(projectId: string, budgetId: string): Promis
   const supabase = await createClient();
   const { error } = await supabase.rpc("release_budget", { p_budget: budgetId });
   if (error) return fail(error.message);
-  await logAudit("procurement.budget.release", "Released a budget version", { projectId, budgetId });
+  await logAudit("procurement.budget.release", "Sent a budget version for approval", { projectId, budgetId });
+  refresh(projectId);
+  return ok;
+}
+
+/** Approve, or send back with a reason, the stage a submitted version waits on. */
+export async function decideBudget(
+  projectId: string,
+  approvalId: string,
+  approve: boolean,
+  note: string
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("approval_decide", {
+    p_request: approvalId,
+    p_approve: approve,
+    p_note: note,
+  });
+  if (error) return fail(error.message);
+  await logAudit(
+    "procurement.budget.decide",
+    approve ? "Approved a budget version stage" : "Sent a budget version back",
+    { projectId, approvalId }
+  );
   refresh(projectId);
   return ok;
 }

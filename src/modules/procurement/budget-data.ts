@@ -29,6 +29,7 @@ type RawBudget = {
   version_no: number;
   status: "draft" | "released";
   released_at: string | null;
+  submitted_at: string | null;
   created_at: string;
   notes: string | null;
   procurement_budget_packages: RawPackage[];
@@ -48,7 +49,7 @@ export async function getProjectBudget(
 
   const { data: versionRows } = await supabase
     .from("procurement_budgets")
-    .select("id, version_no, status, released_at, created_at")
+    .select("id, version_no, status, released_at, submitted_at, created_at")
     .eq("project_id", projectId)
     .order("version_no", { ascending: false });
 
@@ -63,7 +64,7 @@ export async function getProjectBudget(
   const { data: fullRaw } = await supabase
     .from("procurement_budgets")
     .select(
-      "id, version_no, status, released_at, created_at, notes, " +
+      "id, version_no, status, released_at, submitted_at, created_at, notes, " +
         "procurement_budget_packages(id, name, sort, " +
         "procurement_budget_lines(id, ref, description, unit, qty, rate, amount, " + "supply_rate, install_rate, supply_amount, install_amount, sort))"
     )
@@ -102,6 +103,7 @@ export async function getProjectBudget(
     version_no: full.version_no,
     status: full.status,
     released_at: full.released_at,
+    submitted_at: full.submitted_at,
     created_at: full.created_at,
     notes: full.notes,
     packages,

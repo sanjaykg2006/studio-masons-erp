@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/core/supabase/admin";
 import { getUser } from "@/core/auth/get-user";
+import { namePerson } from "@/modules/audit/format";
 
 /**
  * Record a sensitive action in the audit log.
@@ -13,7 +14,9 @@ import { getUser } from "@/core/auth/get-user";
  * console) rather than thrown.
  *
  * @param action  machine code, e.g. "role.create", "user.invite"
- * @param summary human-readable description shown in the Activity Log
+ * @param summary human-readable description shown in the Activity Log. Write
+ *   "{person}" for the person the action is about: it becomes the name of
+ *   metadata.personName, or else of the profile metadata.userId points at.
  * @param metadata structured extra detail (ids, before/after, ...)
  */
 export async function logAudit(
@@ -36,6 +39,20 @@ export async function logAudit(
       actorName = (data as { full_name: string | null } | null)?.full_name ?? null;
     }
 
+    // Snapshot the name of the person the action is about, so the entry still
+    // reads by name if that person is later removed.
+    let personName: string | null =
+      typeof metadata.personName === "string" ? metadata.personName : null;
+    if (!personName && typeof metadata.userId === "string") {
+      const { data } = await admin
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", metadata.userId)
+        .maybeSingle();
+      const p = data as { full_name: string | null; email: string | null } | null;
+      personName = p?.full_name?.trim() || p?.email || null;
+    }
+
     // Tag the entry with a department so the log can be viewed per department:
     // an explicit departmentId if the action carried one, else the linked
     // project's department. NULL = a company-wide action (roles, users, …).
@@ -55,8 +72,8 @@ export async function logAudit(
       actor_email: actor?.email ?? null,
       actor_name: actorName,
       action,
-      summary,
-      metadata,
+      summary: namePerson(summary, personName),
+      metadata: personName ? { ...metadata, personName } : metadata,
       department_id: departmentId,
     });
   } catch (err) {

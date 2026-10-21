@@ -113,7 +113,11 @@ export async function assignAsset(
     p_custodian: custodianId,
   });
   if (error) return fail(error.message);
-  await logAudit("inventory.asset.assign", "Assigned an asset", { assetId, projectId });
+  await logAudit(
+    "inventory.asset.assign",
+    custodianId ? "Placed an asset with {person}" : "Unassigned an asset",
+    { assetId, projectId, userId: custodianId ?? undefined }
+  );
   refreshAssets();
   return ok;
 }

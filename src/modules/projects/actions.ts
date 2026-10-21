@@ -208,7 +208,7 @@ export async function addMember(
     .from("project_members")
     .upsert({ project_id: projectId, user_id: userId, role_id: roleId });
   if (error) return fail(error.message);
-  await logAudit("project.member.add", "Added a project member", { projectId, userId, roleId });
+  await logAudit("project.member.add", "Added {person} to the project", { projectId, userId, roleId });
   revalidatePath(`/projects/${projectId}`);
   return ok;
 }
@@ -222,7 +222,7 @@ export async function removeMember(projectId: string, userId: string): Promise<A
     .delete()
     .match({ project_id: projectId, user_id: userId });
   if (error) return fail(error.message);
-  await logAudit("project.member.remove", "Removed a project member", { projectId, userId });
+  await logAudit("project.member.remove", "Removed {person} from the project", { projectId, userId });
   revalidatePath(`/projects/${projectId}`);
   return ok;
 }

@@ -28,7 +28,7 @@ export async function addTeamMember(
     p_user: userId,
   });
   if (error) return fail(error.message);
-  await logAudit("team.member.add", "Added a person to a department team", {
+  await logAudit("team.member.add", "Added {person} to the department team", {
     departmentId,
     userId,
   });
@@ -50,7 +50,7 @@ export async function removeTeamMember(
     p_user: userId,
   });
   if (error) return fail(error.message);
-  await logAudit("team.member.remove", "Removed a person from a department team", {
+  await logAudit("team.member.remove", "Removed {person} from the department team", {
     departmentId,
     userId,
   });
@@ -81,7 +81,7 @@ export async function setTeamMemberPermission(
   if (error) return fail(error.message);
   await logAudit(
     "team.permission.update",
-    `${grant ? "Granted" : "Revoked"} ${resource}:${action} for a teammate`,
+    `${grant ? "Granted" : "Revoked"} ${resource}:${action} for {person}`,
     { departmentId, userId, resource, action, grant }
   );
   revalidatePath("/team");
@@ -110,7 +110,7 @@ export async function setTeamMemberAllProjects(
   if (error) return fail(error.message);
   await logAudit(
     "team.all_projects",
-    `${allProjects ? "Enabled" : "Disabled"} all-projects access for a teammate`,
+    `${allProjects ? "Enabled" : "Disabled"} all-projects access for {person}`,
     { departmentId, userId, roleId }
   );
   revalidatePath("/team");

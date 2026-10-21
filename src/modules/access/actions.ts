@@ -311,12 +311,20 @@ export async function deactivateUser(userId: string): Promise<ActionResult> {
   if (current?.id === userId) return fail("You can't remove your own account.");
 
   const admin = createAdminClient();
+  // Read the name first: a clean delete takes the profile with it.
+  const { data: who } = await admin
+    .from("profiles")
+    .select("full_name, email")
+    .eq("id", userId)
+    .maybeSingle();
+  const profile = who as { full_name: string | null; email: string | null } | null;
+  const personName = profile?.full_name?.trim() || profile?.email || undefined;
 
   // Try a clean delete for a never-used account. The audit-trail foreign keys
   // block this for anyone with history — which is exactly the protection we want.
   const { error: delErr } = await admin.auth.admin.deleteUser(userId);
   if (!delErr) {
-    await logAudit("user.remove", "Removed a user", { userId });
+    await logAudit("user.remove", "Removed {person}", { userId, personName });
     revalidatePath("/access");
     return ok;
   }
@@ -334,7 +342,7 @@ export async function deactivateUser(userId: string): Promise<ActionResult> {
     .eq("id", userId);
   if (flagErr) return fail(flagErr.message);
 
-  await logAudit("user.deactivate", "Deactivated a user", { userId });
+  await logAudit("user.deactivate", "Deactivated {person}", { userId });
   revalidatePath("/access");
   return ok;
 }
@@ -357,7 +365,7 @@ export async function reactivateUser(userId: string): Promise<ActionResult> {
     .eq("id", userId);
   if (flagErr) return fail(flagErr.message);
 
-  await logAudit("user.reactivate", "Reactivated a user", { userId });
+  await logAudit("user.reactivate", "Reactivated {person}", { userId });
   revalidatePath("/access");
   return ok;
 }
@@ -379,7 +387,7 @@ export async function assignUserRole(
   if (error) return fail(error.message);
   await logAudit(
     "user.role_change",
-    roleId ? "Assigned a role to a user" : "Cleared a user's role",
+    roleId ? "Assigned a role to {person}" : "Cleared {person}'s role",
     { userId, roleId }
   );
   revalidatePath("/access");
@@ -591,7 +599,7 @@ export async function setDepartmentLead(
   if (error) return fail(error.message);
   await logAudit(
     "department.lead",
-    `${isLead ? "Appointed" : "Removed"} a department lead`,
+    `${isLead ? "Appointed" : "Removed"} {person} as department lead`,
     { departmentId, userId, isLead }
   );
   revalidatePath("/access");

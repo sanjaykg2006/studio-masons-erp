@@ -1,6 +1,8 @@
 import "server-only";
 
+import { createAdminClient } from "@/core/supabase/admin";
 import { createClient } from "@/core/supabase/server";
+import { namePerson } from "@/modules/audit/format";
 
 /** One row of the activity log, as shown in the UI. */
 export type AuditEntry = {
@@ -33,7 +35,7 @@ export async function getAuditData({
   const supabase = await createClient();
   let query = supabase
     .from("audit_log")
-    .select("id, actor_name, actor_email, action, summary, created_at, department_id", {
+    .select("id, actor_name, actor_email, action, summary, metadata, created_at, department_id", {
       count: "exact",
     })
     .order("created_at", { ascending: false });
@@ -43,7 +45,42 @@ export async function getAuditData({
 
   const from = page * pageSize;
   const { data, count } = await query.range(from, from + pageSize - 1);
-  return { entries: (data ?? []) as AuditEntry[], total: count ?? 0 };
+  const rows = (data ?? []) as (AuditEntry & { metadata: Record<string, unknown> | null })[];
+
+  // Older entries said "a teammate" / "a user" and kept only the person's id.
+  // Look those people up so every entry reads by name. The admin client, as an
+  // audit reader may not hold Access Control (profiles' read rule) — they only
+  // get names for people on rows RLS already let them see.
+  const ids = [
+    ...new Set(
+      rows
+        .filter((r) => typeof r.metadata?.personName !== "string")
+        .map((r) => r.metadata?.userId)
+        .filter((id): id is string => typeof id === "string")
+    ),
+  ];
+  const names = new Map<string, string>();
+  if (ids.length) {
+    const { data: people } = await createAdminClient()
+      .from("profiles")
+      .select("id, full_name, email")
+      .in("id", ids);
+    for (const p of (people ?? []) as { id: string; full_name: string | null; email: string | null }[]) {
+      const name = p.full_name?.trim() || p.email;
+      if (name) names.set(p.id, name);
+    }
+  }
+
+  const entries: AuditEntry[] = rows.map(({ metadata, ...r }) => {
+    const named =
+      typeof metadata?.personName === "string"
+        ? metadata.personName
+        : typeof metadata?.userId === "string"
+          ? (names.get(metadata.userId) ?? null)
+          : null;
+    return { ...r, summary: namePerson(r.summary, named) };
+  });
+  return { entries, total: count ?? 0 };
 }
 
 /** Departments to offer in the log's filter (admins can read them all). */

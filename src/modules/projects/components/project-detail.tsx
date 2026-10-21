@@ -317,12 +317,12 @@ export function ProjectDetail({
         if (links.length === 0) return null;
         return (
           <Card key={module.id}>
-            <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4">
               <div>
                 <CardTitle>{module.label}</CardTitle>
                 <CardDescription>Open this project&apos;s {module.label} pages.</CardDescription>
               </div>
-              <div className="flex shrink-0 flex-wrap justify-end gap-2">
+              <div className="flex flex-wrap gap-2">
                 {links.map((r) => {
                   const Icon = r.projectLink!.icon;
                   return (

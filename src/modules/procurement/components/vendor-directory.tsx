@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Fragment, type FormEvent, useState, useTransition } from "react";
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, Pause, Pencil, Play, Plus, Trash2, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { RejectionNote } from "@/modules/access/rejection-notes";
@@ -27,6 +27,7 @@ import {
   createVendor,
   decideVendor,
   deleteVendor,
+  setVendorActive,
   setVendorStatus,
   updateVendor,
 } from "@/modules/procurement/actions";
@@ -164,7 +165,14 @@ export function VendorDirectory({
                 {vendors.map((v) => (
                   <Fragment key={v.id}>
                     <tr className="border-b last:border-0">
-                      <td className="py-2 font-medium">{v.name}</td>
+                      <td className="py-2">
+                        <span className="font-medium">{v.name}</span>
+                        {v.projects.length > 0 && (
+                          <span className="text-muted-foreground block text-[11px]">
+                            On: {v.projects.join(", ")}
+                          </span>
+                        )}
+                      </td>
                       <td className="text-muted-foreground py-2">{VENDOR_TYPE_LABEL[v.type]}</td>
                       <td className="text-muted-foreground py-2">{v.trade ?? "—"}</td>
                       <td className="text-muted-foreground py-2">
@@ -184,6 +192,11 @@ export function VendorDirectory({
                         >
                           {VENDOR_STATUS_LABEL[v.status]}
                         </span>
+                        {!v.active && (
+                          <span className="bg-muted text-muted-foreground ml-1 rounded-full px-2 py-0.5 text-[10px] font-medium">
+                            Inactive
+                          </span>
+                        )}
                         {v.status === "draft" && v.stage_label && (
                           <span className="text-muted-foreground block text-[10px]">
                             waiting for {v.stage_label}
@@ -249,6 +262,18 @@ export function VendorDirectory({
                               aria-label={`Reject ${v.name}`}
                             >
                               <X className="size-4" />
+                            </button>
+                          )}
+                          {canApprove && v.status === "approved" && (
+                            <button
+                              type="button"
+                              disabled={pending}
+                              onClick={() => run(() => setVendorActive(v.id, !v.active))}
+                              className="text-muted-foreground hover:text-foreground"
+                              title={v.active ? "Set inactive (hide from new POs)" : "Set active again"}
+                              aria-label={v.active ? `Set ${v.name} inactive` : `Set ${v.name} active`}
+                            >
+                              {v.active ? <Pause className="size-4" /> : <Play className="size-4" />}
                             </button>
                           )}
                           {canUpdate && (

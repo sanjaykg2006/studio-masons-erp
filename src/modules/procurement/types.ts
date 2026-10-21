@@ -37,6 +37,10 @@ export type Vendor = {
   approval_id: string | null;
   stage_label: string | null;
   can_approve: boolean;
+  /** Switched off: kept on record but not offered for new POs. */
+  active: boolean;
+  /** Projects where this vendor has a PO still open (that the viewer can see). */
+  projects: string[];
 };
 
 /** The editable fields on a vendor (create + update share this shape). */

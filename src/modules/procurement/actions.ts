@@ -81,6 +81,23 @@ export async function setVendorStatus(vendorId: string, status: VendorStatus): P
   return ok;
 }
 
+/** Switch a vendor off (hidden from new POs, kept on record) or back on. */
+export async function setVendorActive(vendorId: string, active: boolean): Promise<ActionResult> {
+  const denied = await authorize("procurement.vendor", "approve");
+  if (denied) return denied;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_vendor_active", { p_vendor: vendorId, p_active: active });
+  if (error) return fail(error.message);
+  await logAudit(
+    "procurement.vendor.active",
+    active ? "Set a vendor active" : "Set a vendor inactive",
+    { vendorId }
+  );
+  refresh();
+  return ok;
+}
+
 /**
  * Approve or reject the stage a new vendor is waiting on. Its stages are set on
  * Access Control → Approval flows; the last approval marks the vendor approved.

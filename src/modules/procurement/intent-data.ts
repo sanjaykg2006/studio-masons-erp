@@ -53,5 +53,5 @@ export async function listIntentOpenLines(intentId: string): Promise<OpenIntentL
 export async function listApprovedVendors(): Promise<Vendor[]> {
   const supabase = await createClient();
   const { data } = await supabase.rpc("list_vendors");
-  return ((data ?? []) as Vendor[]).filter((v) => v.status === "approved");
+  return ((data ?? []) as Vendor[]).filter((v) => v.status === "approved" && v.active);
 }

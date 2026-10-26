@@ -15,7 +15,9 @@
     "db:new": "supabase migration new",
     "db:push": "supabase db push",
     "db:diff": "supabase db diff",
-    "db:backup": "node scripts/backup.mjs"
+    "db:backup": "node scripts/backup.mjs",
+    "test-env:copy-setup": "node --env-file=.env.local scripts/copy-setup-to-test.mjs",
+    "test-env:seed": "node --env-file=.env.local scripts/seed-test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.2.0",

@@ -1,6 +1,6 @@
 -- Database-wide safety rules that every migration must keep.
 begin;
-select plan(5);
+select plan(6);
 
 select is_empty(
   $$select proname from pg_proc
@@ -32,6 +32,11 @@ select is_empty(
       and not (has_table_privilege('authenticated', c.oid, 'select')
                and has_table_privilege('service_role', c.oid, 'select'))$$,
   'signed-in users and the server can reach every table (row-level security then decides the rows)');
+
+select ok(has_schema_privilege('authenticated', 'public', 'usage')
+          and has_schema_privilege('anon', 'public', 'usage')
+          and has_schema_privilege('service_role', 'public', 'usage'),
+          'the API roles can enter the public schema');
 
 select * from finish();
 rollback;

@@ -70,7 +70,6 @@ const PEOPLE = [
   ["director", "Test Director", "Director", ["project_management", "Project Director"], "project_management"],
   ["cofounder", "Test Co-Founder", "Co-Founder"],
   ["financehead", "Test Finance Head", "Staff", ["finance", "Finance Head"], "finance"],
-  ["accountshead", "Test Accounts Head", "Staff", ["finance", "Accounts Head"]],
   ["accounts", "Test Accounts", "Staff", ["finance", "Accounts Team"]],
   ["buyer", "Test Procurement Manager", "Staff", ["procurement", "Procurement Manager"], "procurement"],
   ["pm", "Test Project Manager", "Staff", ["project_management", null]],
@@ -185,7 +184,8 @@ await upsert("procurement_intent_lines", [
 ]);
 
 // ── Purchase orders ─────────────────────────────────────────────────────────
-// PO-001 is live with part of the cement delivered; PO-002 waits for approval.
+// PO-001 is live with part of the cement delivered; PO-002 waits for approval
+// (Finance review, then Director).
 await upsert("procurement_orders", [
   { id: id("po-a1"), project_id: A, intent_id: id("intent-a1"), vendor_id: id("vendor-balaji"), po_number: "PO-001",
     status: "issued", support_file: "demo/quote.pdf", acceptance_file: "demo/acceptance.pdf",

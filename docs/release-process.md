@@ -20,8 +20,7 @@ is it sent to the **live ERP** that staff use.
    | md@example.com | Managing Director (full access) |
    | director@example.com | Director, and Project Director on every project |
    | cofounder@example.com | Co-Founder |
-   | financehead@example.com | Finance Head on every project (Finance lead) |
-   | accountshead@example.com | Accounts Head on every project (gives PO "Finance review") |
+   | financehead@example.com | Finance Head on every project (Finance lead; gives PO "Finance review") |
    | accounts@example.com | Accounts team |
    | buyer@example.com | Procurement Manager on every project (Procurement lead) |
    | pm@example.com | Project Manager on both demo projects |
@@ -30,11 +29,11 @@ is it sent to the **live ERP** that staff use.
    | staff@example.com | Staff, with no special access |
 
 3. Do what the change is about, for example raise a PO as the buyer, then approve it
-   as the Accounts Head and the Director. Use a private/incognito window to be
+   as the Finance Head and the Director. Use a private/incognito window to be
    two people at once.
 
 The demo data has two projects: **Green Meadows Villa** and **Lakeside Office
-Fit-out**. PO-002 is waiting for the Accounts Head, and a Lakeside intent is
+Fit-out**. PO-002 is waiting for the Finance Head, and a Lakeside intent is
 waiting for the Project Director.
 
 ## Going live

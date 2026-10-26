@@ -39,3 +39,22 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # The database's own rules — approvals, money, purchase orders, who sees what
+  # (supabase/tests/database). Builds a throwaway database from every migration
+  # and runs the pgTAP checks against it. A separate job, so a failure shows red
+  # and emails the owner without holding up the main gate.
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.107.0
+
+      - name: Start a throwaway database from the migrations
+        run: supabase start -x studio,imgproxy,mailpit,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta
+
+      - name: Database checks
+        run: supabase test db

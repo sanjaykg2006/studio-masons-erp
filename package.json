@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:db": "supabase test db",
     "db:link": "supabase link",
     "db:new": "supabase migration new",
     "db:push": "supabase db push",

@@ -164,6 +164,20 @@ begin
   return v_order;
 end $$;
 
+-- A released PO (with its acceptance letter) for p_qty at p_rate, made
+-- directly — for checks that start after the purchasing chain.
+create function tests.issued_po(p_project uuid, p_vendor uuid, p_qty numeric, p_rate numeric)
+returns uuid language plpgsql as $$
+declare v_order uuid;
+begin
+  insert into public.procurement_orders (project_id, vendor_id, po_number, status, acceptance_file)
+  values (p_project, p_vendor, 'PO-T' || substr(md5(random()::text), 1, 4), 'issued', 'test/acceptance.pdf')
+  returning id into v_order;
+  insert into public.procurement_order_lines (order_id, description, unit, qty_ordered, rate, sort)
+  values (v_order, 'Cement', 'bag', p_qty, p_rate, 0);
+  return v_order;
+end $$;
+
 create function tests.order_line(p_order uuid)
 returns uuid language sql stable security definer as $$
   select id from public.procurement_order_lines where order_id = p_order order by sort limit 1

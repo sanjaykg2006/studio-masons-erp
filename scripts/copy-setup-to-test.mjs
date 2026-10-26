@@ -7,8 +7,11 @@
 // like live. Everything else (people, projects, POs, money) stays fake on test:
 // fill it with `npm run test-env:seed`.
 //
-// The test ERP's existing setup is REPLACED. Who created a template or branch
-// is cleared, because those people don't exist on test.
+// The test ERP's setup is brought in line: every live row is added or
+// refreshed, then test rows live no longer has are removed — in place, so the
+// test people, projects and approvals that refer to the setup stay valid. Who
+// created a template or branch is cleared, because those people don't exist
+// on test.
 //
 // Usage:  npm run test-env:copy-setup
 // Needs in .env.local: NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (live)
@@ -77,13 +80,7 @@ for (const t of TABLES) {
   copies.push({ ...t, rows });
 }
 
-// Clear the test setup, children first.
-for (const t of [...TABLES].reverse()) {
-  check(`Clearing ${t.name}`, await test.from(t.name).delete().not(t.key[0], "is", null));
-}
-
-// Fill it, parents first. Upsert, because adding a department seeds its own
-// concept-visibility rows on the way in.
+// Add or refresh every live row, parents first.
 for (const t of copies) {
   for (let i = 0; i < t.rows.length; i += 500) {
     check(
@@ -91,7 +88,26 @@ for (const t of copies) {
       await test.from(t.name).upsert(t.rows.slice(i, i + 500), { onConflict: t.key.join(",") })
     );
   }
-  console.log(`  ✓ ${t.name.padEnd(28)} ${t.rows.length} rows`);
+}
+
+// Remove what live no longer has, children first. A row that test data still
+// refers to (say, a role a test person holds) can't go; that is reported and
+// left, rather than deleting the test people with it.
+const keyOf = (t, r) => t.key.map((k) => String(r[k])).join("|");
+for (const t of [...copies].reverse()) {
+  const liveKeys = new Set(t.rows.map((r) => keyOf(t, r)));
+  const stale = (await readAll(test, t.name)).filter((r) => !liveKeys.has(keyOf(t, r)));
+  let kept = 0;
+  for (const r of stale) {
+    const match = Object.fromEntries(t.key.map((k) => [k, r[k]]));
+    const { error } = await test.from(t.name).delete().match(match);
+    if (error) kept++;
+  }
+  console.log(
+    `  ✓ ${t.name.padEnd(28)} ${t.rows.length} rows` +
+      (stale.length ? `, removed ${stale.length - kept} not on live` : "") +
+      (kept ? ` (kept ${kept} still in use on test)` : "")
+  );
 }
 
 console.log("\n✓ The test ERP now has the live setup (no people, projects or money copied).");

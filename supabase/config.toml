@@ -13,4 +13,4 @@ project_id = "studio-masons-erp"
 
 [db]
 # Match your Supabase project's Postgres major version.
-major_version = 15
+major_version = 17

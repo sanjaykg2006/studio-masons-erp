@@ -1,0 +1,185 @@
+-- Shared setup for the database checks (pgTAP). Each *.test.sql includes this
+-- with `\ir _helpers.psql` INSIDE its own transaction and rolls back at the end,
+-- so nothing here — schema, fake people, projects, POs — outlives the test.
+--
+-- Run them all with:  npx supabase test db   (needs the local database:
+-- npx supabase start). CI does the same on every push.
+
+create schema tests;
+grant usage on schema tests to authenticated, anon;
+
+-- Fake people by short name ('buyer', 'director', …).
+create table tests.people (key text primary key, id uuid not null);
+grant select on tests.people to authenticated, anon;
+
+-- A role with exactly these ticks ('resource:action'). Marked is_system so the
+-- grant guard lets a test role hold any tick — real job titles are limited to
+-- back-office screens, which would make every fixture a department role.
+create function tests.role(p_label text, p_grants text[] default '{}')
+returns uuid language plpgsql as $$
+declare v uuid;
+begin
+  insert into public.roles (key, label, is_system)
+  values ('test_' || replace(gen_random_uuid()::text, '-', ''), p_label, true)
+  returning id into v;
+  insert into public.role_permissions (role_id, resource, action)
+  select v, split_part(g, ':', 1), split_part(g, ':', 2)::public.app_action
+  from unnest(p_grants) g;
+  return v;
+end $$;
+
+-- A signed-up person with that role as their job title.
+create function tests.person(p_key text, p_role uuid default null)
+returns uuid language plpgsql as $$
+declare v uuid := gen_random_uuid();
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          email_confirmed_at, created_at, updated_at,
+                          raw_app_meta_data, raw_user_meta_data)
+  values (v, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          p_key || '@test.local', '', now(), now(), now(), '{}', '{}');
+  insert into public.profiles (id, email, full_name, role_id)
+  values (v, p_key || '@test.local', initcap(p_key), p_role);
+  insert into tests.people values (p_key, v);
+  return v;
+end $$;
+
+create function tests.uid(p_key text)
+returns uuid language sql stable security definer as $$ select id from tests.people where key = p_key $$;
+
+-- (The lookups above are security definer: they run while a fake person is
+-- logged in, and people can't read most tables directly — the app reads them
+-- through functions.)
+
+-- Act as that person: auth.uid() is them and RLS applies, as in the app.
+create function tests.login(p_key text)
+returns void language plpgsql as $$
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', tests.uid(p_key), 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+end $$;
+
+-- Back to the test runner (no user, RLS bypassed) for setup.
+create function tests.logout()
+returns void language plpgsql as $$
+begin
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+end $$;
+
+grant execute on all functions in schema tests to authenticated, anon;
+
+-- A flow's approval stages, replaced by one stage per role, in order.
+create function tests.stages(p_flow text, p_roles uuid[])
+returns void language plpgsql as $$
+begin
+  delete from public.approval_stages where flow_id = p_flow;
+  insert into public.approval_stages (flow_id, position, label, approver, role_id, block_own)
+  select p_flow, i, 'Stage ' || i, 'role', p_roles[i], true
+  from generate_subscripts(p_roles, 1) i;
+end $$;
+
+-- The approval request an item is in.
+create function tests.request(p_flow text, p_item uuid)
+returns uuid language sql stable security definer as $$
+  select id from public.approval_requests where flow_id = p_flow and item_id = p_item
+$$;
+
+-- Each named person approves the stage the item is on, in turn.
+create function tests.approve(p_flow text, p_item uuid, p_keys text[])
+returns void language plpgsql as $$
+declare k text;
+begin
+  foreach k in array p_keys loop
+    perform tests.login(k);
+    perform public.approval_decide(tests.request(p_flow, p_item), true, null);
+    perform tests.logout();
+  end loop;
+end $$;
+
+-- ── Purchasing fixtures (made directly, as the runner) ───────────────────────
+
+create function tests.project(p_name text default 'Test project')
+returns uuid language sql as $$
+  insert into public.projects (name, code) values (p_name, upper(left(p_name, 8)))
+  returning id
+$$;
+
+-- A released budget with one line; returns the line.
+create function tests.budget_line(p_project uuid, p_qty numeric, p_rate numeric default 100)
+returns uuid language plpgsql as $$
+declare v_budget uuid; v_pkg uuid; v_line uuid;
+begin
+  insert into public.procurement_budgets (project_id, version_no, status, released_at)
+  values (p_project,
+          (select coalesce(max(version_no), 0) + 1 from public.procurement_budgets where project_id = p_project),
+          'released', now())
+  returning id into v_budget;
+  insert into public.procurement_budget_packages (budget_id, name, sort)
+  values (v_budget, 'Civil', 0) returning id into v_pkg;
+  insert into public.procurement_budget_lines (package_id, description, unit, qty, rate, sort)
+  values (v_pkg, 'Cement', 'bag', p_qty, p_rate, 0) returning id into v_line;
+  return v_line;
+end $$;
+
+create function tests.vendor(p_name text default 'Acme Supplies', p_active boolean default true)
+returns uuid language sql as $$
+  insert into public.procurement_vendors (name, status, active)
+  values (p_name, 'approved', p_active) returning id
+$$;
+
+-- An approved purchase intent for p_qty on a budget line; returns the intent line.
+create function tests.intent_line(p_project uuid, p_budget_line uuid, p_qty numeric)
+returns uuid language plpgsql as $$
+declare v_intent uuid; v_line uuid;
+begin
+  insert into public.procurement_intents (project_id, status) values (p_project, 'approved')
+  returning id into v_intent;
+  insert into public.procurement_intent_lines (intent_id, budget_line_id, qty_requested)
+  values (v_intent, p_budget_line, p_qty) returning id into v_line;
+  return v_line;
+end $$;
+
+create function tests.intent_of(p_intent_line uuid)
+returns uuid language sql stable security definer as $$
+  select intent_id from public.procurement_intent_lines where id = p_intent_line
+$$;
+
+-- The draft PO generated for one intent line, raised as p_key (who must be
+-- allowed to issue POs). Returns the PO.
+create function tests.draft_po(p_key text, p_intent_line uuid, p_vendor uuid, p_rate numeric default 90)
+returns uuid language plpgsql as $$
+declare v_intent uuid := tests.intent_of(p_intent_line); v_order uuid;
+begin
+  perform tests.login(p_key);
+  perform public.create_orders_from_intent(
+    v_intent,
+    jsonb_build_array(jsonb_build_object('intent_line_id', p_intent_line, 'vendor_id', p_vendor, 'rate', p_rate)),
+    jsonb_build_array(jsonb_build_object('vendor_id', p_vendor, 'support_file', 'test/support.pdf')));
+  perform tests.logout();
+  select id into v_order from public.procurement_orders
+  where intent_id = v_intent and vendor_id = p_vendor and status = 'draft'
+  order by created_at desc limit 1;
+  return v_order;
+end $$;
+
+create function tests.order_line(p_order uuid)
+returns uuid language sql stable security definer as $$
+  select id from public.procurement_order_lines where order_id = p_order order by sort limit 1
+$$;
+
+-- A receipt's lines, for record_receipt.
+create function tests.receive(p_order_line uuid, p_qty numeric)
+returns jsonb language sql immutable as $$
+  select jsonb_build_array(jsonb_build_object('order_line_id', p_order_line, 'qty', p_qty))
+$$;
+
+-- A GRN file entry for record_receipt, stored under the PO's folder.
+create function tests.grn(p_order uuid)
+returns jsonb language sql immutable as $$
+  select jsonb_build_array(jsonb_build_object('kind', 'grn', 'name', 'grn.pdf',
+                                              'path', p_order::text || '/receipt-grn-test.pdf'))
+$$;
+
+grant execute on all functions in schema tests to authenticated, anon;

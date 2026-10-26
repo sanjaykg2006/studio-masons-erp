@@ -20,8 +20,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      PROJECT_REF: ${{ github.ref_name == 'main' && vars.SUPABASE_PROJECT_LIVE || vars.SUPABASE_PROJECT_TEST }}
+      # A database login only (the project's session-pooler connection string),
+      # not a Supabase account token — least power that can still migrate.
+      DB_URL: ${{ github.ref_name == 'main' && secrets.SUPABASE_DB_URL_LIVE || secrets.SUPABASE_DB_URL_TEST }}
       DEPLOY_HOOK: ${{ github.ref_name == 'main' && secrets.VERCEL_DEPLOY_HOOK_PRODUCTION || secrets.VERCEL_DEPLOY_HOOK_STAGING }}
     steps:
       - uses: actions/checkout@v4
@@ -31,9 +32,7 @@ jobs:
           version: 2.107.0
 
       - name: Apply database changes (${{ github.ref_name == 'main' && 'live' || 'test' }})
-        run: |
-          supabase link --project-ref "$PROJECT_REF" < /dev/null
-          supabase db push --yes
+        run: supabase db push --db-url "$DB_URL" --yes
 
       - name: Publish the website (${{ github.ref_name == 'main' && 'live' || 'test' }})
         run: curl -fsS -X POST "$DEPLOY_HOOK" > /dev/null

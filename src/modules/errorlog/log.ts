@@ -74,6 +74,9 @@ export async function recordError(input: RecordErrorInput): Promise<string | nul
  * email; outside a request it simply runs now.
  */
 async function alertSoon() {
+  // The edge runtime (the request proxy) can't send email — and must not even
+  // bundle the mailer. Errors logged there are emailed by the 5-minute job.
+  if (process.env.NEXT_RUNTIME === "edge") return;
   const send = async () => {
     try {
       const { sendErrorAlerts } = await import("@/modules/errorlog/alerts");

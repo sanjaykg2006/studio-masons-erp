@@ -16,6 +16,7 @@ import {
   type ApprovalFlow,
   type FlowStep,
 } from "@/modules/access/approval-flows";
+import { daysWaiting, isStuck } from "@/modules/access/waiting";
 
 export type StepWho = {
   /** Job titles with full access ('*') — they can do every step. */
@@ -39,6 +40,8 @@ export type StepView = FlowStep & {
   changeAt: { label: string; href: string }[];
   /** An approval stage with no usable role — only an administrator can give it. */
   needsRole?: boolean;
+  /** An approval stage whose role nobody active holds, so items will get stuck. */
+  nobodyHolds?: boolean;
 };
 
 export type FlowView = Omit<ApprovalFlow, "steps"> & {
@@ -76,6 +79,7 @@ export async function getApprovalFlows(): Promise<{
     flowsRes,
     stagesRes,
     homes,
+    holdersRes,
   ] = await Promise.all([
     supabase.from("roles").select("id, label, department_id, rank").order("rank"),
     supabase.from("role_permissions").select("role_id, resource, action"),
@@ -96,6 +100,7 @@ export async function getApprovalFlows(): Promise<{
       )
       .order("position"),
     getStoredHomes(),
+    supabase.rpc("approval_role_holders"),
   ]);
 
   const roles = (rolesRes.data ?? []) as { id: string; label: string; department_id: string | null }[];
@@ -120,6 +125,12 @@ export async function getApprovalFlows(): Promise<{
   }[];
   const engineFlows = (flowsRes.data ?? []) as Omit<EngineFlow, "stages" | "roles">[];
   const stages = (stagesRes.data ?? []) as ApprovalStageRow[];
+  const holderCount = new Map(
+    ((holdersRes.data ?? []) as { stage_id: string; holders: number }[]).map((h) => [
+      h.stage_id,
+      h.holders,
+    ])
+  );
 
   const jobTitles = roles.filter((r) => !r.department_id);
   const titleLabel = (id: string) => jobTitles.find((t) => t.id === id)?.label ?? "a deleted job title";
@@ -234,6 +245,7 @@ export async function getApprovalFlows(): Promise<{
         rule,
         tick: null,
         who,
+        nobodyHolds: holderCount.get(s.id) === 0,
         changeAt: [{ label: "Access Control → department leads", href: "/access" }],
       };
     }
@@ -260,6 +272,7 @@ export async function getApprovalFlows(): Promise<{
       tick: null,
       who,
       needsRole: stageNeedsRole(s) || (s.role_id !== null && role === null),
+      nobodyHolds: !!role && holderCount.get(s.id) === 0,
       changeAt: role?.departmentId
         ? [
             { label: "Each project → Team", href: "/projects" },
@@ -320,4 +333,71 @@ export async function getApprovalFlows(): Promise<{
     jobTitles: jobTitles.map((t) => ({ id: t.id, label: t.label })),
     roles: roleOptions,
   };
+}
+
+export type WaitingApproval = {
+  id: string;
+  flow_id: string;
+  flow_label: string;
+  item_id: string;
+  project_id: string | null;
+  project_label: string | null;
+  /** A PO number, invoice number, vendor name… when the item has one. */
+  item_ref: string | null;
+  amount: number | null;
+  requester_name: string | null;
+  raised_at: string;
+  /** When it reached the stage it is on: its last decision, or when raised. */
+  waiting_since: string;
+  stage_label: string;
+  stage_no: number;
+  stage_count: number;
+  approver_label: string | null;
+  /** Who can give the stage now, after "not their own" and "one stage each". */
+  can_approve: string[];
+  /** Full-access administrators who could step in, as a recorded override. */
+  admin_backup: string[];
+  /** Whole days at this stage. */
+  days_waiting: number;
+  /** Nobody but an administrator can give it, or it has waited too long. */
+  stuck: boolean;
+};
+
+/** Every item waiting on an approval decision, oldest first. Access admins only. */
+export async function listWaitingApprovals(): Promise<WaitingApproval[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("list_waiting_approvals");
+  const now = Date.now();
+  return ((data ?? []) as Omit<WaitingApproval, "days_waiting" | "stuck">[]).map((w) => ({
+    ...w,
+    days_waiting: daysWaiting(w.waiting_since, now),
+    stuck: isStuck(w, now),
+  }));
+}
+
+/** Where an item waiting in `flow` is decided. */
+export function waitingItemHref(w: Pick<WaitingApproval, "flow_id" | "item_id" | "project_id">): string {
+  const p = w.project_id ? `/projects/${w.project_id}` : null;
+  switch (w.flow_id) {
+    case "pettycash":
+      return "/pettycash";
+    case "vendor":
+      return "/procurement/vendors";
+    case "order":
+      return p ? `${p}/orders/${w.item_id}` : "/projects";
+    case "intent":
+      return p ? `${p}/intents` : "/projects";
+    case "budget":
+      return p ? `${p}/budget` : "/projects";
+    case "brief":
+    case "brief_revision":
+      return p ? `${p}/brief/${w.item_id}` : "/projects";
+    case "invoice":
+    case "payment":
+    case "advance":
+    case "retention_early":
+      return p ? `${p}/finance` : "/projects";
+    default:
+      return p ?? "/projects";
+  }
 }

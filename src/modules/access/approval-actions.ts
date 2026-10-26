@@ -31,8 +31,9 @@ export type StageInput = {
  * Add or edit an approval stage. A stage names ONE role and only that role may
  * give it, so the role is required. A project role may only be named on a flow
  * whose items belong to a project — off a project nobody could ever hold it.
- * Items already in progress keep the stages they started with; this changes new
- * ones only. The table's RLS re-checks access:update.
+ * Items already waiting at (or not yet past) the stage follow the edit — the
+ * approval_stages_follow trigger (0104) updates their snapshot. The table's RLS
+ * re-checks access:update.
  */
 export async function saveApprovalStage(input: StageInput): Promise<ActionResult> {
   const denied = await authorize("access", "update");
@@ -110,7 +111,7 @@ export async function saveApprovalStage(input: StageInput): Promise<ActionResult
   return ok;
 }
 
-/** Remove an approval stage. Items already past or waiting on it are unaffected. */
+/** Remove an approval stage. Items already past or waiting on it keep it. */
 export async function deleteApprovalStage(stageId: string): Promise<ActionResult> {
   const denied = await authorize("access", "update");
   if (denied) return denied;

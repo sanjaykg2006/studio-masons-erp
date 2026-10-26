@@ -47,8 +47,8 @@ function roleGroups(roles: RoleOption[], hasProject: boolean) {
 /**
  * Add, remove, reorder and configure one flow's approval stages. Each stage
  * names ONE role and only that role may give it. The fixed work steps (log,
- * pay, raise…) are not here. Changes apply to items raised from now on; items
- * already in progress keep the stages they started with.
+ * pay, raise…) are not here. Changing who gives a stage also moves items
+ * already waiting at it; adding, removing or reordering affects new items only.
  */
 export function ApprovalStagesEditor({
   flow,
@@ -83,9 +83,9 @@ export function ApprovalStagesEditor({
       <div>
         <p className="text-sm font-medium">Edit the approval stages</p>
         <p className="text-muted-foreground text-xs">
-          Each stage is given by one role and nobody else. Changes apply to items
-          raised from now on; items already in progress keep the stages they
-          started with.
+          Each stage is given by one role and nobody else. Changing who gives a
+          stage also moves items already waiting at it to the new approver.
+          Adding, removing or reordering stages affects new items only.
         </p>
       </div>
 

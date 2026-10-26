@@ -5,6 +5,7 @@ import {
   Bug,
   CheckSquare,
   History,
+  Hourglass,
   Settings,
   ShieldCheck,
   Users,
@@ -78,6 +79,20 @@ export default async function ITPage() {
                 </CardTitle>
                 <CardDescription>
                   Every approval chain, step by step — who approves each step.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        )}
+        {canAccess && (
+          <Link href="/access/approvals/waiting">
+            <Card className="hover:bg-accent/50 transition-colors">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Hourglass className="size-4" /> Waiting approvals
+                </CardTitle>
+                <CardDescription>
+                  Everything waiting on an approval, who it waits on, and what is stuck.
                 </CardDescription>
               </CardHeader>
             </Card>

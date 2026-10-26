@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Hourglass } from "lucide-react";
 
 import { can, requirePermission } from "@/core/rbac/can";
 import {
@@ -9,7 +9,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getApprovalFlows, type StepWho } from "@/modules/access/approval-data";
+import {
+  getApprovalFlows,
+  listWaitingApprovals,
+  type StepWho,
+} from "@/modules/access/approval-data";
 import { ApprovalStagesEditor } from "@/modules/access/components/approval-stages-editor";
 
 /** Nobody can do a step yet (full-access administrators aside). */
@@ -31,10 +35,16 @@ const withPeople = (x: { label: string; people: string[] }) =>
  */
 export default async function ApprovalFlowsPage() {
   await requirePermission("access", "read");
-  const [{ flows, jobTitles, roles }, canEdit] = await Promise.all([
+  const [{ flows, jobTitles, roles }, canEdit, waiting] = await Promise.all([
     getApprovalFlows(),
     can("access", "update"),
+    listWaitingApprovals(),
   ]);
+  const stuck = waiting.filter((w) => w.stuck).length;
+  // Stages pointing at a role nobody active holds: items reaching them stop.
+  const dead = flows.flatMap((f) =>
+    f.steps.filter((s) => s.nobodyHolds).map((s) => `${f.label}: ${s.label}`)
+  );
   // Stages nobody but an administrator can give, because no role is chosen.
   const unset = flows.flatMap((f) =>
     f.steps.filter((s) => s.needsRole).map((s) => `${f.label}: ${s.label}`)
@@ -58,6 +68,42 @@ export default async function ApprovalFlowsPage() {
           stage of the same item.
         </p>
       </div>
+
+      <Link
+        href="/access/approvals/waiting"
+        className={
+          stuck > 0
+            ? "flex items-center gap-2 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
+            : "hover:bg-accent/50 flex items-center gap-2 rounded-md border px-4 py-3 text-sm"
+        }
+      >
+        <Hourglass className="size-4 shrink-0" />
+        <span>
+          <span className="font-medium">
+            {waiting.length === 0
+              ? "Nothing is waiting for approval"
+              : `${waiting.length} item${waiting.length === 1 ? "" : "s"} waiting for approval`}
+          </span>
+          {stuck > 0 && ` — ${stuck} stuck or waiting too long`}
+          {waiting.length > 0 && " · See who each one is waiting on →"}
+        </span>
+      </Link>
+
+      {dead.length > 0 && (
+        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+          <p className="font-medium">Nobody holds the approving role for these stages</p>
+          <p className="mt-1 text-xs">
+            Anything that reaches them will get stuck until someone is given the
+            role (or a full-access administrator overrides it). Give the role to
+            a person, or pick a different role for the stage.
+          </p>
+          <ul className="mt-2 list-disc space-y-0.5 pl-5 text-xs">
+            {dead.map((d) => (
+              <li key={d}>{d}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {unset.length > 0 && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
@@ -107,6 +153,11 @@ export default async function ApprovalFlowsPage() {
                       <p className="text-muted-foreground text-xs">Tick: {step.tick}</p>
                     )}
                     {step.rule && <p className="text-muted-foreground text-xs">{step.rule}</p>}
+                    {step.nobodyHolds && (
+                      <p className="text-xs font-medium text-red-700 dark:text-red-400">
+                        Nobody holds this role yet — items reaching this stage will get stuck.
+                      </p>
+                    )}
 
                     {step.who && (
                       <div className="text-xs">

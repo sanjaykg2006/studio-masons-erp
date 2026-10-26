@@ -7,7 +7,8 @@
  * edited on Access Control → Approval flows. Each stage NAMES ONE ROLE and only
  * that role may give it — a job title, or a department's project role held on
  * the item's own project. When an item is raised, the stages that apply to it
- * are snapshotted, so edits only affect new items.
+ * are snapshotted. Changing who gives a stage also reaches items waiting at it
+ * (0104); adding, removing or reordering stages affects new items only.
  */
 
 /** How a stage's approver is named. */

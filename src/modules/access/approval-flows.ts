@@ -68,7 +68,7 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
     rules: [
       "A claim is approved or rejected by the one role the stage it is waiting on names.",
       "Full-access administrators are the backup on any stage — never on their own claim, and every such decision is recorded as an override.",
-      "A claim keeps the stages it started with; editing them affects new claims only.",
+      "Changing who gives a stage also moves claims already waiting at it; adding, removing or reordering stages affects new claims only.",
     ],
   },
   {
@@ -219,7 +219,7 @@ export const APPROVAL_FLOWS: ApprovalFlow[] = [
     rules: [
       "A project role named on a stage is checked on the change order's own project.",
       "Full-access administrators are the backup on any stage; every such decision is recorded as an override.",
-      "A change order keeps the stages it started with; editing them affects new ones only.",
+      "Changing who gives a stage also moves change orders already waiting at it; adding, removing or reordering stages affects new ones only.",
     ],
   },
   {

@@ -170,6 +170,9 @@ export function OrderDetailView({
     const drafts = Object.entries(qtys)
       .filter(([, q]) => q > 0)
       .map(([order_line_id, qty]) => ({ order_line_id, qty }));
+    // Checked here, before any file is sent, so a forgotten quantity doesn't
+    // cost a wasted upload.
+    if (drafts.length === 0) return setError("Enter the quantity received on at least one line.");
     const grn = grnRef.current?.files?.[0];
     if (!grn) return setError("Attach the GRN for this delivery.");
     const fd = new FormData();
@@ -243,7 +246,9 @@ export function OrderDetailView({
 
       <RejectionNote note={rejection} label="Sign-off refused" />
 
-      {error && (
+      {/* While receiving, the message shows beside Save receipt instead —
+          up here it is off-screen from the form. */}
+      {error && !receiving && (
         <div className="border-destructive/50 bg-destructive/10 text-destructive rounded-md border px-4 py-2 text-sm">
           {error}
         </div>
@@ -665,10 +670,22 @@ export function OrderDetailView({
                   />
                 </label>
               </div>
+              {error && (
+                <p role="alert" className="text-destructive w-full text-sm">
+                  {error}
+                </p>
+              )}
               <Button size="sm" disabled={pending} onClick={submitReceipt}>
                 Save receipt
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setReceiving(false)}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setReceiving(false);
+                  setError(null);
+                }}
+              >
                 Cancel
               </Button>
             </div>

@@ -20,6 +20,14 @@ const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z
     .string()
     .min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
+  // Alert emails (core/alerts/mailer.ts) go out through this Gmail account,
+  // signed in with a Google "app password". Optional: without them alerts are
+  // skipped, nothing else breaks.
+  ALERT_GMAIL_USER: z.string().email().optional(),
+  ALERT_GMAIL_APP_PASSWORD: z.string().min(1).optional(),
+  // Shared with the database's scheduled jobs (Vault: alerts_cron_secret); the
+  // /api/cron/* routes refuse any call without it.
+  CRON_SECRET: z.string().min(16).optional(),
 });
 
 let cached: z.infer<typeof serverEnvSchema> | null = null;
@@ -29,6 +37,10 @@ export function serverEnv() {
 
   const parsed = serverEnvSchema.safeParse({
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    // Empty strings (an unset var in some hosts) count as not set.
+    ALERT_GMAIL_USER: process.env.ALERT_GMAIL_USER || undefined,
+    ALERT_GMAIL_APP_PASSWORD: process.env.ALERT_GMAIL_APP_PASSWORD?.replace(/\s+/g, "") || undefined,
+    CRON_SECRET: process.env.CRON_SECRET || undefined,
   });
 
   if (!parsed.success) {

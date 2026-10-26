@@ -1,5 +1,7 @@
 import "server-only";
 
+import { after } from "next/server";
+
 import { createAdminClient } from "@/core/supabase/admin";
 import { getUser } from "@/core/auth/get-user";
 
@@ -58,10 +60,33 @@ export async function recordError(input: RecordErrorInput): Promise<string | nul
       })
       .select("id")
       .maybeSingle();
+    await alertSoon();
     return (data as { id: string } | null)?.id ?? null;
   } catch (err) {
     console.error("[errorlog] failed to record error", input.context, err);
     return null;
+  }
+}
+
+/**
+ * Email the IT department about the new error. Runs after the response when
+ * there is one, so the person who hit the error isn't kept waiting on the
+ * email; outside a request it simply runs now.
+ */
+async function alertSoon() {
+  const send = async () => {
+    try {
+      const { sendErrorAlerts } = await import("@/modules/errorlog/alerts");
+      const res = await sendErrorAlerts();
+      if ("error" in res) console.error("[errorlog] alert email failed", res.error);
+    } catch (err) {
+      console.error("[errorlog] alert email failed", err);
+    }
+  };
+  try {
+    after(send);
+  } catch {
+    await send();
   }
 }
 

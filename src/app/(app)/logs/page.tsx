@@ -1,5 +1,5 @@
 import { requirePermission } from "@/core/rbac/can";
-import { getErrorLogs } from "@/modules/errorlog/data";
+import { getAlertSetup, getErrorLogs } from "@/modules/errorlog/data";
 import type { ErrorSource } from "@/modules/errorlog/log";
 import { ErrorLogView } from "@/modules/errorlog/components/error-log-view";
 
@@ -15,7 +15,10 @@ export default async function ErrorLogPage({
   const pageNum = Math.max(0, Number.parseInt(page ?? "0", 10) || 0);
   const src = source === "client" || source === "server" ? (source as ErrorSource) : undefined;
 
-  const { entries, total } = await getErrorLogs({ source: src, page: pageNum, pageSize: PAGE_SIZE });
+  const [{ entries, total }, alerts] = await Promise.all([
+    getErrorLogs({ source: src, page: pageNum, pageSize: PAGE_SIZE }),
+    getAlertSetup(),
+  ]);
 
   return (
     <ErrorLogView
@@ -24,6 +27,7 @@ export default async function ErrorLogPage({
       page={pageNum}
       pageSize={PAGE_SIZE}
       source={src}
+      alerts={alerts}
     />
   );
 }

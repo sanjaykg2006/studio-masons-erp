@@ -1,5 +1,6 @@
 "use server";
 
+import { authorize } from "@/core/rbac/can";
 import { attachErrorNote, recordError } from "@/modules/errorlog/log";
 
 /**
@@ -37,4 +38,12 @@ export async function reportClientError(input: {
  */
 export async function reportErrorNote(id: string, note: string): Promise<void> {
   await attachErrorNote(id, note);
+}
+
+/** Email a test alert to the alert recipients, so the setup can be checked. */
+export async function sendTestAlertEmail(): Promise<{ ok: true } | { ok: false; error: string }> {
+  const denied = await authorize("errorlog", "read");
+  if (denied) return denied;
+  const { sendTestAlert } = await import("@/modules/errorlog/alerts");
+  return sendTestAlert();
 }

@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { createClient } from "@/core/supabase/server";
 import { effectiveHome, moduleResources } from "@/core/modules/registry";
 import { getStoredHomes } from "@/core/modules/homes";
@@ -363,9 +365,12 @@ export type WaitingApproval = {
   stuck: boolean;
 };
 
-/** Every item waiting on an approval decision, oldest first. Access admins only. */
-export async function listWaitingApprovals(): Promise<WaitingApproval[]> {
-  const supabase = await createClient();
+/**
+ * Every item waiting on an approval decision, oldest first. Access admins only —
+ * or the service-key client, for the daily stuck-approvals email.
+ */
+export async function listWaitingApprovals(client?: SupabaseClient): Promise<WaitingApproval[]> {
+  const supabase = client ?? (await createClient());
   const { data } = await supabase.rpc("list_waiting_approvals");
   const now = Date.now();
   return ((data ?? []) as Omit<WaitingApproval, "days_waiting" | "stuck">[]).map((w) => ({

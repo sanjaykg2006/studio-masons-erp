@@ -9,7 +9,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { errorActor, sourceLabel } from "@/modules/errorlog/format";
-import type { ErrorEntry } from "@/modules/errorlog/data";
+import type { AlertSetup, ErrorEntry } from "@/modules/errorlog/data";
+import { TestAlertButton } from "@/modules/errorlog/components/test-alert-button";
 
 /**
  * Read-only view of the error log. Server-rendered — receives an already-loaded
@@ -23,6 +24,7 @@ export function ErrorLogView({
   page,
   pageSize,
   source,
+  alerts,
 }: {
   entries: ErrorEntry[];
   total: number;
@@ -30,6 +32,8 @@ export function ErrorLogView({
   pageSize: number;
   /** Active filter: "client", "server", or undefined (all). */
   source?: string;
+  /** Who is emailed about new errors. */
+  alerts: AlertSetup;
 }) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const from = total === 0 ? 0 : page * pageSize + 1;
@@ -60,6 +64,39 @@ export function ErrorLogView({
           errors — with the detail a developer needs to fix them.
         </p>
       </div>
+
+      {/* Alert emails ------------------------------------------------------- */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Alert emails</CardTitle>
+          <CardDescription>
+            Every new error is emailed within minutes (several close together
+            arrive as one email, at most every 15 minutes), plus a 9:00 AM email
+            when approvals are stuck.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {!alerts.configured ? (
+            <p className="text-amber-700 dark:text-amber-400">
+              Not switched on yet: no Gmail account is set up for sending.
+            </p>
+          ) : alerts.recipients.length === 0 ? (
+            <p className="text-amber-700 dark:text-amber-400">Nobody to send them to.</p>
+          ) : (
+            <p>
+              <span className="text-muted-foreground">Sent to: </span>
+              {alerts.recipients.map((r) => r.name).join(", ")}
+              {alerts.recipients[0].via === "admins" && (
+                <span className="text-muted-foreground">
+                  {" "}
+                  (full-access administrators, because nobody is in the IT department yet)
+                </span>
+              )}
+            </p>
+          )}
+          {alerts.configured && alerts.recipients.length > 0 && <TestAlertButton />}
+        </CardContent>
+      </Card>
 
       {/* Source filter ------------------------------------------------------- */}
       <div className="flex flex-wrap gap-1">

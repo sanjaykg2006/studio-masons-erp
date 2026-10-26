@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 import { env } from "@/core/config/env";
+import { watchedFetch } from "@/core/supabase/watch";
 
 /**
  * Supabase client for use in Server Components, Route Handlers, and Server
@@ -11,6 +12,9 @@ import { env } from "@/core/config/env";
  * Note: writing cookies from a Server Component throws — that's expected and
  * safely ignored here because middleware.ts handles session refresh. Reads
  * always work.
+ *
+ * Unexpected database failures are recorded in the Error Log on the way
+ * through (core/supabase/watch.ts).
  */
 export async function createClient() {
   const cookieStore = await cookies();
@@ -19,6 +23,7 @@ export async function createClient() {
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
+      global: { fetch: watchedFetch },
       cookies: {
         getAll() {
           return cookieStore.getAll();

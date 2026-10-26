@@ -45,3 +45,21 @@ export async function getErrorLogs({
   const { data, count } = await query.range(from, from + pageSize - 1);
   return { entries: (data ?? []) as ErrorEntry[], total: count ?? 0 };
 }
+
+/** Who alert emails go to right now, and whether they can be sent at all. */
+export type AlertSetup = {
+  configured: boolean;
+  recipients: { name: string; via: "it" | "admins" }[];
+};
+
+export async function getAlertSetup(): Promise<AlertSetup> {
+  const supabase = await createClient();
+  const [{ data }, { mailerConfigured }] = await Promise.all([
+    supabase.rpc("my_alert_recipients"),
+    import("@/core/alerts/mailer"),
+  ]);
+  return {
+    configured: mailerConfigured(),
+    recipients: (data ?? []) as AlertSetup["recipients"],
+  };
+}

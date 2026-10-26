@@ -66,6 +66,8 @@ export type OrderReceipt = {
   /** A bill number typed in when the invoice was not yet booked. */
   invoice_no: string | null;
   lines: { description: string; unit: string | null; qty_received: number }[];
+  /** The GRN first (absent on receipts recorded before GRNs were required), then extras. */
+  files: { id: string; kind: "grn" | "extra"; name: string }[];
 };
 
 /** The full receipt history for a PO, newest first. */

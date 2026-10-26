@@ -37,7 +37,7 @@ declare
     'procurement_intents', 'procurement_intent_lines',
     'procurement_orders', 'procurement_order_lines',
     'procurement_order_amendments',
-    'procurement_receipts', 'procurement_receipt_lines',
+    'procurement_receipts', 'procurement_receipt_lines', 'procurement_receipt_files',
     'procurement_vendors',
     -- inventory
     'inventory_assets', 'inventory_asset_transfers', 'inventory_consumption',

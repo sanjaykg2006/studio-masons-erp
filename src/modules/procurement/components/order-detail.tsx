@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ChangeEvent, useRef, useState, useTransition } from "react";
-import { ArrowLeft, Check, Download, Undo2, Upload } from "lucide-react";
+import { ArrowLeft, Check, Download, Paperclip, Undo2, Upload } from "lucide-react";
 
 import { sendWithFiles } from "@/core/uploads/client";
 import { cn } from "@/lib/utils";
@@ -26,10 +26,12 @@ import {
   type OrderStatus,
 } from "@/modules/procurement/types";
 import {
+  addReceiptFiles,
   amendOrderLine,
   approveOrderCancel,
   decideOrder,
   getOrderDocumentUrl,
+  getReceiptFileUrl,
   recordReceipt,
   rejectOrderCancel,
   releaseOrder,
@@ -92,6 +94,8 @@ export function OrderDetailView({
   // Either a booked invoice or, when the goods beat the paperwork, its number.
   const [invoiceId, setInvoiceId] = useState("");
   const [invoiceNo, setInvoiceNo] = useState("");
+  const grnRef = useRef<HTMLInputElement>(null);
+  const extrasRef = useRef<HTMLInputElement>(null);
   const [edits, setEdits] = useState<Record<string, { qty: number; rate: number }>>({});
 
   const run = (fn: () => Promise<Result>, after?: () => void) =>
@@ -149,20 +153,32 @@ export function OrderDetailView({
     run(() => sendWithFiles(fd, (f) => uploadOrderDocument(projectId, order.id, kind, f)));
   };
 
+  const openReceiptFile = async (fileId: string) => {
+    setError(null);
+    const res = await getReceiptFileUrl(fileId);
+    if (res.ok) window.open(res.url, "_blank", "noopener");
+    else setError(res.error);
+  };
+
+  const addToReceipt = (receiptId: string, kind: "grn" | "extras", files: File[]) => {
+    const fd = new FormData();
+    for (const f of files) fd.append(kind, f);
+    run(() => sendWithFiles(fd, (f) => addReceiptFiles(projectId, order.id, receiptId, f)));
+  };
+
   const submitReceipt = () => {
     const drafts = Object.entries(qtys)
       .filter(([, q]) => q > 0)
       .map(([order_line_id, qty]) => ({ order_line_id, qty }));
+    const grn = grnRef.current?.files?.[0];
+    if (!grn) return setError("Attach the GRN for this delivery.");
+    const fd = new FormData();
+    fd.append("grn", grn);
+    for (const f of Array.from(extrasRef.current?.files ?? [])) fd.append("extras", f);
     run(
       () =>
-        recordReceipt(
-          projectId,
-          order.id,
-          receivedOn,
-          notes,
-          drafts,
-          invoiceId,
-          invoiceNo
+        sendWithFiles(fd, (f) =>
+          recordReceipt(projectId, order.id, receivedOn, notes, drafts, invoiceId, invoiceNo, f)
         ),
       () => {
         setReceiving(false);
@@ -633,6 +649,22 @@ export function OrderDetailView({
                 className="sm:w-64"
                 aria-label="Receipt notes"
               />
+              <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2">
+                <label className="text-muted-foreground flex items-center gap-2 text-sm">
+                  GRN <span className="text-destructive">*</span>
+                  <input ref={grnRef} type="file" className="text-xs" aria-label="GRN document" />
+                </label>
+                <label className="text-muted-foreground flex items-center gap-2 text-sm">
+                  Photos / challan (optional)
+                  <input
+                    ref={extrasRef}
+                    type="file"
+                    multiple
+                    className="text-xs"
+                    aria-label="Extra receipt files"
+                  />
+                </label>
+              </div>
               <Button size="sm" disabled={pending} onClick={submitReceipt}>
                 Save receipt
               </Button>
@@ -676,10 +708,82 @@ export function OrderDetailView({
                   ))}
                 </ul>
                 {r.notes && <p className="mt-1 text-xs italic">{r.notes}</p>}
+                <ReceiptFiles
+                  files={r.files}
+                  canAdd={order.can_receive}
+                  onOpen={openReceiptFile}
+                  onAdd={(kind, files) => addToReceipt(r.id, kind, files)}
+                />
               </div>
             ))}
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A receipt's GRN and extra files. Add-only: a missing GRN (receipts from before
+ * it was required) can be attached once, extras any time; nothing is replaced.
+ */
+function ReceiptFiles({
+  files,
+  canAdd,
+  onOpen,
+  onAdd,
+}: {
+  files: OrderReceipt["files"];
+  canAdd: boolean;
+  onOpen: (fileId: string) => void;
+  onAdd: (kind: "grn" | "extras", files: File[]) => void;
+}) {
+  const grnRef = useRef<HTMLInputElement>(null);
+  const extrasRef = useRef<HTMLInputElement>(null);
+  const hasGrn = files.some((f) => f.kind === "grn");
+  const pick = (kind: "grn" | "extras") => (e: ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    if (picked.length) onAdd(kind, picked);
+    e.target.value = "";
+  };
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+      {!hasGrn && (
+        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-700 dark:text-amber-400">
+          GRN missing
+        </span>
+      )}
+      {files.map((f) => (
+        <button
+          key={f.id}
+          type="button"
+          onClick={() => onOpen(f.id)}
+          className="inline-flex items-center gap-1 underline underline-offset-2"
+        >
+          <Paperclip className="size-3" />
+          {f.kind === "grn" ? `GRN · ${f.name}` : f.name}
+        </button>
+      ))}
+      {canAdd && (
+        <>
+          <input ref={grnRef} type="file" className="hidden" onChange={pick("grn")} aria-label="Attach GRN" />
+          <input
+            ref={extrasRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={pick("extras")}
+            aria-label="Add receipt files"
+          />
+          {!hasGrn && (
+            <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => grnRef.current?.click()}>
+              <Upload className="size-3" /> Attach GRN
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => extrasRef.current?.click()}>
+            <Upload className="size-3" /> Add files
+          </Button>
+        </>
       )}
     </div>
   );

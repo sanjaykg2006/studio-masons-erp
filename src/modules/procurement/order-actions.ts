@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/core/supabase/server";
 import { createAdminClient } from "@/core/supabase/admin";
-import { takeUpload } from "@/core/uploads/server";
+import { takeUpload, takeUploads } from "@/core/uploads/server";
 import { logAudit } from "@/modules/audit/log";
 import type { OrderLineAssignment, ReceiptLineDraft } from "@/modules/procurement/types";
 
@@ -301,7 +301,52 @@ export async function rejectOrderCancel(projectId: string, orderId: string): Pro
   return ok;
 }
 
-/** Record a (partial) goods receipt against a released PO. */
+type ReceiptFile = { kind: "grn" | "extra"; name: string; path: string };
+
+/**
+ * Upload the receipt files a form carries — the GRN under "grn", extras under
+ * "extras" — into the PO's folder. On any failure the files already uploaded are
+ * removed again, so nothing is left behind unreferenced.
+ */
+async function uploadReceiptFiles(
+  orderId: string,
+  formData: FormData
+): Promise<{ ok: true; files: ReceiptFile[] } | { ok: false; error: string }> {
+  const grn = await takeUpload(formData, "grn");
+  const picked = [
+    ...(grn && grn.size > 0 ? [{ kind: "grn" as const, file: grn }] : []),
+    ...(await takeUploads(formData, "extras"))
+      .filter((f) => f.size > 0)
+      .map((file) => ({ kind: "extra" as const, file })),
+  ];
+  const tooBig = picked.find((p) => p.file.size > MAX_DOC_BYTES);
+  if (tooBig) return { ok: false, error: `"${tooBig.file.name}" is larger than 25 MB.` };
+
+  const admin = createAdminClient();
+  const files: ReceiptFile[] = [];
+  for (const { kind, file } of picked) {
+    const safeName = file.name.replace(/[^\w.\- ]+/g, "_");
+    const path = `${orderId}/receipt-${kind}-${crypto.randomUUID()}-${safeName}`;
+    const { error } = await admin.storage
+      .from(DOCS_BUCKET)
+      .upload(path, file, { contentType: file.type || undefined, upsert: false });
+    if (error) {
+      await removeReceiptFiles(files);
+      return { ok: false, error: error.message };
+    }
+    files.push({ kind, name: file.name, path });
+  }
+  return { ok: true, files };
+}
+
+async function removeReceiptFiles(files: ReceiptFile[]) {
+  if (files.length) await createAdminClient().storage.from(DOCS_BUCKET).remove(files.map((f) => f.path));
+}
+
+/**
+ * Record a (partial) goods receipt against a released PO. The form must carry
+ * the GRN under "grn"; extra files (photos, challan) go under "extras".
+ */
 export async function recordReceipt(
   projectId: string,
   orderId: string,
@@ -309,12 +354,21 @@ export async function recordReceipt(
   notes: string,
   lines: ReceiptLineDraft[],
   /** A booked Finance invoice for this PO, when there is one. */
-  invoiceId?: string | null,
+  invoiceId: string | null,
   /** The vendor's bill number, for goods that arrive before it is booked. */
-  invoiceNo?: string | null
+  invoiceNo: string | null,
+  formData: FormData
 ): Promise<ActionResult> {
   const clean = lines.filter((l) => l.qty > 0);
   if (clean.length === 0) return fail("Enter at least one received quantity.");
+
+  const uploaded = await uploadReceiptFiles(orderId, formData);
+  if (!uploaded.ok) return uploaded;
+  if (!uploaded.files.some((f) => f.kind === "grn")) {
+    await removeReceiptFiles(uploaded.files);
+    return fail("Attach the GRN for this delivery.");
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.rpc("record_receipt", {
     p_order: orderId,
@@ -323,9 +377,65 @@ export async function recordReceipt(
     p_lines: clean.map((l) => ({ order_line_id: l.order_line_id, qty: l.qty })),
     p_invoice: invoiceId || null,
     p_invoice_no: invoiceNo?.trim() || null,
+    p_files: uploaded.files,
   });
-  if (error) return fail(error.message);
+  if (error) {
+    await removeReceiptFiles(uploaded.files);
+    return fail(error.message);
+  }
   await logAudit("procurement.receipt.record", "Recorded a goods receipt", { projectId, orderId });
   refreshOne(projectId, orderId);
   return ok;
+}
+
+/**
+ * Attach files to a receipt already saved: the GRN when it has none yet (older
+ * receipts), or more extras. Add-only — nothing is ever replaced.
+ */
+export async function addReceiptFiles(
+  projectId: string,
+  orderId: string,
+  receiptId: string,
+  formData: FormData
+): Promise<ActionResult> {
+  const uploaded = await uploadReceiptFiles(orderId, formData);
+  if (!uploaded.ok) return uploaded;
+  if (uploaded.files.length === 0) return fail("Choose a file.");
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("add_receipt_files", {
+    p_receipt: receiptId,
+    p_files: uploaded.files,
+  });
+  if (error) {
+    await removeReceiptFiles(uploaded.files);
+    return fail(error.message);
+  }
+  await logAudit("procurement.receipt.files", "Added files to a goods receipt", {
+    projectId,
+    orderId,
+    receiptId,
+  });
+  refreshOne(projectId, orderId);
+  return ok;
+}
+
+/** A short-lived signed link to download one of a receipt's files. */
+export async function getReceiptFileUrl(
+  fileId: string
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  // RLS ensures the caller can only read files on orders they can see.
+  const { data: file } = await supabase
+    .from("procurement_receipt_files")
+    .select("storage_path")
+    .eq("id", fileId)
+    .maybeSingle();
+  if (!file) return { ok: false, error: "File not found." };
+
+  const { data, error } = await createAdminClient()
+    .storage.from(DOCS_BUCKET)
+    .createSignedUrl(file.storage_path, 60);
+  if (error || !data) return { ok: false, error: error?.message ?? "Could not create a link." };
+  return { ok: true, url: data.signedUrl };
 }
